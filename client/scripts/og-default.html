@@ -1,0 +1,263 @@
+<!doctype html>
+<!--
+  OG 卡片生成源。改完用 npm run og 重新导出 public/og-default.png。
+-->
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      :root {
+        --space-950: #020617;
+        --sig: #4ade80;
+        --warn: #fbbf24;
+      }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        width: 1200px;
+        height: 630px;
+      }
+      body {
+        position: relative;
+        overflow: hidden;
+        background: var(--space-950);
+        color: #fff;
+        font-family: 'Inter', 'PingFang SC', 'Hiragino Sans GB', 'Heiti SC', sans-serif;
+      }
+      .grid {
+        position: absolute;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(34, 197, 94, 0.05) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(34, 197, 94, 0.05) 1px, transparent 1px);
+        background-size: 40px 40px;
+      }
+      .glow {
+        position: absolute;
+        top: -260px;
+        right: -280px;
+        width: 900px;
+        height: 900px;
+        background: radial-gradient(circle, rgba(34, 197, 94, 0.13) 0%, transparent 62%);
+      }
+      .glow2 {
+        position: absolute;
+        bottom: -320px;
+        left: -300px;
+        width: 820px;
+        height: 820px;
+        background: radial-gradient(circle, rgba(37, 99, 235, 0.1) 0%, transparent 62%);
+      }
+      .wrap {
+        position: relative;
+        display: flex;
+        align-items: center;
+        gap: 36px;
+        height: 100%;
+        padding: 0 72px;
+      }
+      .left {
+        flex: 1;
+        min-width: 0;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        margin-bottom: 30px;
+      }
+      .brand svg {
+        width: 34px;
+        height: 34px;
+      }
+      .brand span {
+        font-size: 25px;
+        font-weight: 600;
+        letter-spacing: 0.02em;
+      }
+      h1 {
+        font-size: 58px;
+        font-weight: 700;
+        line-height: 1.22;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+      }
+      h1 em {
+        font-style: normal;
+        color: var(--sig);
+      }
+      .sub {
+        margin-top: 24px;
+        font-size: 23px;
+        line-height: 1.6;
+        color: #94a3b8;
+        white-space: nowrap;
+      }
+      .sub b {
+        color: #cbd5e1;
+        font-weight: 500;
+      }
+      /* 暴露项微缩卡：与报告页 DiagnosisCard 同一视觉语法（severity 章 + 标题 + 对比事实行） */
+      .finding {
+        display: inline-flex;
+        align-items: center;
+        gap: 14px;
+        margin-top: 34px;
+        padding: 15px 20px;
+        border: 1px solid rgba(255, 255, 255, 0.09);
+        border-radius: 12px;
+        background: rgba(30, 41, 59, 0.55);
+      }
+      .sev {
+        flex: none;
+        padding: 6px 11px;
+        border-radius: 6px;
+        font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace;
+        font-size: 13px;
+        color: var(--warn);
+        background: rgba(251, 191, 36, 0.13);
+      }
+      .ftitle {
+        font-size: 17px;
+        color: #e2e8f0;
+      }
+      .ffact {
+        margin-top: 5px;
+        font-size: 14px;
+        color: #64748b;
+      }
+      .ffact .k {
+        font-style: normal;
+        font-family: ui-monospace, Menlo, monospace;
+        font-size: 11px;
+        margin-right: 3px;
+      }
+      .ffact .arr {
+        color: #475569;
+        margin: 0 5px;
+      }
+      .right {
+        flex: none;
+        width: 400px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      }
+      .risk {
+        margin-top: 4px;
+        display: flex;
+        align-items: baseline;
+        gap: 10px;
+        font-size: 15px;
+        color: #64748b;
+      }
+      .risk b {
+        font-size: 18px;
+        font-weight: 600;
+        color: var(--warn);
+      }
+      .foot {
+        position: absolute;
+        bottom: 38px;
+        left: 72px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        font-size: 18px;
+        color: #64748b;
+      }
+      .foot b {
+        color: #e2e8f0;
+        font-weight: 600;
+      }
+      .sep {
+        width: 3px;
+        height: 3px;
+        border-radius: 50%;
+        background: #334155;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="grid"></div>
+    <div class="glow"></div>
+    <div class="glow2"></div>
+
+    <div class="wrap">
+      <div class="left">
+        <div class="brand">
+          <svg viewBox="0 0 576 512" aria-hidden="true">
+            <path
+              fill="#4ADE80"
+              d="M288-16c17.7 0 32 14.3 32 32l0 18.3c98.1 14 175.7 91.6 189.7 189.7l18.3 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-18.3 0c-14 98.1-91.6 175.7-189.7 189.7l0 18.3c0 17.7-14.3 32-32 32s-32-14.3-32-32l0-18.3C157.9 463.7 80.3 386.1 66.3 288L48 288c-17.7 0-32-14.3-32-32s14.3-32 32-32l18.3 0C80.3 125.9 157.9 48.3 256 34.3L256 16c0-17.7 14.3-32 32-32zM131.2 288c12.7 62.7 62.1 112.1 124.8 124.8l0-12.8c0-17.7 14.3-32 32-32s32 14.3 32 32l0 12.8c62.7-12.7 112.1-62.1 124.8-124.8L432 288c-17.7 0-32-14.3-32-32s14.3-32 32-32l12.8 0C432.1 161.3 382.7 111.9 320 99.2l0 12.8c0 17.7-14.3 32-32 32s-32-14.3-32-32l0-12.8C193.3 111.9 143.9 161.3 131.2 224l12.8 0c17.7 0 32 14.3 32 32s-14.3 32-32 32l-12.8 0zM288 208a48 48 0 1 1 0 96 48 48 0 1 1 0-96z"
+            />
+          </svg>
+          <span>DetectRadar</span>
+        </div>
+
+        <h1>网络环境一致性检测<em>雷达</em></h1>
+
+        <p class="sub">你的时区、语言、WebRTC 和 DNS 与出口 IP 对得上吗？</p>
+
+        <div class="finding">
+          <span class="sev">冲突</span>
+          <div>
+            <div class="ftitle">时区与 IP 归属地冲突</div>
+            <div class="ffact"><i class="k">浏览器</i>东八区<span class="arr">↔</span><i class="k">IP</i>东九区</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="right">
+        <!-- 中心 (220,210)，R=140。四轴分数：身份 92 / 一致性 62 / 泄露 88 / 指纹 95，
+             顶点半径 = score/100 × R；一致性为黄（contradiction），多边形随综合判定取黄。 -->
+        <svg viewBox="0 0 440 408" width="400" height="371">
+          <g fill="none" stroke="rgba(148,163,184,0.16)" stroke-width="1">
+            <circle cx="220" cy="210" r="140" />
+            <circle cx="220" cy="210" r="105" />
+            <circle cx="220" cy="210" r="70" />
+            <circle cx="220" cy="210" r="35" />
+            <line x1="220" y1="70" x2="220" y2="350" />
+            <line x1="80" y1="210" x2="360" y2="210" />
+          </g>
+
+          <polygon
+            points="220,81.2 306.8,210 220,333.2 87,210"
+            fill="rgba(251,191,36,0.13)"
+            stroke="#fbbf24"
+            stroke-width="2.5"
+            stroke-linejoin="round"
+          />
+          <g stroke="#020617" stroke-width="1.5">
+            <circle cx="220" cy="81.2" r="5" fill="#4ade80" />
+            <circle cx="306.8" cy="210" r="5.5" fill="#fbbf24" />
+            <circle cx="220" cy="333.2" r="5" fill="#4ade80" />
+            <circle cx="87" cy="210" r="5" fill="#4ade80" />
+          </g>
+
+          <g text-anchor="middle" font-family="Inter, 'PingFang SC', sans-serif">
+            <text x="220" y="46" font-size="16" fill="#94a3b8">身份</text>
+            <text x="220" y="66" font-size="13" fill="#4ade80" font-family="ui-monospace, Menlo, monospace">92</text>
+            <text x="382" y="204" font-size="16" fill="#94a3b8">一致性</text>
+            <text x="382" y="224" font-size="13" fill="#fbbf24" font-family="ui-monospace, Menlo, monospace">62</text>
+            <text x="220" y="374" font-size="16" fill="#94a3b8">泄露</text>
+            <text x="220" y="394" font-size="13" fill="#4ade80" font-family="ui-monospace, Menlo, monospace">88</text>
+            <text x="58" y="204" font-size="16" fill="#94a3b8">指纹</text>
+            <text x="58" y="224" font-size="13" fill="#4ade80" font-family="ui-monospace, Menlo, monospace">95</text>
+          </g>
+        </svg>
+
+        <div class="risk">综合风险 <b>中等</b></div>
+      </div>
+    </div>
+
+    <div class="foot">
+      <b>detectradar.com</b>
+      <i class="sep"></i>打开即测<i class="sep"></i>无需安装<i class="sep"></i>无需注册
+    </div>
+  </body>
+</html>

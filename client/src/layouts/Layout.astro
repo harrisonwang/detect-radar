@@ -1,0 +1,127 @@
+---
+import '../styles/global.css';
+
+interface Alternate {
+	hreflang: string;
+	href: string;
+}
+
+interface Props {
+	title?: string;
+	description?: string;
+	canonical?: string;
+	ogImage?: string;
+	locale?: 'zh-CN' | 'en';
+	noindex?: boolean;
+	alternates?: Alternate[];
+}
+
+const {
+	title,
+	description = '核对当前出口 IP 与浏览器的时区、语言和环境特征，同时检查 WebRTC、DNS 和 IPv6 泄露，生成问题清单与雷达图。打开网页即可检测，无需安装或注册；分享图会自动脫敏 IP。',
+	canonical,
+	ogImage = '/og-default.png',
+	locale = 'zh-CN',
+	noindex = false,
+	alternates,
+} = Astro.props;
+
+const BRAND = 'DetectRadar';
+const DEFAULT_TITLE = 'DetectRadar｜网络环境一致性检测：时区、语言与 WebRTC/DNS/IPv6 泄露自检';
+const fullTitle = !title || title === BRAND ? DEFAULT_TITLE : `${title}｜${BRAND}`;
+
+const site = Astro.site ?? new URL('https://detectradar.com');
+const canonicalURL = new URL(canonical ?? Astro.url.pathname, site);
+const ogImageURL = ogImage ? new URL(ogImage, site) : undefined;
+const ogLocale = locale === 'en' ? 'en_US' : 'zh_CN';
+
+// set:html 不转义：JSON-LD 正文里若含 < 或字面 </script> 会提前闭合标签构成注入面，统一转义
+const ld = (o: Record<string, unknown>) => JSON.stringify(o).replace(/</g, '\\u003c');
+
+const appLd = {
+	'@context': 'https://schema.org',
+	'@type': 'WebApplication',
+	name: 'DetectRadar',
+	url: 'https://detectradar.com',
+	applicationCategory: 'SecurityApplication',
+	operatingSystem: 'Any (Web browser)',
+	offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+	description:
+		'网络环境一致性检测工具：核对当前出口 IP 与浏览器的时区、语言和环境特征，同时检查 WebRTC、DNS 和 IPv6 泄露，生成一致性判断、问题清单与雷达图。打开网页即可检测，无需安装或注册。',
+	featureList: [
+		'浏览器时区↔IP 时区一致性',
+		'系统语言↔IP 国家常用语一致性',
+		'WebRTC 公网候选与当前出口 IP 一致性',
+		'自建权威 NS + DNSTap 的 DNS 泄露检测',
+		'IPv6 双栈泄露检测',
+		'出口 IP 归属地 / ASN / 运营商 / 类型分类',
+		'机房 / 托管 IP 识别（云 CIDR + ASN + BGP + rDNS）',
+		'Canvas / Audio / WebGL 指纹一致性与 hook 检测',
+		'navigator.webdriver 自动化标记检测',
+		'问题清单、雷达图与本地脱敏分享图',
+	],
+};
+
+const orgLd = {
+	'@context': 'https://schema.org',
+	'@type': 'Organization',
+	name: 'DetectRadar',
+	url: 'https://detectradar.com',
+	logo: 'https://detectradar.com/favicon.svg',
+};
+
+// 可选：自托管 cookieless 分析（Umami / Plausible）。仅当设置了 env 才注入，默认不加载任何第三方脚本。
+const analyticsSrc = import.meta.env.PUBLIC_UMAMI_SRC;
+const analyticsId = import.meta.env.PUBLIC_UMAMI_ID;
+---
+
+<!doctype html>
+<html lang={locale} data-theme="dark">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>{fullTitle}</title>
+		<meta name="description" content={description} />
+		<meta name="author" content="DetectRadar" />
+		<meta name="theme-color" content="#020617" />
+		{noindex && <meta name="robots" content="noindex, follow" />}
+		{!noindex && <meta name="robots" content="index, follow, max-image-preview:large" />}
+		<link rel="canonical" href={canonicalURL.href} />
+		{alternates?.map((a) => <link rel="alternate" hreflang={a.hreflang} href={new URL(a.href, site).href} />)}
+
+		<!-- Open Graph -->
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="DetectRadar" />
+		<meta property="og:locale" content={ogLocale} />
+		<meta property="og:title" content={fullTitle} />
+		<meta property="og:description" content={description} />
+		<meta property="og:url" content={canonicalURL.href} />
+		{ogImageURL && (
+			<>
+				<meta property="og:image" content={ogImageURL.href} />
+				<meta property="og:image:width" content="1200" />
+				<meta property="og:image:height" content="630" />
+				<meta property="og:image:alt" content="DetectRadar：网络环境一致性检测" />
+			</>
+		)}
+
+		<!-- Twitter -->
+		<meta name="twitter:card" content={ogImageURL ? 'summary_large_image' : 'summary'} />
+		<meta name="twitter:title" content={fullTitle} />
+		<meta name="twitter:description" content={description} />
+		{ogImageURL && <meta name="twitter:image" content={ogImageURL.href} />}
+
+		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+		<meta name="generator" content={Astro.generator} />
+
+		<script type="application/ld+json" set:html={ld(appLd)} />
+		<script type="application/ld+json" set:html={ld(orgLd)} />
+
+		{analyticsSrc && analyticsId && (
+			<script is:inline defer src={analyticsSrc} data-website-id={analyticsId}></script>
+		)}
+	</head>
+	<body class="min-h-screen selection:bg-(--radar-500) selection:text-(--space-950)">
+		<slot />
+	</body>
+</html>

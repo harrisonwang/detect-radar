@@ -1,0 +1,144 @@
+@import "@fontsource/inter/300.css";
+@import "@fontsource/inter/400.css";
+@import "@fontsource/inter/500.css";
+@import "@fontsource/inter/600.css";
+@import "@fontsource/inter/700.css";
+@import "@fontsource/jetbrains-mono/400.css";
+@import "@fontsource/jetbrains-mono/500.css";
+@import "@fontsource/jetbrains-mono/600.css";
+@import "@fontsource/jetbrains-mono/700.css";
+@import "@fortawesome/fontawesome-free/css/all.min.css";
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+/* 深空主题配色 */
+:root {
+  --space-800: #1e293b;
+  --space-900: #0f172a;
+  --space-950: #020617;
+  --radar-400: #4ade80;
+  --radar-500: #22c55e;
+  --radar-900: #064e3b;
+  --slate-200: #e2e8f0;
+  --slate-300: #cbd5e1;
+  --slate-400: #94a3b8;
+  --slate-500: #64748b;
+  --slate-600: #475569;
+  --slate-700: #334155;
+  --slate-800: #1e293b;
+
+  /* 四态语义色（自洽/矛盾/泄露/无法判定） */
+  --sig: #4ade80;
+  --sig-soft: rgba(74, 222, 128, 0.12);
+  --warn: #fbbf24;
+  --warn-soft: rgba(251, 191, 36, 0.12);
+  --leak: #f87171;
+  --leak-soft: rgba(248, 113, 113, 0.13);
+  --unknown: #94a3b8;
+  --unknown-soft: rgba(148, 163, 184, 0.1);
+  --line: rgba(255, 255, 255, 0.08);
+}
+
+[data-theme="dark"] {
+  --color-primary: #4ade80;
+  --color-primary-content: #020617;
+  --color-secondary: #22c55e;
+  --color-accent: #3b82f6;
+  --color-base-100: #020617;
+  --color-base-200: #0f172a;
+  --color-base-300: #1e293b;
+  --color-base-content: #e2e8f0;
+}
+
+body {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  background-color: var(--space-950);
+  color: var(--slate-200);
+  -webkit-font-smoothing: antialiased;
+}
+
+.font-mono {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+}
+.tnum {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+/* 国旗 emoji：html-to-image 的 SVG 光栅化在部分 Chrome 里不走系统隐式字体回退，
+   区域指示符会退化成字母；显式命名 emoji 字体让其按名选中 */
+.emoji {
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
+}
+
+/* 背景网格 */
+.scan-grid {
+  background-image:
+    linear-gradient(rgba(34, 197, 94, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(34, 197, 94, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* 玻璃拟态卡片 */
+.glass-card {
+  background: rgba(30, 41, 59, 0.55);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--line);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+}
+
+/* 状态点 */
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: none;
+  box-shadow: 0 0 0 3px var(--_soft, transparent);
+}
+
+/* 雷达扫描 */
+.radar-scan {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 270deg,
+    rgba(74, 222, 128, 0.35) 360deg
+  );
+  border-radius: 50%;
+}
+@keyframes radar-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+.animate-radar-spin {
+  animation: radar-spin 3.6s linear infinite;
+}
+
+@keyframes ping-slow {
+  75%, 100% { transform: scale(2); opacity: 0; }
+}
+.animate-ping-slow {
+  animation: ping-slow 3s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* 载入淡入（staggered） */
+@keyframes reveal-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+.reveal {
+  animation: reveal-up 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal, .animate-radar-spin, .animate-ping-slow { animation: none; }
+  .reveal { opacity: 1; transform: none; }
+}
+
+/* 工具类 */
+.text-radar { color: var(--radar-400); }
+.text-slate { color: var(--slate-400); }
+.bg-space-800 { background-color: var(--space-800); }
+.bg-space-900 { background-color: var(--space-900); }
+.bg-space-950 { background-color: var(--space-950); }
+.border-slate-700 { border-color: var(--slate-700); }
+.border-slate-800 { border-color: var(--slate-800); }

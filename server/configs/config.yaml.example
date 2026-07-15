@@ -1,0 +1,68 @@
+server:
+  port: ":8080"
+  read_timeout: 10s
+  write_timeout: 10s
+  # 反代白名单：仅当 socket 对端 IP 在此列表内，才采信 proxy_header 里的真实客户端 IP。
+  # 留空 = 不信任任何代理头，杜绝 X-Forwarded-For 伪造（直连部署用这个）。
+  # 部署在 nginx/CDN 之后时填入反代地址（支持 CIDR），否则出口 IP 会解析成反代自身。
+  trusted_proxies: []
+  proxy_header: "X-Forwarded-For"
+
+cors:
+  # 通配 origin 会让任何站点的 JS 直接调用本 API，把 IP 判定结果当免费数据源。
+  # 生产前端与 API 同源（nginx 反代 /api/v1），无需跨域放行；本地开发填 dev server 地址。
+  allow_origins:
+    - "https://detectradar.com"
+  allow_methods:
+    - "GET"
+    - "POST"
+    - "OPTIONS"
+  allow_headers:
+    - "Content-Type"
+  # 接口无鉴权、不带 cookie；置 true 时浏览器会拒绝通配 origin，反而更易配错
+  allow_credentials: false
+
+rate_limit:
+  max: 100
+  expiration: 60s
+
+dns:
+  domain: "leak.your-domain.com"  # DNS 泄漏检测域名
+  ttl: 1h
+  dnstap_addr: ":6000"
+
+# IP 信息配置（三层架构）
+ipintel:
+  # L1: 本地数据库路径（可选，留空则跳过）
+  city_db_path: "./data/dbip-city-lite.mmdb"
+  asn_db_path: "./data/dbip-asn-lite.mmdb"
+
+  # L3: 远程 API Keys（按优先级排序，留空则跳过）
+  # 优先级: ipapi.is > BigDataCloud > IPRegistry > IP2Location
+  ipapiis_key: "your-api-key"       # 每天免费 1,000 次
+  bigdatacloud_key: "your-api-key"   # 每月免费 10,000 次
+  ipregistry_key: "your-api-key"     # 累计免费 100,000 次
+  ip2location_key: "your-api-key"    # 每月免费 50,000 次
+
+  # 缓存配置
+  cache_ttl: 24h
+
+  # Cloudflare Radar API Token（用于获取 ASN 真实用户占比）
+  cloudflare_radar_token: "your-api-key"
+
+# Redis 配置
+redis:
+  addr: "localhost:6379"
+  password: ""
+  db: 0
+
+# SQLite 配置（托管检测数据库）
+sqlite:
+  path: "./data/hosting.db"
+
+# RTT 物理探测（Phase 1 只采集不计分）：服务器自身坐标，用于地理-延迟下限校验。
+# 填部署机房经纬度。IP 声称位置到本机的大圆距离 → 物理最小往返时延；
+# nginx 实测出口↔服务器 TCP RTT 低于下限即 geo violation（IP 位置与延迟矛盾）。
+rtt:
+  server_lat: 34.0522   # 洛杉矶（示例）
+  server_lon: -118.2437

@@ -1,0 +1,63 @@
+---
+import Layout from '../layouts/Layout.astro';
+import StaticHeader from '../components/StaticHeader.astro';
+---
+
+<Layout
+	title="隐私政策"
+	canonical="/privacy"
+	description="DetectRadar 隐私政策：浏览器采集检测所需的环境信号，后端结合当前出口 IP 生成报告；扫描判定快照用于质量改进；分享图在本地生成并自动脫敏 IP。"
+>
+	<StaticHeader />
+	<main class="mx-auto max-w-3xl px-6 py-16 prose prose-invert prose-headings:font-semibold prose-a:text-(--radar-400)">
+		<h1>隐私政策</h1>
+		<p>
+			DetectRadar 是一个检测工具，不是隐藏或改写网络身份的工具。本页说明我们在一次检测里实际接触哪些数据、如何处理、保留多久。
+		</p>
+
+		<h2>检测在哪里发生</h2>
+		<p>
+			检测所需的环境信息（时区、语言、Canvas / Audio / WebGL 指纹、navigator.webdriver 等）在你的浏览器内采集。评分与判定在后端完成，前端不自行计算评分。
+		</p>
+
+		<h2>后端接收与处理的数据</h2>
+		<ul>
+			<li>
+				<strong>出口 IP</strong>：用于解析归属地 / ASN / 运营商 / 类型、机房与信誉信号。这是检测你的身份是否一致的必要输入。
+			</li>
+			<li>
+				<strong>指纹哈希</strong>：Canvas / Audio / WebGL 等以哈希形式提交用于一致性比对，我们不重建原始画布或音频内容。
+			</li>
+			<li>
+				<strong>DNS 泄露检测</strong>：通过 <code>leak.detectradar.com</code>
+				专用域名完成，其权威 DNS 会记录解析日志，用于判断 DNS 出口地区是否与出口 IP 一致。
+			</li>
+			<li>
+				<strong>扫描判定快照</strong>：每次扫描的判定结果会用于内部遥测与质量改进；异步的 DNS 泄露结果通过 scan_id 关联回所属扫描。
+			</li>
+		</ul>
+
+		<h2>分享卡与脱敏</h2>
+		<p>
+			你主动生成的分享卡在渲染时对 IP 自动脱敏，且由本地 Canvas 直接绘制，不上传服务器。
+		</p>
+
+		<h2>我们不做的事</h2>
+		<ul>
+			<li>不出售、不交易你的个人数据。</li>
+			<li>
+				不用检测结果对你的用途下定性结论。
+			</li>
+			<li>不会替你隐藏或改写 IP、浏览器指纹等环境信息。</li>
+		</ul>
+
+		<h2>留存与你的选择权</h2>
+		<p>
+			遥测与日志默认保留不超过 <strong>90 天</strong>，之后聚合或删除。你可通过
+			<a href="mailto:privacy@detectradar.com">privacy@detectradar.com</a> 请求删除与你相关的检测记录。
+		</p>
+
+		<h2>变更</h2>
+		<p>本政策的更新会在本页公布。最后更新：<strong>2026-07-15</strong>。</p>
+	</main>
+</Layout>

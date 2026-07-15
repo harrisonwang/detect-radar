@@ -1,0 +1,27 @@
+# DetectRadar
+
+> DetectRadar 是一个网络环境一致性检测工具。它核对当前出口 IP 与浏览器的时区、语言和环境特征，同时检查 WebRTC、DNS 和 IPv6 泄露，生成问题清单与雷达图。打开网页即可检测，无需安装或注册。
+
+## 主要能力
+
+- 核对浏览器时区、系统语言与当前出口 IP 所在地区是否一致。
+- 检查 WebRTC、DNS 和 IPv6 是否暴露了与当前出口不同的网络信息。
+- 展示当前出口 IP 的归属地、ASN、运营商、网络类型和信誉信息。
+- 检查 Canvas、Audio、WebGL 等浏览器环境特征及自动化标记。
+- 生成诊断报告和分享图；分享图会自动脫敏 IP。
+
+## 能力边界
+
+- 只分析发起检测的当前连接，不提供任意 IP 查询。
+- 不根据单个 IP 猜测连接用途。
+- “未发现异常”只代表本次检测没有命中已知问题。
+- 浏览器或网络拦截检测信号时，对应项目会显示“未检测”。
+- 部分 IP 信息来自第三方数据源，可能存在延迟或误差。
+
+## 相关页面
+
+- 在线检测：https://detectradar.com/
+- 隐私政策：https://detectradar.com/privacy
+- 服务条款：https://detectradar.com/terms
+- 完整说明：https://detectradar.com/llms-full.txt
+- 源码仓库：https://github.com/harrisonwang/detect-radar

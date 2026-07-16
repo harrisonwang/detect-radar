@@ -70,6 +70,15 @@ function font(size: number, weight = 400, family = SANS): string {
   return `${weight} ${size}px ${family}`;
 }
 
+// 分享图对外传播，文本里出现的任何 IP 一律脱敏——出口 IP 由 identity.masked 保证，
+// 但 findings 的 fact 可能携带 WebRTC / IPv6 泄露出的完整地址（页面明文是给本人看的，
+// 分享图不是）。IPv6 要求至少三段十六进制，避免误伤「10:30」这类时间。
+const IPV4_RE = /\b(\d{1,3}\.\d{1,3})\.\d{1,3}\.\d{1,3}\b/g;
+const IPV6_RE = /\b([0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}):[0-9a-fA-F]{1,4}[0-9a-fA-F:]*\b/g;
+function maskIPsInText(s: string): string {
+  return s.replace(IPV4_RE, "$1.···.···").replace(IPV6_RE, "$1:···");
+}
+
 /** 文本超宽时截断加省略号 */
 function truncate(
   ctx: CanvasRenderingContext2D,
@@ -399,7 +408,7 @@ export async function renderShareCard(
       ctx.font = font(15, 500);
       text(
         ctx,
-        truncate(ctx, f.title, rightW - cw - 76),
+        truncate(ctx, maskIPsInText(f.title), rightW - cw - 76),
         vx + cw + 14,
         fy - 1,
         {
@@ -410,7 +419,7 @@ export async function renderShareCard(
       ctx.font = font(12);
       text(
         ctx,
-        truncate(ctx, f.fact, rightW - cw - 76),
+        truncate(ctx, maskIPsInText(f.fact), rightW - cw - 76),
         vx + cw + 14,
         fy + 21,
         {

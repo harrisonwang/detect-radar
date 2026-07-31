@@ -1,0 +1,115 @@
+# 构建三个镜像（server/web/setup），同时推送 GHCR 与阿里云 ACR（个人版）。
+# 触发：打 v* 标签（推 语义版本号+latest），或手动 dispatch（只推 latest）。
+#
+# ACR 相关 Secrets（不配则只推 GHCR）：
+#   ACR_REGISTRY   如 registry.cn-hangzhou.aliyuncs.com
+#   ACR_NAMESPACE  个人版命名空间（需先在 ACR 控制台创建一次）
+#   ACR_USERNAME   阿里云账号全名
+#   ACR_PASSWORD   ACR 控制台设置的固定密码
+name: docker-release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+env:
+  ACR_REGISTRY: ${{ secrets.ACR_REGISTRY }}
+  ACR_NAMESPACE: ${{ secrets.ACR_NAMESPACE }}
+
+jobs:
+  build-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: detect-radar-server
+            dockerfile: deploy/images/server.Dockerfile
+          - name: detect-radar-web
+            dockerfile: deploy/images/web.Dockerfile
+          - name: detect-radar-setup
+            dockerfile: deploy/images/setup.Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - name: 登录 GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 登录阿里云 ACR
+        if: env.ACR_REGISTRY != ''
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ secrets.ACR_REGISTRY }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+
+      - name: 计算标签与构建参数
+        id: meta
+        run: |
+          VERSION=latest
+          case "$GITHUB_REF" in
+            refs/tags/v*) VERSION="${GITHUB_REF#refs/tags/v}" ;;
+          esac
+          TAGS="ghcr.io/${GITHUB_REPOSITORY_OWNER}/${{ matrix.name }}:${VERSION}"
+          if [ "$VERSION" != latest ]; then
+            TAGS="$TAGS,ghcr.io/${GITHUB_REPOSITORY_OWNER}/${{ matrix.name }}:latest"
+          fi
+          if [ -n "$ACR_REGISTRY" ]; then
+            BASE="${ACR_REGISTRY}/${ACR_NAMESPACE}/${{ matrix.name }}"
+            TAGS="$TAGS,${BASE}:${VERSION}"
+            if [ "$VERSION" != latest ]; then
+              TAGS="$TAGS,${BASE}:latest"
+            fi
+          fi
+          echo "tags=$TAGS" >> "$GITHUB_OUTPUT"
+          # DB-IP Lite 按月出包，当月 404 时 Dockerfile 会回退上月
+          echo "dbip_month=$(date +%Y-%m)" >> "$GITHUB_OUTPUT"
+          echo "dbip_month_prev=$(date -d '-1 month' +%Y-%m)" >> "$GITHUB_OUTPUT"
+
+      - name: 构建并推送
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          build-args: |
+            DBIP_MONTH=${{ steps.meta.outputs.dbip_month }}
+            DBIP_MONTH_PREV=${{ steps.meta.outputs.dbip_month_prev }}
+          cache-from: type=gha,scope=${{ matrix.name }}
+          cache-to: type=gha,scope=${{ matrix.name }},mode=max
+
+  # 把 CoreDNS / acme.sh 官方镜像同步到 ACR，国内环境不必翻 Docker Hub
+  mirror-deps:
+    runs-on: ubuntu-latest
+    env:
+      COREDNS_TAG: "1.12.1"
+    steps:
+      - name: 安装 regctl
+        if: env.ACR_REGISTRY != ''
+        run: |
+          sudo curl -fsSL \
+            https://github.com/regclient/regclient/releases/latest/download/regctl-linux-amd64 \
+            -o /usr/local/bin/regctl
+          sudo chmod +x /usr/local/bin/regctl
+
+      - name: 同步依赖镜像到 ACR
+        if: env.ACR_REGISTRY != ''
+        env:
+          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
+        run: |
+          echo "$ACR_PASSWORD" | regctl registry login "$ACR_REGISTRY" -u "$ACR_USERNAME" --pass-stdin
+          regctl image copy "coredns/coredns:${COREDNS_TAG}" "${ACR_REGISTRY}/${ACR_NAMESPACE}/coredns:${COREDNS_TAG}"
+          regctl image copy "neilpang/acme.sh:latest" "${ACR_REGISTRY}/${ACR_NAMESPACE}/acme-sh:latest"

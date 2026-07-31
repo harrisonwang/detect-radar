@@ -1,0 +1,120 @@
+# DetectRadar 自托管一键编排：只需本文件 + .env（见 .env.example），docker compose up -d 即可。
+#
+# 全栈 network_mode: host —— 不是偷懒，是产品硬约束：
+#   1. 源 IP 保真：桥接/rootless 模式下 nginx 可能看到 NAT 后的地址，IP 检测直接失真；
+#   2. nginx $tcpinfo_rtt 读的是与客户端 TCP 连接的内核往返时延，中间多一跳
+#      userland proxy 就变成测环回，代理检测会静默失效；
+#   3. CoreDNS 要以权威身份直接对公网答 53，dnstap 才能抓到解析器出口 IP。
+name: detect-radar
+
+services:
+  # 一次性初始化：探测公网 IP → 创建 Cloudflare DNS 记录 → 渲染全部配置 → 生成占位证书。
+  # 幂等，每次 up 都会重跑并把配置收敛到 .env 描述的状态；参数只改 .env，别手改渲染产物。
+  setup:
+    image: ${REGISTRY:-ghcr.io/harrisonwang}/detect-radar-setup:${TAG:-latest}
+    network_mode: host
+    restart: "no"
+    environment:
+      DOMAIN: ${DOMAIN:?请在 .env 里设置 DOMAIN}
+      CF_Token: ${CF_Token:?请在 .env 里设置 CF_Token}
+      ACME_EMAIL: ${ACME_EMAIL:?请在 .env 里设置 ACME_EMAIL}
+      SERVER_IPV4: ${SERVER_IPV4:-auto}
+      SERVER_IPV6: ${SERVER_IPV6:-}
+      DNS_LISTEN_IP: ${DNS_LISTEN_IP:-auto}
+      SERVER_LAT: ${SERVER_LAT:-}
+      SERVER_LON: ${SERVER_LON:-}
+      IPAPIIS_KEY: ${IPAPIIS_KEY:-}
+      BIGDATACLOUD_KEY: ${BIGDATACLOUD_KEY:-}
+      IPREGISTRY_KEY: ${IPREGISTRY_KEY:-}
+      IP2LOCATION_KEY: ${IP2LOCATION_KEY:-}
+      CLOUDFLARE_RADAR_TOKEN: ${CLOUDFLARE_RADAR_TOKEN:-}
+    volumes:
+      - server_conf:/out/server
+      - nginx_conf:/out/nginx
+      - coredns_conf:/out/coredns
+      - acme_conf:/out/acme
+      - certs:/out/certs
+
+  # Go API：监听 127.0.0.1:8080（nginx 反代）+ dnstap 127.0.0.1:6000（CoreDNS 回传）
+  server:
+    image: ${REGISTRY:-ghcr.io/harrisonwang}/detect-radar-server:${TAG:-latest}
+    network_mode: host
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    volumes:
+      - server_conf:/app/configs:ro
+      - radar_data:/app/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  # DNS 泄露信标权威服务器：对公网答 53/udp+tcp（监听地址渲染进 Corefile 的 bind）
+  coredns:
+    image: ${COREDNS_IMAGE:-coredns/coredns:1.12.1}
+    network_mode: host
+    command: ["-conf", "/etc/coredns/Corefile"]
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+      server:
+        condition: service_started # dnstap 落点；断连会自动重连，仅作启动排序
+    volumes:
+      - coredns_conf:/etc/coredns:ro
+    restart: unless-stopped
+
+  # nginx + 前端静态产物：直接终结 80/443，$tcpinfo_rtt / 源 IP 由此保真
+  web:
+    image: ${REGISTRY:-ghcr.io/harrisonwang}/detect-radar-web:${TAG:-latest}
+    network_mode: host
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+    volumes:
+      - nginx_conf:/etc/nginx/conf.d:ro
+      - certs:/etc/nginx/certs:ro # 证书更新由 entrypoint 里的 inotify 自动热 reload
+    restart: unless-stopped
+
+  # 证书签发与续期（Let's Encrypt DNS-01，全程 Cloudflare API，零页面操作）。
+  # 主站证书 dns_cf 直签；*.leak 通配证书经 zone 内 _acme-challenge CNAME 别名绕回 CF。
+  acme:
+    image: ${ACME_IMAGE:-neilpang/acme.sh:latest}
+    network_mode: host
+    entrypoint: ["/bin/sh", "/acme-conf/bootstrap.sh"]
+    environment:
+      DOMAIN: ${DOMAIN}
+      CF_Token: ${CF_Token}
+      ACME_EMAIL: ${ACME_EMAIL}
+    depends_on:
+      setup:
+        condition: service_completed_successfully
+      coredns:
+        condition: service_started # 签 *.leak 时 LE 会顺委派来查 zone 内的 CNAME
+    volumes:
+      - acme_conf:/acme-conf:ro
+      - acme_state:/acme.sh
+      - certs:/certs
+    restart: unless-stopped
+
+  # 云厂商 IP 段爬虫：首启立即全量跑一轮填充 hosting.db，之后按 CRAWL_INTERVAL 周期更新。
+  # 只需出站网络，走默认桥接即可。
+  crawler:
+    image: ${REGISTRY:-ghcr.io/harrisonwang}/cloud-ip-crawler:${CRAWLER_TAG:-latest}
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - while true; do /usr/local/bin/cloud-ip-crawler --db /data/hosting.db; echo "[crawler] done, sleep ${CRAWL_INTERVAL:-86400}s"; sleep "${CRAWL_INTERVAL:-86400}"; done
+    volumes:
+      - radar_data:/data
+    restart: unless-stopped
+
+volumes:
+  server_conf:
+  nginx_conf:
+  coredns_conf:
+  acme_conf:
+  acme_state:
+  certs:
+  radar_data:

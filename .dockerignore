@@ -1,0 +1,7 @@
+.git
+**/node_modules
+client/dist
+server/tmp
+server/detect-radar
+docs
+*.log

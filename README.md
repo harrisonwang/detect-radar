@@ -46,6 +46,22 @@ DNS 检测依赖 DetectRadar 的权威 DNS 服务，因此会在主报告之后�
 
 ## 快速开始
 
+### Docker 自托管（推荐）
+
+准备三样：一台有公网 IP 的 Linux 服务器（云防火墙放行 TCP 80/443 和 TCP/UDP 53）、一个托管在 Cloudflare 的域名、一个 Cloudflare API Token（权限 Zone→DNS→Edit + Zone→Read）。
+
+```bash
+mkdir detect-radar && cd detect-radar
+curl -fsSLO https://raw.githubusercontent.com/harrisonwang/detect-radar/main/deploy/docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/harrisonwang/detect-radar/main/deploy/.env.example -o .env
+vi .env    # 必填 3 项：DOMAIN / CF_Token / ACME_EMAIL
+docker compose up -d
+```
+
+DNS 记录、信标 zone 的 NS 委派、TLS 证书（含 `*.leak` 通配证书）全部自动完成，无需在页面上手动操作。国内服务器把 `.env` 里的 `REGISTRY` 换成阿里云镜像源（`.env` 内有注释）。完整说明、验证方法与运维手册见 [deploy/README.md](deploy/README.md)。
+
+### 本地开发
+
 后端运行前需要准备 `server/data/` 下的地理与 ASN 数据库，以及机房识别数据库。
 
 ```bash

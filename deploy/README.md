@@ -83,7 +83,7 @@ curl https://你的域名/health
 | `detect-radar-setup` | 初始化器：Cloudflare API、配置渲染、占位证书 |
 | `cloud-ip-crawler` | 云厂商 IP 段爬虫（[独立仓库](https://github.com/harrisonwang/cloud-ip-crawler)） |
 
-默认从 `ghcr.io/harrisonwang` 拉取；国内机器把 `.env` 里的 `REGISTRY` 切到阿里云 ACR 即可（CoreDNS、acme.sh 官方镜像也已同步到 ACR，见 `.env.example` 注释）。
+默认从 `ghcr.io/harrisonwang` 拉取；国内机器把 `.env` 里的 `REGISTRY` 切到 `registry.cn-shenzhen.aliyuncs.com/harrisonwang`（CoreDNS、acme.sh 官方镜像也已同步到该 ACR，见 `.env.example` 注释）。
 
 ## 已知边界
 

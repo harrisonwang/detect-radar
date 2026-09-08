@@ -5,8 +5,9 @@
   interface Props {
     report: ReportModel | null;
     isScanning?: boolean;
+    active?: boolean;
   }
-  let { report, isScanning = false }: Props = $props();
+  let { report, isScanning = false, active = false }: Props = $props();
 
   const SEV: Record<Severity, { color: string; soft: string; label: string; icon: string }> = {
     leak: { color: 'var(--leak)', soft: 'var(--leak-soft)', label: '暴露', icon: 'fa-triangle-exclamation' },
@@ -16,7 +17,7 @@
   };
 </script>
 
-<div class="glass-card rounded-xl p-6 h-full flex flex-col reveal">
+<div class="glass-card rounded-xl p-6 h-full flex flex-col reveal" class:scan-focus={active}>
   {#if isScanning}
     <div class="space-y-3">
       <div class="h-6 w-2/5 bg-slate-800 rounded animate-pulse"></div>

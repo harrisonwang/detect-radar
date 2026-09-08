@@ -36,6 +36,16 @@
     safe: '很低', low: '较低', medium: '中等', high: '偏高', critical: '严重',
   };
 
+  type ScanStage = 'identity' | 'consistency' | 'leak' | 'environment' | 'analysis' | 'complete';
+  type DimensionKey = Exclude<ScanStage, 'analysis' | 'complete'>;
+  const SCAN_STAGES: { key: ScanStage; label: string }[] = [
+    { key: 'identity', label: '正在获取出口 IP' },
+    { key: 'consistency', label: '正在比对时区与语言' },
+    { key: 'leak', label: '正在检查 WebRTC、DNS、IPv6' },
+    { key: 'environment', label: '正在分析环境指纹' },
+    { key: 'analysis', label: '正在汇总检测结果' },
+  ];
+
   // 检测中的占位四轴（雷达在扫描态仍显示四轴骨架）
   const PLACEHOLDER_GROUPS = [
     { key: 'identity', label: '网络身份', score: 0, state: 'unknown', passed: 0, total: 1, note: '' },
@@ -50,18 +60,96 @@
   // DNS 泄露走独立慢路径（enrichDNS 约 4s），未定前雷达该轴显示待定而非中间值
   let dnsPending = $state(true);
   let ipRevealed = $state(true);
+  let scanStage = $state<ScanStage>('identity');
+  let completedStages = $state<ScanStage[]>([]);
+  let revealedKeys = $state<DimensionKey[]>([]);
+  let revealTimers: number[] = [];
   let lastSignals: ScanSignals | null = null;
+
+  let scanStageLabel = $derived(
+    SCAN_STAGES.find((stage) => stage.key === scanStage)?.label ?? '检测完成',
+  );
+  let displayStageLabel = $derived(
+    isScanning
+      ? scanStage === 'analysis' && dnsPending && report
+        ? '正在检查 WebRTC、DNS、IPv6'
+        : scanStageLabel
+      : dnsPending
+        ? '正在检查 WebRTC、DNS、IPv6'
+        : '',
+  );
+  let activeDimension = $derived(
+    isScanning
+      ? scanStage === 'analysis' && dnsPending && report
+        ? 'leak'
+        : scanStage === 'analysis'
+          ? null
+          : scanStage
+      : dnsPending
+        ? 'leak'
+        : null,
+  );
+
+  function resetScanProgress() {
+    revealTimers.forEach((timer) => window.clearTimeout(timer));
+    revealTimers = [];
+    completedStages = [];
+    revealedKeys = [];
+    scanStage = 'identity';
+  }
+
+  function completeStage(stage: ScanStage) {
+    if (completedStages.includes(stage)) return;
+    completedStages = [...completedStages, stage];
+    const next = SCAN_STAGES.find((item) => !completedStages.includes(item.key));
+    if (next) scanStage = next.key;
+  }
+
+  function revealDimension(key: DimensionKey) {
+    if (!report || revealedKeys.includes(key)) return;
+    revealedKeys = [...revealedKeys, key];
+    scanStage = key;
+  }
+
+  function queueReadyReveals() {
+    const order: DimensionKey[] = ['identity', 'consistency', 'environment'];
+    order.forEach((key, index) => {
+      if (!completedStages.includes(key)) return;
+      const timer = window.setTimeout(() => revealDimension(key), 120 + index * 170);
+      revealTimers = [...revealTimers, timer];
+    });
+    const finishTimer = window.setTimeout(() => {
+      if (isScanning && dnsPending) scanStage = 'analysis';
+    }, 120 + order.length * 170);
+    revealTimers = [...revealTimers, finishTimer];
+  }
 
   // ============ 扫描管线 ============
 
-  async function collectSignals(): Promise<ScanSignals> {
+  async function collectSignals(onStageComplete?: (stage: DimensionKey) => void): Promise<ScanSignals> {
+    const fingerprintPromise = collectFingerprints();
+    const environmentPromise = collectEnvironment().then((value) => {
+      onStageComplete?.('consistency');
+      return value;
+    });
+    const leaksPromise = collectLeaks().then((value) => {
+      onStageComplete?.('leak');
+      return value;
+    });
+    const devicePromise = collectDeviceSignals();
+    const fpjsPromise = collectFingerprintAudit();
+    const environmentReady = Promise.all([fingerprintPromise, devicePromise, fpjsPromise]).then(() => {
+      onStageComplete?.('environment');
+    });
+
     const [fingerprint, environment, leaks, device, fpjs] = await Promise.all([
-      collectFingerprints(),
-      collectEnvironment(),
-      collectLeaks(),
-      collectDeviceSignals(),
-      collectFingerprintAudit(),
+      fingerprintPromise,
+      environmentPromise,
+      leaksPromise,
+      devicePromise,
+      fpjsPromise,
     ]);
+    await environmentReady;
     // RTT 刻意放在上面这批采集全部结算之后再串行探测：canvas/webgl/audio 是主线程
     // CPU 密集型任务，与探测并发会通过 CPU 争用推迟 fetch 回调与 performance.now() 读数，
     // 只会把 RTT 读偏大（噪声单向为正）。min 是承重统计量，测量质量高于这点串行延迟
@@ -99,20 +187,32 @@
     isScanning = true;
     scanError = null;
     dnsPending = true;
+    report = null;
+    resetScanProgress();
     try {
-      const signals = await collectSignals();
+      const signals = await collectSignals(completeStage);
       lastSignals = signals;
       const resp = await api.createScan(buildRequest(signals));
       report = buildReport(resp, signals.collectors, signals.device);
-      void enrichDNS().finally(() => (dnsPending = false));
+      completeStage('identity');
+      queueReadyReveals();
+
+      await enrichDNS();
+      dnsPending = false;
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 220));
+      revealDimension('leak');
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 320));
+      completeStage('analysis');
+      scanStage = 'complete';
+      isScanning = false;
     } catch (err) {
       const msg = friendlyError(err);
       scanError = msg;
       report = null;
       dnsPending = false;
       showToast(msg);
-    } finally {
       isScanning = false;
+      scanStage = 'complete';
     }
   }
 
@@ -151,7 +251,10 @@
       if (e.persisted) runScan();
     };
     window.addEventListener('pageshow', onPageShow);
-    return () => window.removeEventListener('pageshow', onPageShow);
+    return () => {
+      revealTimers.forEach((timer) => window.clearTimeout(timer));
+      window.removeEventListener('pageshow', onPageShow);
+    };
   });
 
   // ============ 截图 / 分享 / Toast ============
@@ -241,6 +344,7 @@
   <AppHeader
     onScreenshot={handleScreenshot}
     onShare={handleShare}
+    onRescan={runScan}
     isScanning={isScanning}
     ready={!!report && !isScanning}
   />
@@ -262,10 +366,13 @@
           riskLabel={report ? (RISK_LABEL[report.riskLevel] ?? report.riskLevel) : '—'}
           isScanning={isScanning}
           pendingKeys={dnsPending ? ['leak'] : []}
+          settledKeys={revealedKeys}
+          activeKey={activeDimension}
+          scanStageLabel={displayStageLabel}
         />
       </div>
       <div class="lg:col-span-8">
-        <DiagnosisCard report={report} isScanning={isScanning} />
+        <DiagnosisCard report={report} isScanning={isScanning} active={activeDimension === 'identity'} />
       </div>
     </div>
 
@@ -288,6 +395,8 @@
           rtt={report?.rtt}
           isScanning={isScanning}
           revealed={ipRevealed}
+          settled={revealedKeys.includes('identity')}
+          active={activeDimension === 'identity'}
           onToggleReveal={toggleReveal}
           onCopy={handleCopyIP}
         />
@@ -300,21 +409,21 @@
           rows={report?.consistency ?? []}
           state={report?.groups[1]?.state ?? 'unknown'}
           note={report?.groups[1]?.note ?? ''}
-          isScanning={isScanning} delay={40}
+          isScanning={isScanning} settled={revealedKeys.includes('consistency')} delay={40} active={activeDimension === 'consistency'}
         />
         <ReadoutCard
           title="DNS/IP 泄露" icon="fa-shield-halved"
           rows={report?.leaks ?? []}
           state={report?.groups[2]?.state ?? 'unknown'}
           note={report?.groups[2]?.note ?? ''}
-          isScanning={isScanning} delay={100}
+          isScanning={isScanning} settled={revealedKeys.includes('leak')} delay={100} active={activeDimension === 'leak'}
         />
         <ReadoutCard
           title="环境指纹" icon="fa-fingerprint"
           rows={report?.environment ?? []}
           state={report?.groups[3]?.state ?? 'unknown'}
           note={report?.groups[3]?.note ?? ''}
-          isScanning={isScanning} delay={160}
+          isScanning={isScanning} settled={revealedKeys.includes('environment')} delay={160} active={activeDimension === 'environment'}
         />
       </div>
 

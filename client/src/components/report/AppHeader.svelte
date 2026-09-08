@@ -2,10 +2,11 @@
   interface Props {
     onScreenshot?: () => void;
     onShare?: () => void;
+    onRescan?: () => void;
     isScanning?: boolean;
     ready?: boolean;
   }
-  let { onScreenshot, onShare, isScanning = false, ready = false }: Props = $props();
+  let { onScreenshot, onShare, onRescan, isScanning = false, ready = false }: Props = $props();
 </script>
 
 <nav class="border-b border-slate-800/60 bg-space-950/80 sticky top-0 z-50 backdrop-blur-md">
@@ -22,9 +23,12 @@
       <div class="flex items-center gap-2">
         <span class="hidden sm:flex items-center gap-1.5 text-xs font-mono text-(--slate-500) mr-1">
           <span class="dot" style="background:{isScanning ? 'var(--warn)' : ready ? 'var(--sig)' : 'var(--unknown)'}; --_soft:transparent"></span>
-          {isScanning ? '检测中' : ready ? '在线' : '待命'}
+          {isScanning ? '检测中' : ready ? '检测完成' : '待检测'}
         </span>
         {#if ready}
+          <button onclick={onRescan} class="hbtn" title="重新检测" aria-label="重新检测">
+            <i class="fa-solid fa-rotate-right text-sm"></i>
+          </button>
           <button onclick={onScreenshot} class="hbtn" title="生成分享图（IP 自动脱敏）" aria-label="生成分享图">
             <i class="fa-solid fa-camera text-sm"></i>
           </button>

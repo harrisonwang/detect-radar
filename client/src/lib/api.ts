@@ -2,8 +2,8 @@
  * DetectRadar 后端 API 客户端
  *
  * 单一出入口：所有对 server (Go/Fiber) 的调用都走这里，集中处理
- * base URL、超时、JSON 解析与错误。base URL 通过环境变量注入，
- * 默认指向本地后端；生产部署时设置 PUBLIC_API_BASE 覆盖。
+ * base URL、超时、JSON 解析与错误。开发环境默认指向本地后端，
+ * 生产环境默认使用同源 /api/ 反代；可用 PUBLIC_API_BASE 覆盖。
  *
  * 只覆盖前端实际调用的接口（扫描 IP 恒取自连接本身，不接受调用方指定任意 IP）：
  *   POST /scans                  GET  /scans/:id
@@ -21,12 +21,16 @@ import type {
 } from './types';
 
 // Astro/Vite：仅 PUBLIC_ 前缀的变量会暴露到客户端
+const ENV = (import.meta as unknown as { env?: Record<string, string | boolean> }).env ?? {};
 const RAW_BASE =
-  (import.meta as unknown as { env?: Record<string, string> }).env?.PUBLIC_API_BASE ??
-  'http://127.0.0.1:8080';
+  typeof ENV.PUBLIC_API_BASE === 'string'
+    ? ENV.PUBLIC_API_BASE
+    : ENV.DEV
+      ? 'http://127.0.0.1:8080'
+      : '';
 
-/** 规范化后的 API 根地址，如 http://127.0.0.1:8080/api/v1 */
-export const API_BASE = `${RAW_BASE.replace(/\/+$/, '')}/api/v1`;
+/** 规范化后的 API 根地址：生产默认为同源 /api/v1，开发默认为本机后端。 */
+export const API_BASE = RAW_BASE ? `${RAW_BASE.replace(/\/+$/, '')}/api/v1` : '/api/v1';
 
 /** 后端返回非 2xx 时抛出，携带状态码与原始报文 */
 export class ApiError extends Error {

@@ -11,10 +11,15 @@
     isScanning?: boolean;
     /** 结果尚未返回的组（如慢路径的 DNS 泄露）：该轴显示待定，顶点收在中心 */
     pendingKeys?: string[];
+    /** 已经完成视觉落定的组；扫描中允许雷达逐轴成形 */
+    settledKeys?: string[];
+    activeKey?: string | null;
+    scanStageLabel?: string;
   }
-  let { groups, verdictState, riskLabel, isScanning = false, pendingKeys = [] }: Props = $props();
+  let { groups, verdictState, riskLabel, isScanning = false, pendingKeys = [], settledKeys = [], activeKey = null, scanStageLabel = '' }: Props = $props();
 
   const isPending = (key: string) => pendingKeys.includes(key);
+  const isSettled = (key: string) => settledKeys.includes(key);
 
   const C = 150;
   const CY = 120;
@@ -34,7 +39,7 @@
   let axisEnds = $derived(groups.map((_, i) => pt(i, R)));
   // 分数经 Tween 过渡再算顶点：扫描中/待定轴收在中心，结果落地后平滑展开
   let targetScores = $derived(
-    groups.map((g) => (isScanning || isPending(g.key) ? 5 : Math.max(5, g.score))),
+    groups.map((g) => (isSettled(g.key) && !isPending(g.key) ? Math.max(5, g.score) : 5)),
   );
   const twScores = Tween.of(() => targetScores, { duration: 600, easing: cubicOut });
   let vertices = $derived(twScores.current.map((s, i) => pt(i, (s / 100) * R)));
@@ -49,24 +54,26 @@
       {#each rings as r}
         <circle cx={C} cy={CY} r={R * r} fill="none" stroke="var(--line)" stroke-width="1" />
       {/each}
-      {#each axisEnds as e}
-        <line x1={C} y1={CY} x2={e.x} y2={e.y} stroke="var(--line)" stroke-width="1" />
+      {#each axisEnds as e, i}
+        <line x1={C} y1={CY} x2={e.x} y2={e.y} stroke={activeKey === groups[i]?.key ? 'var(--radar-400)' : 'var(--line)'} stroke-width={activeKey === groups[i]?.key ? '2' : '1'} opacity={activeKey === groups[i]?.key ? '0.9' : '1'} />
       {/each}
 
-      {#if !isScanning}
+      {#if settledKeys.length > 0 || !isScanning}
         <polygon
           points={polygon}
           fill={stateVar(verdictState)} fill-opacity="0.16"
-          stroke={stateVar(verdictState)} stroke-width="1.5" stroke-linejoin="round"
+          stroke={stateVar(verdictState)} stroke-width="1.5" stroke-linejoin="round" class="radar-polygon"
         />
         {#each vertices as v, i}
-          <circle cx={v.x} cy={v.y} r="3.5" fill={stateVar(isPending(groups[i].key) ? 'unknown' : groups[i].state)} stroke="var(--space-950)" stroke-width="1.5" />
+          {#if isSettled(groups[i].key) && !isPending(groups[i].key)}
+            <circle cx={v.x} cy={v.y} r="3.5" fill={stateVar(groups[i].state)} stroke="var(--space-950)" stroke-width="1.5" class="radar-node" />
+          {/if}
         {/each}
       {/if}
 
       {#each groups as g, i}
-        <text x={labelPos[i].x} y={labelPos[i].y} text-anchor={labelAnchor(i)} dominant-baseline="middle" fill="var(--slate-400)" font-size="12" class="font-mono">{SHORT[g.key] ?? g.label}</text>
-        <text x={labelPos[i].x} y={labelPos[i].y + 14} text-anchor={labelAnchor(i)} dominant-baseline="middle" fill={stateVar(isPending(g.key) ? 'unknown' : g.state)} font-size="11" class="tnum">{isScanning || isPending(g.key) ? '··' : g.score}</text>
+        <text x={labelPos[i].x} y={labelPos[i].y} text-anchor={labelAnchor(i)} dominant-baseline="middle" fill={activeKey === g.key ? 'var(--radar-400)' : 'var(--slate-400)'} font-size={activeKey === g.key ? '13' : '12'} class="font-mono">{SHORT[g.key] ?? g.label}</text>
+        <text x={labelPos[i].x} y={labelPos[i].y + 14} text-anchor={labelAnchor(i)} dominant-baseline="middle" fill={activeKey === g.key ? 'var(--radar-400)' : stateVar(isPending(g.key) || !isSettled(g.key) ? 'unknown' : g.state)} font-size="11" class="tnum">{isPending(g.key) || !isSettled(g.key) ? '··' : g.score}</text>
       {/each}
     </svg>
 
@@ -81,4 +88,7 @@
     <span class="text-xs text-(--slate-500)">综合风险</span>
     <span class="text-sm font-semibold" style="color:{stateVar(verdictState)}">{isScanning ? '检测中' : riskLabel}</span>
   </div>
+  {#if scanStageLabel && (isScanning || activeKey === 'leak')}
+    <div class="mt-2 text-xs text-(--slate-400) font-mono animate-pulse text-center">{scanStageLabel}</div>
+  {/if}
 </div>

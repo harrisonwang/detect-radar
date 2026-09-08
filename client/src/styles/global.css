@@ -86,6 +86,13 @@ body {
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 }
 
+/* 扫描阶段让雷达轴和对应卡片保持同一视觉焦点 */
+.scan-focus {
+  border-color: rgba(74, 222, 128, 0.5);
+  box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.18), 0 0 28px rgba(74, 222, 128, 0.12);
+  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
 /* 状态点 */
 .dot {
   width: 8px;
@@ -129,8 +136,29 @@ body {
   animation: reveal-up 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
+/* 采集结果真正可用时，卡片与雷达节点同步落定 */
+@keyframes scan-settle {
+  from { opacity: 0.58; transform: translateY(5px); }
+  to { opacity: 1; transform: none; }
+}
+.scan-settle {
+  animation: scan-settle 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+.radar-node {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: radar-node-pop 0.42s cubic-bezier(0.2, 0.85, 0.3, 1.15) both;
+}
+@keyframes radar-node-pop {
+  from { opacity: 0; transform: scale(0.45); }
+  to { opacity: 1; transform: scale(1); }
+}
+.radar-polygon {
+  transition: fill-opacity 0.3s ease, stroke 0.3s ease;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .reveal, .animate-radar-spin, .animate-ping-slow { animation: none; }
+  .reveal, .scan-settle, .radar-node, .animate-radar-spin, .animate-ping-slow { animation: none; }
   .reveal { opacity: 1; transform: none; }
 }
 

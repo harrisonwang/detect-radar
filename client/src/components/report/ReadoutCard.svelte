@@ -9,12 +9,14 @@
     state: SignalState;
     note?: string;
     isScanning?: boolean;
+    settled?: boolean;
     delay?: number;
+    active?: boolean;
   }
-  let { title, icon, rows, state, note = '', isScanning = false, delay = 0 }: Props = $props();
+  let { title, icon, rows, state, note = '', isScanning = false, settled = false, delay = 0, active = false }: Props = $props();
 </script>
 
-<div class="glass-card rounded-xl p-5 h-full reveal" style="animation-delay:{delay}ms">
+<div class="glass-card rounded-xl p-5 h-full reveal" class:scan-focus={active} class:scan-settle={settled} style="animation-delay:{delay}ms">
   <header class="flex items-center justify-between mb-3.5">
     <div class="flex items-center gap-2.5">
       <i class="fa-solid {icon} text-(--slate-400) text-sm"></i>
@@ -23,7 +25,7 @@
     <span class="dot" style="background:{stateVar(state)}; --_soft:{stateSoft(state)}"></span>
   </header>
 
-  {#if isScanning}
+  {#if isScanning && !settled}
     <div class="space-y-3.5">
       {#each Array(3) as _}
         <div class="flex items-center justify-between">

@@ -6,11 +6,13 @@
     identity: IdentityReadout;
     rtt?: RTTReadout;
     isScanning?: boolean;
+    settled?: boolean;
     revealed?: boolean;
+    active?: boolean;
     onToggleReveal?: () => void;
     onCopy?: () => void;
   }
-  let { identity, rtt, isScanning = false, revealed = false, onToggleReveal, onCopy }: Props = $props();
+  let { identity, rtt, isScanning = false, settled = false, revealed = false, active = false, onToggleReveal, onCopy }: Props = $props();
 
   // 仪表读数固定一位小数（tnum 下位数对齐）
   const ms = (x: number) => x.toFixed(1);
@@ -38,7 +40,7 @@
   let fraudColor = $derived(identity.fraudScore >= 50 ? 'var(--leak)' : identity.fraudScore >= 25 ? 'var(--warn)' : 'var(--sig)');
 </script>
 
-<div class="glass-card rounded-xl p-6 reveal">
+<div class="glass-card rounded-xl p-6 reveal" class:scan-focus={active} class:scan-settle={settled}>
   <header class="flex items-center justify-between mb-5">
     <div class="flex items-center gap-2.5">
       <i class="fa-solid fa-id-card text-(--radar-400)"></i>
@@ -47,7 +49,7 @@
     <span class="dot" style="background:{stateVar(identity.state)}; --_soft:{stateSoft(identity.state)}"></span>
   </header>
 
-  {#if isScanning}
+  {#if isScanning && !settled}
     <div class="flex flex-col md:flex-row gap-6">
       <div class="md:w-[32%] space-y-3">
         <div class="h-8 w-44 bg-slate-800 rounded animate-pulse"></div>

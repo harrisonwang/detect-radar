@@ -137,7 +137,7 @@ func setupRoutes(app *fiber.App, services *Services) {
 	api.Get("/health", func(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{
 			"status":    "healthy",
-			"version":   "1.0.0",
+			"version":   "1.0.1",
 			"timestamp": time.Now().UTC().Format(time.RFC3339),
 		})
 	})

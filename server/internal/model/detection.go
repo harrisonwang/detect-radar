@@ -13,13 +13,14 @@ type DNSLeakTestRequest struct {
 
 // DNSLeakTest 一次 DNS 泄露测试的内部记录
 type DNSLeakTest struct {
-	TestID     string     `json:"-"`
-	TestDomain string     `json:"-"`
-	ScanID     string     `json:"-"`
-	ExpiresAt  int64      `json:"-"`
-	CreatedAt  time.Time  `json:"-"`
-	DNSQueries []DNSQuery `json:"-"`
-	Journaled  bool       `json:"-"` // 观测结果是否已写入遥测流水（只写一次）
+	TestID         string     `json:"-"`
+	TestDomain     string     `json:"-"`
+	ScanID         string     `json:"-"`
+	ScanInstanceID string     `json:"-"` // 创建测试时冻结的服务端扫描实例，避免客户端 scan_id 复用导致串联
+	ExpiresAt      int64      `json:"-"`
+	CreatedAt      time.Time  `json:"-"`
+	DNSQueries     []DNSQuery `json:"-"`
+	Journaled      bool       `json:"-"` // 观测结果是否已写入遥测流水（只写一次）
 }
 
 // DNSLeakTestResponse 创建测试后返回给客户端的信息

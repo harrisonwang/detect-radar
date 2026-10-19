@@ -4,7 +4,9 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
+	"log"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -16,6 +18,9 @@ import (
 // geoCacheMax resolver 地理信息缓存条目上限，超过则整体清空，防止长时间运行内存无限增长
 const geoCacheMax = 20000
 
+// ErrDNSTestNotFound 仅表示测试不存在或已过期；持久化失败不应被当作 404。
+var ErrDNSTestNotFound = errors.New("DNS 测试不存在或已过期")
+
 // DNSService 管理 DNS 泄露测试：分配唯一子域，接收 resolver 查询记录，分析泄露
 //
 // 数据流：client 触发 r{rand}-{testID}.{domain} → 递归 resolver 向权威 NS 查询
@@ -26,9 +31,19 @@ type DNSService struct {
 	ipIntel   *IPIntelService
 	journal   *Journal
 	scan      *ScanService // DNS 定案后重算已存扫描（可空；未注入时只记 resolver 观测）
-	testCache sync.Map     // testID -> *model.DNSLeakTest
+	testCache sync.Map     // 完整/短 testID -> *dnsTestState（两个 key 共享同一个状态）
 	geoCache  sync.Map     // resolverIP -> geoInfo
 	geoCount  atomic.Int64 // geoCache 近似条目数（用于有界淘汰）
+	stop      chan struct{}
+	done      chan struct{}
+	closeOnce sync.Once
+}
+
+// dnsTestState 将每次测试的并发状态留在服务层；地理查询不持有此锁。
+type dnsTestState struct {
+	mu      sync.Mutex
+	test    model.DNSLeakTest
+	expired bool
 }
 
 type geoInfo struct {
@@ -37,9 +52,22 @@ type geoInfo struct {
 }
 
 func NewDNSService(dnsCfg config.DNSConfig, ipIntel *IPIntelService, journal *Journal) *DNSService {
-	s := &DNSService{dnsCfg: dnsCfg, ipIntel: ipIntel, journal: journal}
+	s := &DNSService{
+		dnsCfg: dnsCfg, ipIntel: ipIntel, journal: journal,
+		stop: make(chan struct{}), done: make(chan struct{}),
+	}
 	go s.cleanupExpiredTests()
 	return s
+}
+
+// Close 停止后台清理；允许重复调用。
+func (s *DNSService) Close() error {
+	if s == nil || s.stop == nil {
+		return nil
+	}
+	s.closeOnce.Do(func() { close(s.stop) })
+	<-s.done
+	return nil
 }
 
 // SetScanService 注入扫描服务：DNS 观测到位后据此重算已存扫描，拿到 post-DNS 判定写入遥测。
@@ -56,18 +84,31 @@ func (s *DNSService) CreateLeakTest(ctx context.Context, scanID string) (*model.
 	now := time.Now()
 	expiresAt := now.Add(s.dnsCfg.TTL)
 
-	test := &model.DNSLeakTest{
-		TestID:     fullID,
-		TestDomain: testDomain,
-		ScanID:     scanID,
-		ExpiresAt:  expiresAt.Unix(),
-		CreatedAt:  now,
-		DNSQueries: []model.DNSQuery{},
+	instanceID := ""
+	if s.scan != nil && scanID != "" {
+		var err error
+		instanceID, err = s.scan.InstanceID(scanID)
+		if err != nil {
+			return nil, err
+		}
 	}
+	test := model.DNSLeakTest{
+		TestID:         fullID,
+		TestDomain:     testDomain,
+		ScanID:         scanID,
+		ScanInstanceID: instanceID,
+		ExpiresAt:      expiresAt.Unix(),
+		CreatedAt:      now,
+		DNSQueries:     []model.DNSQuery{},
+	}
+	if err := s.journal.DNSLifecycle("dns_started", instanceID, scanID, fmt.Sprintf("leak_dns_%s", shortID)); err != nil {
+		return nil, fmt.Errorf("保存 DNS 测试开始事件失败：%w", err)
+	}
+	state := &dnsTestState{test: test}
 
 	// 完整 ID 与短 ID 都作为 key，方便 DNSTap 与客户端两侧查询
-	s.testCache.Store(fullID, test)
-	s.testCache.Store(shortID, test)
+	s.testCache.Store(fullID, state)
+	s.testCache.Store(shortID, state)
 
 	return &model.DNSLeakTestResponse{
 		ID:         fmt.Sprintf("leak_dns_%s", shortID),
@@ -81,11 +122,18 @@ func (s *DNSService) CreateLeakTest(ctx context.Context, scanID string) (*model.
 func (s *DNSService) RecordDNSQuery(testID, resolverIP string) error {
 	value, ok := s.testCache.Load(testID)
 	if !ok {
-		return fmt.Errorf("test not found or expired")
+		return ErrDNSTestNotFound
 	}
-	test := value.(*model.DNSLeakTest)
+	state := value.(*dnsTestState)
 
+	// 远程地理查询可能较慢，不能阻塞同一测试的轮询或清理。
 	country, isp := s.getGeoInfo(resolverIP)
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	test := &state.test
+	if state.expired || time.Now().After(test.CreatedAt.Add(s.dnsCfg.TTL)) {
+		return ErrDNSTestNotFound
+	}
 	test.DNSQueries = append(test.DNSQueries, model.DNSQuery{
 		IP:        resolverIP,
 		Country:   country,
@@ -99,22 +147,30 @@ func (s *DNSService) RecordDNSQuery(testID, resolverIP string) error {
 func (s *DNSService) GetLeakResult(ctx context.Context, testID string) (*model.DNSLeakResult, error) {
 	value, ok := s.testCache.Load(testID)
 	if !ok {
-		return nil, fmt.Errorf("test not found or expired")
+		return nil, ErrDNSTestNotFound
 	}
-	test := value.(*model.DNSLeakTest)
+	state := value.(*dnsTestState)
+	state.mu.Lock()
+	defer state.mu.Unlock()
+	test := &state.test
+	if state.expired || time.Now().After(test.CreatedAt.Add(s.dnsCfg.TTL)) {
+		return nil, ErrDNSTestNotFound
+	}
 	result := s.analyzeLeakage(test)
 
 	// 观测到 resolver 后写一次遥测流水（客户端轮询多次，只记首次有结果的）
 	if len(result.DNSServers) > 0 && !test.Journaled {
-		test.Journaled = true
 		// DNS 定案：以本次 leaked 结果重算已存扫描，拿到 post-DNS 判定一并落库（评分始终纯后端产出）
-		var resp *model.ScanResponse
-		if s.scan != nil && test.ScanID != "" {
-			if r, ok := s.scan.UpdateDNSLeak(test.ScanID, result.Leaked); ok {
-				resp = r
-			}
+		var err error
+		if s.scan != nil {
+			_, err = s.scan.UpdateDNSObservation(test.ScanInstanceID, test.ScanID, result)
+		} else {
+			err = s.journal.DNSLeakEvent(test.ScanInstanceID, test.ScanID, result, nil)
 		}
-		s.journal.DNSLeakEvent(test.ScanID, result, resp)
+		if err != nil {
+			return nil, fmt.Errorf("保存 DNS 观测结果失败：%w", err)
+		}
+		test.Journaled = true
 	}
 	return result, nil
 }
@@ -229,17 +285,40 @@ func (s *DNSService) generateTestID() string {
 }
 
 func (s *DNSService) cleanupExpiredTests() {
+	defer close(s.done)
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
-	for range ticker.C {
-		now := time.Now()
-		s.testCache.Range(func(key, value any) bool {
-			if now.Sub(value.(*model.DNSLeakTest).CreatedAt) > s.dnsCfg.TTL {
-				s.testCache.Delete(key)
-			}
-			return true
-		})
+	for {
+		select {
+		case now := <-ticker.C:
+			s.expireTests(now)
+		case <-s.stop:
+			return
+		}
 	}
+}
+
+// expireTests 只遍历完整标识，避免长短缓存别名重复写入过期事件。
+func (s *DNSService) expireTests(now time.Time) {
+	s.testCache.Range(func(key, value any) bool {
+		state := value.(*dnsTestState)
+		state.mu.Lock()
+		defer state.mu.Unlock()
+		test := &state.test
+		if key != test.TestID || state.expired || !now.After(test.CreatedAt.Add(s.dnsCfg.TTL)) {
+			return true
+		}
+		if !test.Journaled {
+			if err := s.journal.DNSLifecycle("dns_expired", test.ScanInstanceID, test.ScanID, fmt.Sprintf("leak_dns_%s", test.TestID[:8])); err != nil {
+				log.Printf("[DNS] 保存测试 %s 的过期事件失败，将重试：%v", test.TestID[:8], err)
+				return true
+			}
+		}
+		state.expired = true
+		s.testCache.CompareAndDelete(test.TestID, state)
+		s.testCache.CompareAndDelete(test.TestID[:8], state)
+		return true
+	})
 }
 
 // isPublicDNSProvider 判断 ISP 名称是否属于常见公共 DNS 提供商

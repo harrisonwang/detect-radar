@@ -1,6 +1,7 @@
 package config
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/spf13/viper"
@@ -18,6 +19,7 @@ type Config struct {
 	SQLite     SQLiteConfig
 	Reputation ReputationConfig
 	RTT        RTTConfig
+	Telemetry  TelemetryConfig
 }
 
 // RTTConfig RTT 物理探测配置（Phase 1 只采集不计分）。
@@ -47,6 +49,15 @@ type RedisConfig struct {
 // SQLiteConfig SQLite 配置
 type SQLiteConfig struct {
 	Path string `mapstructure:"path"`
+}
+
+// TelemetryConfig 配置独立的遥测数据库，避免替换机房数据时丢失记录。
+type TelemetryConfig struct {
+	Path                  string        `mapstructure:"path"`
+	RetentionEnabled      bool          `mapstructure:"retention_enabled"`
+	ScanRetentionDays     int           `mapstructure:"scan_retention_days"`
+	FeedbackRetentionDays int           `mapstructure:"feedback_retention_days"`
+	CleanupInterval       time.Duration `mapstructure:"cleanup_interval"`
 }
 
 // IPIntelConfig IP 信息配置
@@ -128,6 +139,13 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 
+	if cfg.Telemetry.Path == "" || cfg.Telemetry.ScanRetentionDays <= 0 || cfg.Telemetry.FeedbackRetentionDays <= 0 || cfg.Telemetry.CleanupInterval <= 0 {
+		return nil, fmt.Errorf("遥测数据库路径不能为空，保留天数和清理间隔必须大于零")
+	}
+	// 时长以 int64 纳秒保存，转换前校验以免溢出。
+	if cfg.Telemetry.ScanRetentionDays > 106751 || cfg.Telemetry.FeedbackRetentionDays > 106751 {
+		return nil, fmt.Errorf("遥测数据保留天数超出支持范围")
+	}
 	return &cfg, nil
 }
 
@@ -166,6 +184,11 @@ func setDefaults() {
 
 	// SQLite 默认值
 	viper.SetDefault("sqlite.path", "./data/hosting.db")
+	viper.SetDefault("telemetry.path", "./data/scans.db")
+	viper.SetDefault("telemetry.retention_enabled", true)
+	viper.SetDefault("telemetry.scan_retention_days", 90)
+	viper.SetDefault("telemetry.feedback_retention_days", 90)
+	viper.SetDefault("telemetry.cleanup_interval", 90*24*time.Hour)
 
 	// Reputation 默认值（信誉/暴露检测，免费源）
 	viper.SetDefault("reputation.enabled", true)

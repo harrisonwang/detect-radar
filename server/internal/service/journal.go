@@ -1,64 +1,49 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
-	"log"
-	"os"
-	"path/filepath"
-	"sync"
+	"errors"
+	"fmt"
 	"time"
 
 	"detect-radar/internal/model"
+	"detect-radar/internal/telemetry"
 )
 
-// Journal 内部遥测流水：每次扫描判定与异步 DNS 泄露观测各落一行 JSON 到本地文件，
-// 仅供在机器上 grep/jq 回放用户反馈现场（分享卡上的 scan 前缀可直接检索），
-// 不经任何 HTTP 接口暴露。不记指纹原始数据与完整采集 payload。
-type Journal struct {
-	mu   sync.Mutex
-	file *os.File
-}
+var ErrStorageUnavailable = errors.New("遥测存储不可用")
 
-// NewJournal 打开（或创建）流水文件；失败只告警并降级为 no-op，绝不影响主流程
-func NewJournal(path string) *Journal {
-	if path == "" {
-		return &Journal{}
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		log.Printf("[Journal] mkdir 失败，遥测流水关闭: %v", err)
-		return &Journal{}
-	}
-	f, err := os.OpenFile(path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if err != nil {
-		log.Printf("[Journal] 打开失败，遥测流水关闭: %v", err)
-		return &Journal{}
-	}
-	log.Printf("[Journal] 遥测流水: %s", path)
-	return &Journal{file: f}
-}
+// Journal 将完整遥测事件写入 SQLite。
+type Journal struct{ store *telemetry.Store }
 
-func (j *Journal) append(event map[string]any) {
-	if j == nil || j.file == nil {
-		return
+func NewJournal(store *telemetry.Store) *Journal { return &Journal{store: store} }
+
+func (j *Journal) append(instanceID, key string, event map[string]any) error {
+	if j == nil || j.store == nil {
+		return ErrStorageUnavailable
 	}
-	line, err := json.Marshal(event)
+	payload, err := json.Marshal(event)
 	if err != nil {
-		return
+		return fmt.Errorf("%w: %v", ErrStorageUnavailable, err)
 	}
-	j.mu.Lock()
-	defer j.mu.Unlock()
-	_, _ = j.file.Write(append(line, '\n'))
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	err = j.store.Append(ctx, telemetry.Event{InstanceID: instanceID, Key: key, Payload: payload})
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrStorageUnavailable, err)
+	}
+	return nil
 }
 
 // ScanEvent 一次扫描的判定快照（从分析结果蒸馏）
-func (j *Journal) ScanEvent(resp *model.ScanResponse, ua string) {
-	if j == nil || j.file == nil || resp == nil {
-		return
+func (j *Journal) ScanEvent(instanceID string, resp *model.ScanResponse, ua string) error {
+	if resp == nil {
+		return fmt.Errorf("%w：缺少扫描结果", ErrStorageUnavailable)
 	}
 	a := resp.Analysis
 	ev := map[string]any{
 		"event":      "scan",
-		"ts":         time.Now().UTC().Format(time.RFC3339),
+		"ts":         time.Now().UTC().Format(time.RFC3339Nano),
 		"scan_id":    resp.ScanID,
 		"ip":         resp.ServerData.ClientIP,
 		"ua":         ua,
@@ -129,7 +114,7 @@ func (j *Journal) ScanEvent(resp *model.ScanResponse, ua string) {
 	if rtt := distillRTT(a.RTT); rtt != nil {
 		ev["rtt"] = rtt
 	}
-	j.append(ev)
+	return j.append(instanceID, "", ev)
 }
 
 // distillRTT 把派生的 RTTAnalysis 蒸馏成便于 jq 的顶层 rtt 对象。
@@ -178,12 +163,12 @@ func firedRules(diag []model.DiagnosisItem) []map[string]any {
 	return rules
 }
 
-// DNSLeakEvent 异步 DNS 泄露测试的观测结果（与 scan 事件用 scan_id 关联）。
+// DNSLeakEvent 保存异步 DNS 观测结果，按服务端扫描实例关联。
 // resp 为 DNS 定案后重算的扫描结论（见 scan.go UpdateDNSLeak）：非空时把新总分/等级/
 // 命中规则一并落库，使 post-DNS 判定同样可归因；为空时退回仅记 resolver 观测。
-func (j *Journal) DNSLeakEvent(scanID string, result *model.DNSLeakResult, resp *model.ScanResponse) {
-	if j == nil || j.file == nil || result == nil {
-		return
+func (j *Journal) DNSLeakEvent(instanceID, scanID string, result *model.DNSLeakResult, resp *model.ScanResponse) error {
+	if result == nil {
+		return fmt.Errorf("%w：缺少 DNS 检测结果", ErrStorageUnavailable)
 	}
 	resolvers := make([]map[string]string, 0, len(result.DNSServers))
 	for _, q := range result.DNSServers {
@@ -193,7 +178,7 @@ func (j *Journal) DNSLeakEvent(scanID string, result *model.DNSLeakResult, resp 
 	}
 	ev := map[string]any{
 		"event":     "dns_leak",
-		"ts":        time.Now().UTC().Format(time.RFC3339),
+		"ts":        time.Now().UTC().Format(time.RFC3339Nano),
 		"scan_id":   scanID,
 		"test_id":   result.ID,
 		"leaked":    result.Leaked,
@@ -205,38 +190,50 @@ func (j *Journal) DNSLeakEvent(scanID string, result *model.DNSLeakResult, resp 
 		ev["score"] = resp.Score
 		ev["risk_level"] = resp.RiskLevel
 		ev["diagnosis"] = firedRules(resp.Diagnosis)
+		ev["analysis"] = resp.Analysis
 	}
-	j.append(ev)
+	return j.append(instanceID, "dns_leak:"+instanceID+":"+result.ID, ev)
 }
 
-// FeedbackEvent 用户对某次扫描结论的反馈（误报/漏检/数据不对/其他），与 scan 事件用
-// scan_id 关联。误报标注只能来自真实用户，是校准规则表的唯一现场信号，故过期扫描的反馈
-// 同样照收——resp 非空（扫描仍在内存 store，30 分钟内）时附带评分现场（score/risk_level/
-// 命中规则），省去运营手工 join；已过期则仅落反馈本体，靠先前 scan 行按 scan_id 关联。
-//
-// 去重策略：不做去重，允许重复行。反馈量在单机产品下极低，且前端提交后即进入 done 态，
-// 重复本就罕见；内存去重反而可能悄悄丢掉合法的二次反馈，运营侧按 scan_id+ts 聚合即可。
-// 刷量由全局 per-IP 限流中间件（main.go 已挂）兜底，无需在此另建。
-func (j *Journal) FeedbackEvent(scanID, category, note string, resp *model.ScanResponse) {
-	if j == nil || j.file == nil {
-		return
+// FeedbackEvent 保留已过期或无法唯一关联扫描的反馈。
+func (j *Journal) FeedbackEvent(scanID, category, note string, resp *model.ScanResponse) error {
+	if j == nil || j.store == nil {
+		return ErrStorageUnavailable
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	instanceID, binding, err := j.store.ResolveInstance(ctx, scanID)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrStorageUnavailable, err)
 	}
 	ev := map[string]any{
-		"event":    "feedback",
-		"ts":       time.Now().UTC().Format(time.RFC3339),
-		"scan_id":  scanID,
-		"category": category,
+		"event": "feedback", "ts": time.Now().UTC().Format(time.RFC3339Nano),
+		"scan_id": scanID, "category": category, "binding_status": binding,
 	}
 	if note != "" {
 		ev["note"] = note
 	}
-	// 扫描仍在内存 store 时，把当时的评分现场随反馈一并落库，运营无需回翻 scan 行
-	if resp != nil {
+	if resp != nil && instanceID != "" {
 		ev["context"] = map[string]any{
-			"score":      resp.Score,
-			"risk_level": resp.RiskLevel,
-			"fired":      firedRules(resp.Diagnosis),
+			"score": resp.Score, "risk_level": resp.RiskLevel,
+			"fired": firedRules(resp.Diagnosis), "analysis": resp.Analysis,
 		}
 	}
-	j.append(ev)
+	return j.append(instanceID, "", ev)
+}
+
+func (j *Journal) DNSLifecycle(eventType, instanceID, scanID, testID string) error {
+	return j.append(instanceID, eventType+":"+instanceID+":"+testID, map[string]any{
+		"event": eventType, "ts": time.Now().UTC().Format(time.RFC3339Nano),
+		"scan_id": scanID, "test_id": testID,
+	})
+}
+
+func (j *Journal) DNSUpdateEvent(instanceID string, resp *model.ScanResponse, leaked bool) error {
+	return j.append(instanceID, "", map[string]any{
+		"event": "dns_update", "ts": time.Now().UTC().Format(time.RFC3339Nano),
+		"scan_id": resp.ScanID, "leaked": leaked, "score": resp.Score,
+		"risk_level": resp.RiskLevel, "diagnosis": firedRules(resp.Diagnosis),
+		"analysis": resp.Analysis,
+	})
 }

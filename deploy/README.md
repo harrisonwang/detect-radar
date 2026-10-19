@@ -70,7 +70,7 @@ curl https://你的域名/health
 | 升级镜像 | `docker compose pull && docker compose up -d` |
 | 更新地理库 | 替换 `radar_data` 卷里的 mmdb/xdb 后 `docker compose restart server`（mmdb 被 mmap，必须重启） |
 | 看证书状态 | `docker compose exec acme acme.sh --list` |
-| 数据备份 | `radar_data` 卷（hosting.db、scans.jsonl、地理库）+ `acme_state` 卷 |
+| 数据备份 | `radar_data` 卷（hosting.db、scans.db、地理库）+ `acme_state` 卷 |
 
 全部参数见 [.env.example](.env.example)。第三方情报源 key（ipapi.is 等）都可留空，只影响判定准确率，不影响启动。
 

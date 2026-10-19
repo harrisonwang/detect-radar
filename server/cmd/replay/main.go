@@ -1,23 +1,17 @@
-// Command replay 是影子回放对比工具：改评分规则（server/internal/service/rules.go）后、
-// 部署前，用当前代码把历史 journal 重跑一遍，精确列出哪些真实扫描的结论会翻转。
+// replay 是影子回放对比工具：改评分规则（server/internal/service/rules.go）后、
+// 部署前，用当前代码把数据库中的历史扫描重跑一遍，列出哪些结论会翻转。
 //
-// journal 每行存的 score/risk_level/diagnosis 是「旧版结论」，当前代码重算的是「新版
-// 结论」。只读、无网络，绝不写 journal。
+// 数据库保存的是旧版结论，当前代码重算的是新版结论。只读、无网络。
 //
 // 用法：
 //
-//	go run ./cmd/replay -journal data/scans.jsonl
-//	go run ./cmd/replay -journal data/scans.jsonl -json
-//	go run ./cmd/replay -journal data/scans.jsonl -fail-on-diff   # 部署前闸门，有翻转即非零退出
-//
-// 从部署机（ssh la1）拉取 journal：
-//
-//	scp la1:~/detect-radar/server/data/scans.jsonl /tmp/prod-scans.jsonl
-//	go run ./cmd/replay -journal /tmp/prod-scans.jsonl
+//	go run ./cmd/replay -db data/scans.db
+//	go run ./cmd/replay -db data/scans.db -json
+//	go run ./cmd/replay -db data/scans.db -fail-on-diff
 package main
 
 import (
-	"bufio"
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -25,6 +19,7 @@ import (
 	"sort"
 
 	"detect-radar/internal/service"
+	"detect-radar/internal/telemetry"
 )
 
 // 跳过原因 → 中文标签（键见 service.Skip* 常量）。
@@ -36,8 +31,8 @@ var skipReasonLabel = map[string]string{
 
 // report 机器可读的汇总结果（-json 输出）。
 type report struct {
-	Journal      string                 `json:"journal"`
-	TotalLines   int                    `json:"total_lines"`
+	Database     string                 `json:"database"`
+	TotalEvents  int                    `json:"total_events"`
 	Replayable   int                    `json:"replayable"`
 	Skipped      int                    `json:"skipped"`
 	SkipReasons  map[string]int         `json:"skip_reasons"`
@@ -48,14 +43,18 @@ type report struct {
 }
 
 func main() {
-	journalPath := flag.String("journal", "data/scans.jsonl", "journal 文件路径（只读）")
+	dbPath := flag.String("db", "data/scans.db", "SQLite 文件路径（只读）")
 	failOnDiff := flag.Bool("fail-on-diff", false, "存在结论翻转时以非零退出（部署前闸门用）")
 	asJSON := flag.Bool("json", false, "输出机器可读 JSON 而非中文报告")
+	flag.Usage = func() {
+		fmt.Fprintln(flag.CommandLine.Output(), "用法：replay [-db 数据库] [-json] [-fail-on-diff]")
+		flag.PrintDefaults()
+	}
 	flag.Parse()
 
-	rep, err := run(*journalPath)
+	rep, err := run(*dbPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "replay: %v\n", err)
+		fmt.Fprintf(os.Stderr, "回放失败：%v\n", err)
 		os.Exit(1)
 	}
 
@@ -63,7 +62,7 @@ func main() {
 		enc := json.NewEncoder(os.Stdout)
 		enc.SetIndent("", "  ")
 		if err := enc.Encode(rep); err != nil {
-			fmt.Fprintf(os.Stderr, "replay: 编码 JSON 失败: %v\n", err)
+			fmt.Fprintf(os.Stderr, "回放结果编码为 JSON 失败：%v\n", err)
 			os.Exit(1)
 		}
 	} else {
@@ -75,35 +74,21 @@ func main() {
 	}
 }
 
-// run 逐行读取 journal 并聚合结果。只读，绝不写入。
-func run(path string) (*report, error) {
-	f, err := os.Open(path)
-	if err != nil {
-		return nil, err
-	}
-	defer f.Close()
-
+func run(dbPath string) (*report, error) {
 	rep := &report{
-		Journal:      path,
+		Database:     dbPath,
 		SkipReasons:  map[string]int{},
 		OldLevelDist: map[string]int{},
 		NewLevelDist: map[string]int{},
 	}
 
-	sc := bufio.NewScanner(f)
-	// analysis 整块落在一行里，可能超过默认 64KB 上限，放宽到 16MB。
-	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
-	for sc.Scan() {
-		line := sc.Bytes()
-		if len(trimSpace(line)) == 0 {
-			continue // 空行不计入总数
-		}
-		rep.TotalLines++
-		res := service.ReplayLine(line)
+	visit := func(event []byte) error {
+		rep.TotalEvents++
+		res := service.ReplayLine(event)
 		if !res.Replayable {
 			rep.Skipped++
 			rep.SkipReasons[res.SkipReason]++
-			continue
+			return nil
 		}
 		rep.Replayable++
 		rep.OldLevelDist[res.OldLevel]++
@@ -112,37 +97,36 @@ func run(path string) (*report, error) {
 			rep.ChangedCount++
 			rep.Flips = append(rep.Flips, res)
 		}
+		return nil
 	}
-	if err := sc.Err(); err != nil {
+	store, err := telemetry.OpenReadOnly(dbPath)
+	if err != nil {
+		return nil, err
+	}
+	defer store.Close()
+	if err := store.Walk(context.Background(), visit); err != nil {
 		return nil, err
 	}
 	return rep, nil
-}
-
-// trimSpace 去掉行首尾空白（避免为一个 helper 引入 strings/bytes 依赖歧义）。
-func trimSpace(b []byte) []byte {
-	start, end := 0, len(b)
-	for start < end && isSpace(b[start]) {
-		start++
-	}
-	for end > start && isSpace(b[end-1]) {
-		end--
-	}
-	return b[start:end]
-}
-
-func isSpace(c byte) bool {
-	return c == ' ' || c == '\t' || c == '\r' || c == '\n'
 }
 
 // levelOrder 固定风险等级展示顺序（由安全到危险）。
 var levelOrder = []string{"safe", "low", "medium", "high", "critical"}
 
 func printReport(w *os.File, rep *report) {
+	levelLabels := map[string]string{
+		"safe": "安全", "low": "低风险", "medium": "中风险", "high": "高风险", "critical": "严重风险",
+	}
+	displayLevel := func(level string) string {
+		if label, ok := levelLabels[level]; ok {
+			return label
+		}
+		return "未知（" + level + "）"
+	}
 	fmt.Fprintln(w, "影子回放对比报告")
 	fmt.Fprintln(w, "================")
-	fmt.Fprintf(w, "journal:   %s\n", rep.Journal)
-	fmt.Fprintf(w, "总行数:    %d\n", rep.TotalLines)
+	fmt.Fprintf(w, "数据库:    %s\n", rep.Database)
+	fmt.Fprintf(w, "总事件数:  %d\n", rep.TotalEvents)
 	fmt.Fprintf(w, "可回放数:  %d\n", rep.Replayable)
 	fmt.Fprintf(w, "跳过数:    %d\n", rep.Skipped)
 
@@ -151,18 +135,18 @@ func printReport(w *os.File, rep *report) {
 		for _, r := range sortedKeys(rep.SkipReasons) {
 			label := skipReasonLabel[r]
 			if label == "" {
-				label = r
+				label = "未知原因（" + r + "）"
 			}
 			fmt.Fprintf(w, "  %-28s %d\n", label, rep.SkipReasons[r])
 		}
 	}
 
-	fmt.Fprintf(w, "\n结论翻转: %d / %d 可回放行\n", rep.ChangedCount, rep.Replayable)
+	fmt.Fprintf(w, "\n结论翻转: %d / %d 可回放事件\n", rep.ChangedCount, rep.Replayable)
 	if rep.ChangedCount > 0 {
 		fmt.Fprintln(w, "结论翻转清单:")
 		for _, r := range rep.Flips {
-			fmt.Fprintf(w, "  %s  score %d→%d  level %s→%s\n",
-				scanPrefix(r.ScanID), r.OldScore, r.NewScore, r.OldLevel, r.NewLevel)
+			fmt.Fprintf(w, "  %s  分数 %d→%d  风险等级 %s→%s\n",
+				scanPrefix(r.ScanID), r.OldScore, r.NewScore, displayLevel(r.OldLevel), displayLevel(r.NewLevel))
 			if len(r.AddedCodes) > 0 {
 				fmt.Fprintf(w, "      + 新增命中: %v\n", r.AddedCodes)
 			}
@@ -173,10 +157,10 @@ func printReport(w *os.File, rep *report) {
 	}
 
 	if rep.Replayable > 0 {
-		fmt.Fprintln(w, "\nrisk_level 分布对比 (旧 → 新):")
-		fmt.Fprintf(w, "  %-10s %6s %6s\n", "level", "旧", "新")
+		fmt.Fprintln(w, "\n风险等级分布对比 (旧 → 新):")
+		fmt.Fprintf(w, "  %-10s %6s %6s\n", "风险等级", "旧", "新")
 		for _, lvl := range levelDisplayOrder(rep) {
-			fmt.Fprintf(w, "  %-10s %6d %6d\n", lvl, rep.OldLevelDist[lvl], rep.NewLevelDist[lvl])
+			fmt.Fprintf(w, "  %-10s %6d %6d\n", displayLevel(lvl), rep.OldLevelDist[lvl], rep.NewLevelDist[lvl])
 		}
 	}
 }

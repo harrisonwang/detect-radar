@@ -2,12 +2,18 @@ package service
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 	"sync"
 	"time"
 
 	"detect-radar/internal/model"
+	"github.com/google/uuid"
 )
+
+// ErrAmbiguousScan 表示客户端扫描标识对应多个历史实例。
+var ErrAmbiguousScan = errors.New("扫描标识对应多个扫描实例")
 
 // ScanService 汇总一次扫描的服务端分析：IP 信息、一致性、泄露复核、指纹和自动化
 type ScanService struct {
@@ -15,8 +21,14 @@ type ScanService struct {
 	consistency *ConsistencyService
 	reputation  *ReputationService
 	rttCoords   rttServerCoords // 服务器坐标，用于 RTT 地理-延迟下限校验（Phase 1）
-	store       sync.Map        // scanID -> storedScan
+	mu          sync.RWMutex
+	store       map[string]storedScan // 扫描实例标识 -> 不可变的响应快照
+	latest      map[string]string     // 客户端扫描标识 -> 最新实例
+	journal     *Journal
 	ttl         time.Duration
+	stop        chan struct{}
+	done        chan struct{}
+	closeOnce   sync.Once
 }
 
 type storedScan struct {
@@ -24,13 +36,15 @@ type storedScan struct {
 	createdAt time.Time
 }
 
-func NewScanService(ipIntel *IPIntelService, consistency *ConsistencyService, reputation *ReputationService, rttLat, rttLon float64) *ScanService {
+func NewScanService(ipIntel *IPIntelService, consistency *ConsistencyService, reputation *ReputationService, rttLat, rttLon float64, journal *Journal) *ScanService {
 	s := &ScanService{
 		ipIntel:     ipIntel,
 		consistency: consistency,
 		reputation:  reputation,
 		rttCoords:   rttServerCoords{Lat: rttLat, Lon: rttLon},
 		ttl:         30 * time.Minute,
+		journal:     journal, store: make(map[string]storedScan), latest: make(map[string]string),
+		stop: make(chan struct{}), done: make(chan struct{}),
 	}
 	go s.cleanup()
 	return s
@@ -39,7 +53,7 @@ func NewScanService(ipIntel *IPIntelService, consistency *ConsistencyService, re
 // Analyze 执行一次完整扫描分析。
 // tcpRTT/tcpRTTVar 是 nginx 透传的 X-TCP-RTT / X-TCP-RTTVAR 头（µs 整数字符串，
 // 描述「出口 IP↔服务器」这一腿；本地开发无 nginx 时为空，优雅降级）。
-func (s *ScanService) Analyze(ctx context.Context, req *model.ScanRequest, clientIP, httpVersion, tcpRTT, tcpRTTVar string) *model.ScanResponse {
+func (s *ScanService) Analyze(ctx context.Context, req *model.ScanRequest, clientIP, httpVersion, tcpRTT, tcpRTTVar, ua string) (*model.ScanResponse, error) {
 	start := time.Now()
 
 	// 1. 出口 IP 信息（深度查询）
@@ -88,41 +102,122 @@ func (s *ScanService) Analyze(ctx context.Context, req *model.ScanRequest, clien
 	resp.ProcessedAt = time.Now().UTC().Format(time.RFC3339)
 	resp.ProcessingTimeMs = time.Since(start).Milliseconds()
 
-	if req.ScanID != "" {
-		s.store.Store(req.ScanID, storedScan{resp: resp, createdAt: time.Now()})
+	if _, err := s.persistScan(resp, ua); err != nil {
+		return nil, err
 	}
-	return resp
+	return resp, nil
 }
 
-// Get 按 scan_id 取回历史结果
+// persistScan 在事件和汇总共同提交后，才将结果放入内存。
+func (s *ScanService) persistScan(resp *model.ScanResponse, ua string) (string, error) {
+	instanceID := uuid.NewString()
+	if err := s.journal.ScanEvent(instanceID, resp, ua); err != nil {
+		return "", err
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.store[instanceID] = storedScan{resp: resp, createdAt: time.Now()}
+	if resp.ScanID != "" {
+		s.latest[resp.ScanID] = instanceID
+	}
+	return instanceID, nil
+}
+
+// Get 仅查询短期内存缓存；SQLite 用于保存内部遥测记录。
 func (s *ScanService) Get(scanID string) (*model.ScanResponse, bool) {
-	v, ok := s.store.Load(scanID)
-	if !ok {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	stored, ok := s.store[s.latest[scanID]]
+	if !ok || time.Since(stored.createdAt) >= s.ttl {
 		return nil, false
 	}
-	return v.(storedScan).resp, true
+	return stored.resp, true
 }
 
-// UpdateDNSLeak 用异步返回的 DNS 泄露结果更新已存扫描并重新评分。
-// DNS 走独立慢路径（自建权威 NS + DNSTap，约 4s），初次扫描时 DNS 尚未定；
-// 结果到位后回传后端由此方法重算，保证评分始终纯后端产出。
-func (s *ScanService) UpdateDNSLeak(scanID string, leaked bool) (*model.ScanResponse, bool) {
-	v, ok := s.store.Load(scanID)
-	if !ok {
-		return nil, false
+// InstanceID 仅关联数据库中的唯一实例，避免内存清理后误判重复标识。
+func (s *ScanService) InstanceID(scanID string) (string, error) {
+	if scanID == "" {
+		return "", nil
 	}
-	stored := v.(storedScan)
-	resp := stored.resp
+	if s.journal == nil || s.journal.store == nil {
+		return "", ErrStorageUnavailable
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	id, binding, err := s.journal.store.ResolveInstance(ctx, scanID)
+	if err != nil {
+		return "", fmt.Errorf("%w：查询扫描实例失败：%v", ErrStorageUnavailable, err)
+	}
+	if binding == "ambiguous" {
+		return "", ErrAmbiguousScan
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	stored, ok := s.store[id]
+	if !ok || time.Since(stored.createdAt) >= s.ttl {
+		return "", nil
+	}
+	return id, nil
+}
 
-	// 就地改 resp（只动 Privacy.DNS 再重算评分）：resp.Analysis.RTT 原样保留，
-	// 不会在 DNS 重评分路径里被丢掉（RTT Phase 1 采集数据须随 post-DNS 判定一起留存）。
+// UpdateDNSLeak 将客户端提交的 DNS 更新持久化后，再更新内存。
+func (s *ScanService) UpdateDNSLeak(scanID string, leaked bool) (*model.ScanResponse, bool, error) {
+	id, err := s.InstanceID(scanID)
+	if err != nil {
+		return nil, false, err
+	}
+	if id == "" {
+		return nil, false, nil
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	stored, ok := s.store[id]
+	if !ok || time.Since(stored.createdAt) >= s.ttl {
+		return nil, false, nil
+	}
+	expected := "safe"
+	if leaked {
+		expected = "danger"
+	}
+	if stored.resp.Analysis.Privacy.DNS.Status == expected {
+		return stored.resp, true, nil
+	}
+	updated := rescoreDNS(stored.resp, leaked)
+	if err := s.journal.DNSUpdateEvent(id, updated, leaked); err != nil {
+		return nil, true, err
+	}
+	stored.resp = updated
+	s.store[id] = stored
+	return updated, true, nil
+}
+
+// UpdateDNSObservation 使用创建 DNS 测试时绑定的扫描实例。
+func (s *ScanService) UpdateDNSObservation(instanceID, clientID string, result *model.DNSLeakResult) (*model.ScanResponse, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	stored, ok := s.store[instanceID]
+	var updated *model.ScanResponse
+	if ok && time.Since(stored.createdAt) < s.ttl {
+		updated = rescoreDNS(stored.resp, result.Leaked)
+	}
+	if err := s.journal.DNSLeakEvent(instanceID, clientID, result, updated); err != nil {
+		return nil, err
+	}
+	if updated != nil {
+		stored.resp = updated
+		s.store[instanceID] = stored
+	}
+	return updated, nil
+}
+
+// 复制响应后再修改，避免影响并发读取或发布未提交的结果。
+func rescoreDNS(previous *model.ScanResponse, leaked bool) *model.ScanResponse {
+	resp := *previous
 	if leaked {
 		resp.Analysis.Privacy.DNS = model.PrivacyDNS{Status: "danger", MatchesExitIP: false}
 	} else {
 		resp.Analysis.Privacy.DNS = model.PrivacyDNS{Status: "safe", MatchesExitIP: true}
 	}
-
-	// 重算 privacy 综合状态（与 buildPrivacy 同口径）
 	pv := &resp.Analysis.Privacy
 	switch {
 	case pv.WebRTC.Status == "danger" || pv.DNS.Status == "danger" || pv.IPv6.Status == "danger":
@@ -132,27 +227,40 @@ func (s *ScanService) UpdateDNSLeak(scanID string, leaked bool) (*model.ScanResp
 	default:
 		pv.OverallStatus = "safe"
 	}
-
 	resp.Score, resp.RiskLevel, resp.Diagnosis, resp.Dimensions = score(resp.Analysis, resp.ServerData.IPIntel)
-	s.store.Store(scanID, storedScan{resp: resp, createdAt: stored.createdAt})
-	return resp, true
+	return &resp
 }
 
 func (s *ScanService) cleanup() {
+	defer close(s.done)
 	ticker := time.NewTicker(5 * time.Minute)
 	defer ticker.Stop()
-	for range ticker.C {
-		now := time.Now()
-		s.store.Range(func(key, value any) bool {
-			if now.Sub(value.(storedScan).createdAt) > s.ttl {
-				s.store.Delete(key)
+	for {
+		select {
+		case <-s.stop:
+			return
+		case now := <-ticker.C:
+			s.mu.Lock()
+			for id, scan := range s.store {
+				if now.Sub(scan.createdAt) >= s.ttl {
+					delete(s.store, id)
+					if s.latest[scan.resp.ScanID] == id {
+						delete(s.latest, scan.resp.ScanID)
+					}
+				}
 			}
-			return true
-		})
+			s.mu.Unlock()
+		}
 	}
 }
 
-// ---- identity ----
+func (s *ScanService) Close() error {
+	s.closeOnce.Do(func() { close(s.stop) })
+	<-s.done
+	return nil
+}
+
+// ---- 网络身份 ----
 
 func buildIdentity(intel *model.IPIntel) model.IdentityAnalysis {
 	ia := model.IdentityAnalysis{
@@ -183,7 +291,7 @@ func buildIdentity(intel *model.IPIntel) model.IdentityAnalysis {
 	return ia
 }
 
-// ---- consistency inputs ----
+// ---- 一致性检测输入 ----
 
 // clientRTTData 取出客户端上报的 RTT 采样（缺失/未采集时返回 nil，deriveRTT 会优雅降级）
 func clientRTTData(req *model.ScanRequest) *model.RTTData {
@@ -205,7 +313,7 @@ func browserFrom(req *model.ScanRequest) model.BrowserInfo {
 	return b
 }
 
-// ---- privacy ----
+// ---- 隐私泄露 ----
 
 func buildPrivacy(req *model.ScanRequest, exitIP string, intel *model.IPIntel) model.PrivacyAnalysis {
 	pa := model.PrivacyAnalysis{
@@ -270,7 +378,7 @@ func buildPrivacy(req *model.ScanRequest, exitIP string, intel *model.IPIntel) m
 	return pa
 }
 
-// ---- fingerprint ----
+// ---- 浏览器指纹 ----
 
 func buildFingerprint(req *model.ScanRequest) model.FingerprintAnalysis {
 	fa := model.FingerprintAnalysis{
@@ -334,7 +442,7 @@ func buildFingerprint(req *model.ScanRequest) model.FingerprintAnalysis {
 	return fa
 }
 
-// ---- automation ----
+// ---- 自动化检测 ----
 
 func buildAutomation(req *model.ScanRequest) model.AutomationAnalysis {
 	aa := model.AutomationAnalysis{AutomationTraces: []string{}, OverallStatus: "safe"}
@@ -371,7 +479,7 @@ func buildAutomation(req *model.ScanRequest) model.AutomationAnalysis {
 	return aa
 }
 
-// ---- helpers ----
+// ---- 辅助函数 ----
 
 func isNativeCode(code string) bool {
 	return strings.Contains(code, "[native code]")

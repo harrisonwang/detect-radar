@@ -4,6 +4,8 @@ import (
 	"detect-radar/internal/model"
 	"detect-radar/internal/service"
 	"detect-radar/internal/util"
+	"errors"
+	"log"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -17,12 +19,12 @@ func NewScanHandler(s *service.ScanService, journal *service.Journal) *ScanHandl
 	return &ScanHandler{service: s, journal: journal}
 }
 
-// CreateScan POST /scans
+// CreateScan 提交扫描（POST /scans）。
 // 客户端提交采集到的全部信号，服务端汇总出口 IP 信息、一致性、泄露和指纹，返回统一 verdict
 func (h *ScanHandler) CreateScan(c *fiber.Ctx) error {
 	var req model.ScanRequest
 	if err := c.BodyParser(&req); err != nil {
-		return util.InvalidParameter(c, "Invalid request body: "+err.Error())
+		return util.InvalidParameter(c, "请求内容无效："+err.Error())
 	}
 
 	// scan_id 若提供须合法（用于 GET /scans/:id 取回，且作为内存 store 的 key）
@@ -45,25 +47,27 @@ func (h *ScanHandler) CreateScan(c *fiber.Ctx) error {
 	if c.IsProxyTrusted() {
 		tcpRTT, tcpRTTVar = c.Get("X-TCP-RTT"), c.Get("X-TCP-RTTVAR")
 	}
-	result := h.service.Analyze(c.Context(), &req, ip, c.Protocol(), tcpRTT, tcpRTTVar)
-	h.journal.ScanEvent(result, c.Get("User-Agent"))
+	result, err := h.service.Analyze(c.Context(), &req, ip, c.Protocol(), tcpRTT, tcpRTTVar, c.Get("User-Agent"))
+	if err != nil {
+		return storageUnavailable(c, err)
+	}
 	return c.Status(fiber.StatusCreated).JSON(result)
 }
 
-// GetScan GET /scans/:id
+// GetScan 查询扫描结果（GET /scans/:id）。
 func (h *ScanHandler) GetScan(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
-		return util.MissingParameter(c, "scan id is required")
+		return util.MissingParameter(c, "缺少扫描标识")
 	}
 	result, ok := h.service.Get(id)
 	if !ok {
-		return util.ResourceNotFound(c, "scan '"+id+"' not found or has expired.")
+		return util.ResourceNotFound(c, "扫描 '"+id+"' 不存在或已过期")
 	}
 	return c.JSON(result)
 }
 
-// UpdateDNS POST /scans/:id/dns
+// UpdateDNS 更新 DNS 结果（POST /scans/:id/dns）。
 // 异步 DNS 泄露结果回传后端，更新该扫描的 DNS 判定并重新评分（评分始终纯后端产出）。
 func (h *ScanHandler) UpdateDNS(c *fiber.Ctx) error {
 	id := c.Params("id")
@@ -74,16 +78,26 @@ func (h *ScanHandler) UpdateDNS(c *fiber.Ctx) error {
 		Leaked bool `json:"leaked"`
 	}
 	if err := c.BodyParser(&body); err != nil {
-		return util.InvalidParameter(c, "Invalid request body: "+err.Error())
+		return util.InvalidParameter(c, "请求内容无效："+err.Error())
 	}
-	result, ok := h.service.UpdateDNSLeak(id, body.Leaked)
+	result, ok, err := h.service.UpdateDNSLeak(id, body.Leaked)
+	if errors.Is(err, service.ErrAmbiguousScan) {
+		return ambiguousScan(c)
+	}
+	if err != nil {
+		return storageUnavailable(c, err)
+	}
 	if !ok {
-		return util.ResourceNotFound(c, "scan '"+id+"' not found or has expired.")
+		return util.ResourceNotFound(c, "扫描 '"+id+"' 不存在或已过期")
 	}
 	return c.JSON(result)
 }
 
-// SubmitFeedback POST /scans/:id/feedback
+func ambiguousScan(c *fiber.Ctx) error {
+	return util.Error(c, fiber.StatusConflict, "扫描标识冲突", "该扫描标识已被重复使用，无法关联 DNS 结果，请重新检测")
+}
+
+// SubmitFeedback 提交反馈（POST /scans/:id/feedback）。
 // 结果反馈通道：用户是误报/漏检标注的唯一来源，反馈落遥测流水（feedback 事件）。
 // 扫描仍在内存 store（30 分钟内）时附带当时评分现场；过期也照收——过期扫描的反馈
 // 仍是有效数据，靠 scan_id 与先前 scan 行关联。校验通过返回 204，不回显任何内容。
@@ -101,7 +115,7 @@ func (h *ScanHandler) SubmitFeedback(c *fiber.Ctx) error {
 		Note     string `json:"note"`
 	}
 	if err := c.BodyParser(&body); err != nil {
-		return util.InvalidParameter(c, "Invalid request body: "+err.Error())
+		return util.InvalidParameter(c, "请求内容无效："+err.Error())
 	}
 	if !service.ValidFeedbackCategory(body.Category) {
 		return util.InvalidParameter(c, "category 非法（须为 false_positive/missed_detection/data_wrong/other）")
@@ -113,6 +127,14 @@ func (h *ScanHandler) SubmitFeedback(c *fiber.Ctx) error {
 
 	// 扫描仍在内存 store 时取回作为评分现场；已过期 Get 返回 nil，反馈照落
 	resp, _ := h.service.Get(id)
-	h.journal.FeedbackEvent(id, body.Category, note, resp)
+	if err := h.journal.FeedbackEvent(id, body.Category, note, resp); err != nil {
+		return storageUnavailable(c, err)
+	}
 	return c.SendStatus(fiber.StatusNoContent)
+}
+
+// 数据库路径和驱动错误仅写入服务端日志，接口返回通用提示。
+func storageUnavailable(c *fiber.Ctx, err error) error {
+	log.Printf("[遥测] 请求 %s 保存失败：%v", c.Path(), err)
+	return util.RFC7807Error(c, util.ProblemTypeServiceUnavailable, "服务暂不可用", fiber.StatusServiceUnavailable, "暂时无法保存结果，请稍后重试")
 }

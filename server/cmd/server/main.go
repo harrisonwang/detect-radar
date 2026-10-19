@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"os/signal"
@@ -19,6 +20,7 @@ import (
 	"detect-radar/internal/middleware"
 	"detect-radar/internal/repository"
 	"detect-radar/internal/service"
+	"detect-radar/internal/telemetry"
 )
 
 type Services struct {
@@ -40,7 +42,7 @@ func main() {
 	// 加载配置
 	cfg, err := config.Load()
 	if err != nil {
-		log.Fatal("Failed to load config:", err)
+		log.Fatal("加载配置失败：", err)
 	}
 
 	// 初始化基础设施
@@ -50,8 +52,26 @@ func main() {
 	// 初始化 IPIntel 服务（三层架构）
 	ipIntelService := initIPIntelService(cfg, infra)
 
-	// 内部遥测流水（回放用户反馈现场；文件轮转由 logrotate 负责）
-	journal := service.NewJournal("data/scans.jsonl")
+	// 遥测记录提交成功后，接口才能返回成功。
+	store, err := telemetry.Open(telemetry.Options{
+		Path: cfg.Telemetry.Path, RetentionEnabled: cfg.Telemetry.RetentionEnabled,
+		ScanRetention:     time.Duration(cfg.Telemetry.ScanRetentionDays) * 24 * time.Hour,
+		FeedbackRetention: time.Duration(cfg.Telemetry.FeedbackRetentionDays) * 24 * time.Hour,
+	})
+	if err != nil {
+		log.Fatal("打开遥测数据库失败：", err)
+	}
+	defer store.Close()
+	journal := service.NewJournal(store)
+	if cfg.Telemetry.RetentionEnabled {
+		cleanupCtx, cancelCleanup := context.WithCancel(context.Background())
+		cleanupDone := make(chan struct{})
+		go func() {
+			defer close(cleanupDone)
+			cleanupTelemetry(cleanupCtx, store, cfg.Telemetry.CleanupInterval)
+		}()
+		defer func() { cancelCleanup(); <-cleanupDone }()
+	}
 
 	// 检测相关服务（P0/P1/P2/P5）
 	consistencyService := service.NewConsistencyService(ipIntelService)
@@ -65,17 +85,19 @@ func main() {
 		Reputation:  reputationService,
 		DNS:         dnsService,
 		DNSTap:      dnsTapService,
-		Scan:        service.NewScanService(ipIntelService, consistencyService, reputationService, cfg.RTT.ServerLat, cfg.RTT.ServerLon),
+		Scan:        service.NewScanService(ipIntelService, consistencyService, reputationService, cfg.RTT.ServerLat, cfg.RTT.ServerLon, journal),
 		Journal:     journal,
 	}
 
 	// DNS 观测到位后由 DNS 服务重算已存扫描，把 post-DNS 判定写入遥测流水
 	dnsService.SetScanService(services.Scan)
+	defer dnsService.Close()
+	defer services.Scan.Close()
 
 	// 启动 DNSTap 记录端（挂真实递归解析器；未配置 dnstap_addr 时跳过）
 	if cfg.DNS.DNSTapAddr != "" {
 		if err := dnsTapService.Start(cfg.DNS.DNSTapAddr); err != nil {
-			log.Printf("Warning: Failed to start DNSTap service: %v", err)
+			log.Printf("警告：启动 DNSTap 服务失败：%v", err)
 		}
 	}
 
@@ -104,25 +126,50 @@ func main() {
 	// 优雅关闭
 	go func() {
 		if err := app.Listen(cfg.Server.Port); err != nil {
-			log.Fatal("Failed to start server:", err)
+			log.Fatal("启动服务失败：", err)
 		}
 	}()
 
-	log.Printf("Server started on %s", cfg.Server.Port)
+	log.Printf("服务已启动，监听端口：%s", cfg.Server.Port)
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	<-quit
 
-	log.Println("Shutting down server...")
+	log.Println("正在关闭服务……")
 	if services.DNSTap != nil {
 		services.DNSTap.Stop()
 	}
 	if err := app.Shutdown(); err != nil {
-		log.Fatal("Server forced to shutdown:", err)
+		log.Fatal("服务关闭失败：", err)
 	}
 
-	log.Println("Server exited")
+	log.Println("服务已退出")
+}
+
+// 分批提交过期清理，避免长时间阻塞扫描写入。
+func cleanupTelemetry(ctx context.Context, store *telemetry.Store, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
+		for ctx.Err() == nil {
+			n, err := store.Prune(ctx, time.Now())
+			if err != nil {
+				if ctx.Err() == nil {
+					log.Printf("[遥测] 清理过期数据失败：%v", err)
+				}
+				break
+			}
+			if n < 1000 {
+				break
+			}
+		}
+	}
 }
 
 func setupRoutes(app *fiber.App, services *Services) {
@@ -182,10 +229,10 @@ func initInfrastructure(cfg *config.Config) *Infrastructure {
 		DB:       cfg.Redis.DB,
 	}, cfg.IPIntel.CacheTTL)
 	if err != nil {
-		log.Printf("Warning: Failed to connect to Redis: %v (caching disabled)", err)
+		log.Printf("警告：连接 Redis 失败：%v（已禁用缓存）", err)
 	} else {
 		infra.RedisCache = redisCache
-		log.Printf("Connected to Redis at %s", cfg.Redis.Addr)
+		log.Printf("已连接 Redis：%s", cfg.Redis.Addr)
 	}
 
 	// 初始化 SQLite 数据库
@@ -193,11 +240,11 @@ func initInfrastructure(cfg *config.Config) *Infrastructure {
 		Path: cfg.SQLite.Path,
 	})
 	if err != nil {
-		log.Printf("Warning: Failed to open SQLite database: %v", err)
+		log.Printf("警告：打开 SQLite 数据库失败：%v", err)
 	} else {
 		infra.SQLiteDB = sqliteDB
 		stats, _ := sqliteDB.Stats()
-		log.Printf("Opened SQLite database at %s (providers: %d, keywords: %d)",
+		log.Printf("已打开 SQLite 数据库：%s（服务商：%d，关键词：%d）",
 			cfg.SQLite.Path, stats["hosting_providers"], stats["hosting_keywords"])
 	}
 
@@ -222,10 +269,10 @@ func initIPIntelService(cfg *config.Config, infra *Infrastructure) *service.IPIn
 	if cfg.IPIntel.CityDBPath != "" || cfg.IPIntel.ASNDBPath != "" {
 		local, err := adapter.NewLocalAdapter(cfg.IPIntel.CityDBPath, cfg.IPIntel.ASNDBPath)
 		if err != nil {
-			log.Printf("Warning: Failed to load local IP database: %v", err)
+			log.Printf("警告：加载本地 IP 数据库失败：%v", err)
 		} else {
 			registry.SetLocal(local)
-			log.Printf("Loaded local IP database: city=%s, asn=%s", cfg.IPIntel.CityDBPath, cfg.IPIntel.ASNDBPath)
+			log.Printf("已加载本地 IP 数据库：城市库=%s，ASN 库=%s", cfg.IPIntel.CityDBPath, cfg.IPIntel.ASNDBPath)
 		}
 	}
 
@@ -235,10 +282,10 @@ func initIPIntelService(cfg *config.Config, infra *Infrastructure) *service.IPIn
 	if cfg.IPIntel.CNV4DBPath != "" || cfg.IPIntel.CNV6DBPath != "" {
 		cn, err := adapter.NewIP2RegionCN(cfg.IPIntel.CNV4DBPath, cfg.IPIntel.CNV6DBPath)
 		if err != nil {
-			log.Printf("Warning: Failed to load ip2region CN layer: %v", err)
+			log.Printf("警告：加载 ip2region 中国地理数据库失败：%v", err)
 		} else if cn != nil {
 			cnGeo = cn
-			log.Printf("Loaded ip2region CN geo layer: v4=%s, v6=%s", cfg.IPIntel.CNV4DBPath, cfg.IPIntel.CNV6DBPath)
+			log.Printf("已加载 ip2region 中国地理数据库：IPv4=%s，IPv6=%s", cfg.IPIntel.CNV4DBPath, cfg.IPIntel.CNV6DBPath)
 		}
 	}
 
@@ -246,22 +293,22 @@ func initIPIntelService(cfg *config.Config, infra *Infrastructure) *service.IPIn
 	// 优先级: IP2Location > ipapi.is > BigDataCloud > IPRegistry
 	if cfg.IPIntel.IP2LocationKey != "" {
 		registry.AddRemote(adapter.NewIP2LocationAdapter(cfg.IPIntel.IP2LocationKey))
-		log.Println("Added IP2Location adapter")
+		log.Println("已添加 IP2Location 适配器")
 	}
 
 	if cfg.IPIntel.IPAPIISKey != "" {
 		registry.AddRemote(adapter.NewIPAPIISAdapter(cfg.IPIntel.IPAPIISKey))
-		log.Println("Added ipapi.is adapter")
+		log.Println("已添加 ipapi.is 适配器")
 	}
 
 	if cfg.IPIntel.BigDataCloudKey != "" {
 		registry.AddRemote(adapter.NewBigDataCloudAdapter(cfg.IPIntel.BigDataCloudKey))
-		log.Println("Added BigDataCloud adapter")
+		log.Println("已添加 BigDataCloud 适配器")
 	}
 
 	if cfg.IPIntel.IPRegistryKey != "" {
 		registry.AddRemote(adapter.NewIPRegistryAdapter(cfg.IPIntel.IPRegistryKey))
-		log.Println("Added IPRegistry adapter")
+		log.Println("已添加 IPRegistry 适配器")
 	}
 
 	// 初始化 HostingDetector
@@ -280,10 +327,10 @@ func initIPIntelService(cfg *config.Config, infra *Infrastructure) *service.IPIn
 			keywordRepo,
 		)
 		if err != nil {
-			log.Printf("Warning: Failed to create HostingDetector: %v", err)
+			log.Printf("警告：创建机房检测器失败：%v", err)
 		} else {
 			stats := hostingDetector.GetStats()
-			log.Printf("Initialized HostingDetector (providers: %v, keywords: %v)",
+			log.Printf("已初始化机房检测器（服务商：%v，关键词：%v）",
 				stats["provider_count"], stats["keyword_count"])
 		}
 	}
@@ -296,9 +343,9 @@ func initIPIntelService(cfg *config.Config, infra *Infrastructure) *service.IPIn
 				Token:    cfg.IPIntel.CloudflareRadarToken,
 				CacheTTL: 24 * time.Hour,
 			}, infra.RedisCache.Client())
-			log.Println("Initialized Cloudflare Radar service")
+			log.Println("已初始化 Cloudflare Radar 服务")
 		} else {
-			log.Printf("Warning: Cloudflare Radar service requires Redis for caching, skipped")
+			log.Printf("警告：Cloudflare Radar 服务依赖 Redis 缓存，已跳过初始化")
 		}
 	}
 

@@ -1,93 +1,105 @@
-# DetectRadar 自托管部署
+# 使用 Docker 部署 DetectRadar
 
-一套 `docker compose up -d` 拉起完整 DetectRadar：前端 + Go API + CoreDNS 信标权威 DNS + 证书自动签发 + 云 IP 段爬虫。DNS 记录、NS 委派、TLS 证书全部通过 Cloudflare API 自动完成，唯一需要在页面上做的事是**创建一次 API Token**。
+DetectRadar 可以通过 Docker Compose 启动网站、API、DNS 服务和 HTTPS 证书服务。
 
-## 架构
+## 部署前准备
 
-```
-                    ┌────────────────────────── 你的服务器（host 网络） ─────────────────────────┐
- 浏览器 ──443/80──▶ │ web (nginx+前端)  ──127.0.0.1:8080──▶ server (Go API)                      │
-                    │        │ X-TCP-RTT($tcpinfo_rtt)              ▲ dnstap 127.0.0.1:6000      │
- 递归解析器 ──53──▶ │ coredns (leak.<域名> 权威)  ────────────────┘                              │
-                    │ acme (证书签发/续期)   crawler (云 IP 段每日更新)   setup (一次性初始化)   │
-                    └───────────────────────────────────────────────────────────────────────────┘
-```
+需要准备：
 
-整套服务跑在 `network_mode: host` 上，这是硬约束而非偏好：源 IP 保真、nginx `$tcpinfo_rtt` 物理测距、CoreDNS 对公网答 53 三件事在桥接/rootless 网络下都会静默失真。
+- Linux 服务器和公网 IP；
+- TCP 80、443，以及 TCP/UDP 53 端口；
+- 一个托管在 Cloudflare 的域名；
+- Docker Engine 和 Docker Compose；
+- 一个 Cloudflare API 令牌。
 
-## 前置条件
+API 令牌需要具备以下权限：
 
-- Linux 服务器（amd64 / arm64），**独占公网 IP**，53、80、443 端口空闲
-  - `systemd-resolved` 不冲突（它只占 `127.0.0.53`）；`dnsmasq`/`named` 占用 `0.0.0.0:53` 则需先释放
-  - **云厂商防火墙/安全组要放行入站 TCP 80/443 + TCP/UDP 53**（腾讯云/阿里云等默认只开 80/22，53 和 443 被拦时的症状：主站能 301 跳转但 HTTPS 超时、`*.leak` 证书签发卡在 DNS 验证超时）
-- root 模式的 Docker + Compose v2（**不支持 rootless Docker**，它会丢源 IP）
-- 域名已托管在 Cloudflare（NS 指向 Cloudflare）
+- Zone → DNS → Edit
+- Zone → Zone → Read
 
-## 快速开始
+项目使用 Docker 的主机网络模式（host）。这样 API 才能获取真实客户端 IP，DNS 服务也能直接监听 53 端口。请使用 root 权限运行 Docker，不要改成 rootless Docker 或 bridge 网络。
 
-1. 创建 Cloudflare API Token（唯一的页面操作）：
-   [dash.cloudflare.com/profile/api-tokens](https://dash.cloudflare.com/profile/api-tokens) → 创建令牌 → 模板「编辑区域 DNS」→ 区域资源限定到你的域名 zone（权限即 Zone→DNS→Edit + Zone→Zone→Read）。
-
-2. 下载编排文件并填参数：
+## 开始部署
 
 ```bash
-mkdir detect-radar && cd detect-radar
+mkdir detect-radar
+cd detect-radar
+
 curl -fsSLO https://raw.githubusercontent.com/harrisonwang/detect-radar/main/deploy/docker-compose.yml
 curl -fsSL https://raw.githubusercontent.com/harrisonwang/detect-radar/main/deploy/.env.example -o .env
-chmod 600 .env   # 里面要放 CF Token
-vi .env          # 必填仅 3 项：DOMAIN / CF_Token / ACME_EMAIL
-```
 
-3. 启动：
-
-```bash
+chmod 600 .env
+vi .env
 docker compose up -d
 ```
 
-首次启动会依次自动完成：探测公网 IP 与经纬度 → 在 Cloudflare 创建 `A`（主站）、`A ns1.leak.<域名>`（glue）、`NS leak.<域名>`（信标 zone 委派）→ 渲染 nginx/CoreDNS/后端配置 → 生成占位证书拉起 nginx → acme 容器经 DNS-01 签出真证书并自动热替换 → 爬虫开始首轮云 IP 段抓取。新委派的 DNS 生效可能需要几分钟，acme 容器会自动重试。
+`.env` 中必须填写：
 
-## 验证
-
-```bash
-dig NS leak.你的域名 @1.1.1.1
+```dotenv
+DOMAIN=你的域名
+CF_Token=Cloudflare API 令牌
+ACME_EMAIL=你的邮箱
 ```
 
+首次启动会自动完成以下工作：
+
+- 创建或更新 Cloudflare DNS 记录；
+- 生成 API、nginx 和 DNS 配置；
+- 启动网站和 API；
+- 由 acme 服务申请 HTTPS 证书；
+- 启动云厂商 IP 数据更新服务。
+
+首次申请证书和等待 DNS 生效可能需要几分钟。
+
+国内机器可按 [`.env.example`](.env.example) 中的注释配置镜像源。
+
+## 检查服务
+
+查看容器状态：
+
 ```bash
-dig A test.leak.你的域名 @你的服务器IP
+docker compose ps
 ```
+
+查看 API 日志：
+
+```bash
+docker compose logs --tail=100 server
+```
+
+检查网站：
 
 ```bash
 curl https://你的域名/health
 ```
 
-最后用真实浏览器（别在服务器本机 curl）做一次完整扫描，确认：报告显示的出口 IP 是你客户端的真实 IP（若出现 `172.x` 内网地址说明网络模式被改错了）、RTT 数值量级合理、DNS 泄露检测能出结果。
+检查 DNS：
 
-## 参数与运维
+```bash
+dig NS leak.你的域名 @1.1.1.1
+dig A test.leak.你的域名 @你的服务器IP
+```
 
-| 操作 | 命令 |
-|---|---|
-| 修改 `.env` 后生效 | `docker compose up -d && docker compose restart server coredns web` |
-| 升级镜像 | `docker compose pull && docker compose up -d` |
-| 更新地理库 | 替换 `radar_data` 卷里的 mmdb/xdb 后 `docker compose restart server`（mmdb 被 mmap，必须重启） |
-| 看证书状态 | `docker compose exec acme acme.sh --list` |
-| 数据备份 | `radar_data` 卷（hosting.db、scans.db、地理库）+ `acme_state` 卷 |
+确认服务正常后，用浏览器打开网站并完成一次扫描。
 
-全部参数见 [.env.example](.env.example)。第三方情报源 key（ipapi.is 等）都可留空，只影响判定准确率，不影响启动。
+## 更新配置和镜像
 
-## 镜像
+修改 `.env` 后执行：
 
-| 镜像 | 内容 |
-|---|---|
-| `detect-radar-server` | Go API，内置 DB-IP Lite（CC BY 4.0）与 ip2region 地理库，首启播种到数据卷 |
-| `detect-radar-web` | nginx + Astro 前端产物，inotify 自动热载新证书 |
-| `detect-radar-setup` | 初始化器：Cloudflare API、配置渲染、占位证书 |
-| `cloud-ip-crawler` | 云厂商 IP 段爬虫（[独立仓库](https://github.com/harrisonwang/cloud-ip-crawler)） |
+```bash
+docker compose up -d
+docker compose restart server coredns web
+```
 
-默认从 `ghcr.io/harrisonwang` 拉取；国内机器把 `.env` 里的 `REGISTRY` 切到 `registry.cn-shenzhen.aliyuncs.com/harrisonwang`（CoreDNS、acme.sh 官方镜像也已同步到该 ACR，见 `.env.example` 注释）。
+更新镜像：
 
-## 已知边界
+```bash
+docker compose pull
+docker compose up -d
+```
 
-- **Cloudflare 橙云（代理）必须关闭**：setup 会强制把相关记录设为「仅 DNS」并在检测到橙云时告警。经 CF 反代后源 IP 与 RTT 全部失真，整个产品失去意义。
-- 前端 canonical/sitemap 默认指向 detectradar.com：不影响功能；在意 SEO 标记的话本地构建 web 镜像并传 `--build-arg PUBLIC_SITE_URL=https://你的域名`。
-- 服务器地理定位默认取自 ip-api.com：机房 IP 定位偶有偏差，RTT 校验异常时手工设置 `SERVER_LAT`/`SERVER_LON`。
-- 首轮爬虫完成前（约几分钟），扫描结果里的云厂商归属层可能缺失。
+查看证书状态：
+
+```bash
+docker compose exec acme acme.sh --list
+```

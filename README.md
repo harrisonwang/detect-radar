@@ -6,7 +6,7 @@
 
 ![DetectRadar：网络环境一致性检测](client/public/og-default.png)
 
-## 它能做什么
+## 核心功能
 
 - 核对浏览器时区、系统语言与当前出口 IP 所在地区是否一致。
 - 检查 WebRTC、DNS 和 IPv6 是否暴露了与当前出口不同的网络信息。
@@ -16,7 +16,7 @@
 
 打开网页后会自动开始检测，无需安装或注册。分享图由浏览器本地生成，并自动脱敏 IP；页面中的完整报告仍会显示当前出口 IP，便于核对结果。
 
-## 它怎样工作
+## 工作原理
 
 浏览器负责采集时区、语言、环境特征和网络泄露信号，后端根据本次连接的出口 IP 补充网络信息，再统一完成一致性判断和评分。
 
@@ -46,19 +46,23 @@ DNS 检测依赖 DetectRadar 的权威 DNS 服务，因此会在主报告之后�
 
 ## 快速开始
 
-### Docker 自托管（推荐）
+### Docker 部署
 
-准备三样：一台有公网 IP 的 Linux 服务器（云防火墙放行 TCP 80/443 和 TCP/UDP 53）、一个托管在 Cloudflare 的域名、一个 Cloudflare API Token（权限 Zone→DNS→Edit + Zone→Read）。
+准备一台能从公网访问的 Linux 服务器，并放行 TCP 80、443 和 TCP/UDP 53 端口。域名需要托管在 Cloudflare，还需要一个具备 Zone DNS Edit 和 Zone Read 权限的 API 令牌（配置项名为 `CF_Token`）。
 
 ```bash
-mkdir detect-radar && cd detect-radar
+mkdir detect-radar
+cd detect-radar
+
 curl -fsSLO https://raw.githubusercontent.com/harrisonwang/detect-radar/main/deploy/docker-compose.yml
 curl -fsSL https://raw.githubusercontent.com/harrisonwang/detect-radar/main/deploy/.env.example -o .env
-vi .env    # 必填 3 项：DOMAIN / CF_Token / ACME_EMAIL
+
+chmod 600 .env
+vi .env    # 填写 DOMAIN、CF_Token 和 ACME_EMAIL
 docker compose up -d
 ```
 
-DNS 记录、信标 zone 的 NS 委派、TLS 证书（含 `*.leak` 通配证书）全部自动完成，无需在页面上手动操作。国内服务器把 `.env` 里的 `REGISTRY` 换成阿里云镜像源（`.env` 内有注释）。完整说明、验证方法与运维手册见 [deploy/README.md](deploy/README.md)。
+首次启动会自动创建 DNS 记录、生成配置，并由 acme 服务申请 HTTPS 证书，通常需要几分钟。国内服务器可按 `.env.example` 中的注释配置镜像源。完整的检查和维护方法见 [deploy/README.md](deploy/README.md)。
 
 ### 本地开发
 

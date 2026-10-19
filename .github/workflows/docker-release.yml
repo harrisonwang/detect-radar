@@ -83,6 +83,8 @@ jobs:
           file: ${{ matrix.dockerfile }}
           platforms: linux/amd64,linux/arm64
           push: true
+          # ACR 个人版不支持 OCI artifact 格式的构建证明，保留旧版 attestation 格式
+          outputs: type=image,oci-artifact=false
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
             DBIP_MONTH=${{ steps.meta.outputs.dbip_month }}
@@ -112,4 +114,8 @@ jobs:
         run: |
           echo "$ACR_PASSWORD" | regctl registry login "$ACR_REGISTRY" -u "$ACR_USERNAME" --pass-stdin
           regctl image copy "coredns/coredns:${COREDNS_TAG}" "${ACR_REGISTRY}/${ACR_NAMESPACE}/coredns:${COREDNS_TAG}"
-          regctl image copy "neilpang/acme.sh:latest" "${ACR_REGISTRY}/${ACR_NAMESPACE}/acme-sh:latest"
+          # 只同步部署支持的架构，跳过 ACR 不支持的 attestation 子项
+          regctl index create "${ACR_REGISTRY}/${ACR_NAMESPACE}/acme-sh:latest" \
+            --ref "neilpang/acme.sh:latest" \
+            --platform linux/amd64 \
+            --platform linux/arm64

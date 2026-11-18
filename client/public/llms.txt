@@ -21,7 +21,7 @@
 ## 相关页面
 
 - 在线检测：https://detectradar.com/
-- 隐私政策：https://detectradar.com/privacy
-- 服务条款：https://detectradar.com/terms
+- 隐私政策：https://detectradar.com/privacy/
+- 服务条款：https://detectradar.com/terms/
 - 完整说明：https://detectradar.com/llms-full.txt
 - 源码仓库：https://github.com/harrisonwang/detect-radar

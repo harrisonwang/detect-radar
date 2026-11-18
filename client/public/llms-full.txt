@@ -74,6 +74,6 @@ DNS 检测依赖 DetectRadar 的权威 DNS 服务，并在主报告之后异步�
 ## 相关页面
 
 - 在线检测：https://detectradar.com/
-- 隐私政策：https://detectradar.com/privacy
-- 服务条款：https://detectradar.com/terms
+- 隐私政策：https://detectradar.com/privacy/
+- 服务条款：https://detectradar.com/terms/
 - 源码仓库：https://github.com/harrisonwang/detect-radar

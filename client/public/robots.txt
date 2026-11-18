@@ -32,4 +32,4 @@ Allow: /
 User-agent: CCBot
 Allow: /
 
-Sitemap: https://detectradar.com/sitemap-index.xml
+Sitemap: https://detectradar.com/sitemap.xml

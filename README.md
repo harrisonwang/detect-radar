@@ -2,7 +2,7 @@
 
 **网络环境一致性检测工具。** 核对当前出口 IP 与浏览器的时区、语言和环境特征，同时检查 WebRTC、DNS 和 IPv6 泄露，生成诊断报告和雷达图。
 
-[在线体验](https://detectradar.com/) · [隐私政策](https://detectradar.com/privacy)
+[在线体验](https://detectradar.com/) · [隐私政策](https://detectradar.com/privacy/)
 
 ![DetectRadar：网络环境一致性检测](client/public/og-default.png)
 
@@ -30,7 +30,7 @@ DNS 检测结果会稍后返回。无法完成的检测会标为“未检测”�
 
 ## 数据与隐私
 
-检测记录和反馈用于排查问题与改进检测。分享图片在浏览器本地生成，IP 自动脱敏。详见[隐私政策](https://detectradar.com/privacy)。
+检测记录和反馈用于排查问题与改进检测。分享图片在浏览器本地生成，IP 自动脱敏。详见[隐私政策](https://detectradar.com/privacy/)。
 
 ## 项目结构
 

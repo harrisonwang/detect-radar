@@ -23,6 +23,7 @@ server {
 
     root /usr/share/nginx/site;
     index index.html;
+    charset utf-8;
 
     client_max_body_size 1m;
 

@@ -13,10 +13,14 @@ import (
 
 var ErrStorageUnavailable = errors.New("遥测存储不可用")
 
-// Journal 将完整遥测事件写入 SQLite。
-type Journal struct{ store *telemetry.Store }
+type Journal struct {
+	store  *telemetry.Store
+	mailer *Mailer
+}
 
-func NewJournal(store *telemetry.Store) *Journal { return &Journal{store: store} }
+func NewJournal(store *telemetry.Store, mailer *Mailer) *Journal {
+	return &Journal{store: store, mailer: mailer}
+}
 
 func (j *Journal) append(instanceID, key string, event map[string]any) error {
 	if j == nil || j.store == nil {
@@ -193,33 +197,6 @@ func (j *Journal) DNSLeakEvent(instanceID, scanID string, result *model.DNSLeakR
 		ev["analysis"] = resp.Analysis
 	}
 	return j.append(instanceID, "dns_leak:"+instanceID+":"+result.ID, ev)
-}
-
-// FeedbackEvent 保留已过期或无法唯一关联扫描的反馈。
-func (j *Journal) FeedbackEvent(scanID, category, note string, resp *model.ScanResponse) error {
-	if j == nil || j.store == nil {
-		return ErrStorageUnavailable
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	instanceID, binding, err := j.store.ResolveInstance(ctx, scanID)
-	if err != nil {
-		return fmt.Errorf("%w: %v", ErrStorageUnavailable, err)
-	}
-	ev := map[string]any{
-		"event": "feedback", "ts": time.Now().UTC().Format(time.RFC3339Nano),
-		"scan_id": scanID, "category": category, "binding_status": binding,
-	}
-	if note != "" {
-		ev["note"] = note
-	}
-	if resp != nil && instanceID != "" {
-		ev["context"] = map[string]any{
-			"score": resp.Score, "risk_level": resp.RiskLevel,
-			"fired": firedRules(resp.Diagnosis), "analysis": resp.Analysis,
-		}
-	}
-	return j.append(instanceID, "", ev)
 }
 
 func (j *Journal) DNSLifecycle(eventType, instanceID, scanID, testID string) error {

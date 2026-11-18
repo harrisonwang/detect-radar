@@ -1,13 +1,19 @@
 package service
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
+
+	"detect-radar/internal/mail"
+	"detect-radar/internal/model"
+	"detect-radar/internal/telemetry"
 )
 
-// 结果反馈的四类语义。误报标注只能来自真实用户，是校准规则表的唯一现场信号，
-// 分类固定为枚举，便于运营侧按类聚合统计误报率/漏检率。
 const (
 	FeedbackFalsePositive   = "false_positive"   // 我是正常网络，被误判
 	FeedbackMissedDetection = "missed_detection" // 在用代理/VPN，但没检出
@@ -15,10 +21,8 @@ const (
 	FeedbackOther           = "other"
 )
 
-// feedbackNoteMaxRunes 备注字数上限（按 Unicode 码点计，中文一字算一个）
 const feedbackNoteMaxRunes = 500
 
-// ValidFeedbackCategory 校验反馈分类是否在枚举内
 func ValidFeedbackCategory(category string) bool {
 	switch category {
 	case FeedbackFalsePositive, FeedbackMissedDetection, FeedbackDataWrong, FeedbackOther:
@@ -27,8 +31,7 @@ func ValidFeedbackCategory(category string) bool {
 	return false
 }
 
-// NormalizeFeedbackNote 归一化用户备注：剔除控制字符（制表/换行归并为空格），去首尾空白，
-// 再按码点数校验 ≤ feedbackNoteMaxRunes。超长返回 ok=false（交由 handler 判 400）。
+// NormalizeFeedbackNote 清理控制字符，并限制为 500 个码点。
 func NormalizeFeedbackNote(note string) (string, bool) {
 	var b strings.Builder
 	for _, r := range note {
@@ -46,4 +49,76 @@ func NormalizeFeedbackNote(note string) (string, bool) {
 		return "", false
 	}
 	return cleaned, true
+}
+
+func (j *Journal) FeedbackEvent(scanID, category, note, replyEmail string, resp *model.ScanResponse) error {
+	if j == nil || j.store == nil {
+		return ErrStorageUnavailable
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	instanceID, binding, err := j.store.ResolveInstance(ctx, scanID)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrStorageUnavailable, err)
+	}
+	timestamp := time.Now().UTC().Format(time.RFC3339Nano)
+	ev := map[string]any{
+		"event": "feedback", "ts": timestamp,
+		"scan_id": scanID, "category": category, "binding_status": binding,
+	}
+	if note != "" {
+		ev["note"] = note
+	}
+	if replyEmail != "" {
+		ev["reply_email"] = replyEmail
+	}
+	if resp != nil && instanceID != "" {
+		ev["context"] = map[string]any{
+			"score": resp.Score, "risk_level": resp.RiskLevel,
+			"fired": firedRules(resp.Diagnosis), "analysis": resp.Analysis,
+		}
+	}
+	if j.mailer == nil {
+		return j.append(instanceID, "", ev)
+	}
+	payload, err := json.Marshal(ev)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrStorageUnavailable, err)
+	}
+	tx, err := j.store.DB().BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrStorageUnavailable, err)
+	}
+	defer tx.Rollback()
+	eventID, err := j.store.AppendTx(ctx, tx, telemetry.Event{InstanceID: instanceID, Payload: payload})
+	if err != nil {
+		return fmt.Errorf("%w: %v", ErrStorageUnavailable, err)
+	}
+	message := feedbackMessage(scanID, category, note, replyEmail, timestamp)
+	message.From, message.To = j.mailer.from, j.mailer.to
+	if err = j.mailer.outbox.Enqueue(ctx, tx, eventID, message); err != nil {
+		return fmt.Errorf("%w: %v", ErrStorageUnavailable, err)
+	}
+	if err = tx.Commit(); err != nil {
+		return fmt.Errorf("%w: %v", ErrStorageUnavailable, err)
+	}
+	return nil
+}
+
+func feedbackMessage(scanID, category, note, replyEmail, timestamp string) mail.Message {
+	label := map[string]string{
+		FeedbackFalsePositive:   "正常网络被误判",
+		FeedbackMissedDetection: "代理/VPN 未检出",
+		FeedbackDataWrong:       "位置/运营商/ASN 数据错误",
+		FeedbackOther:           "其他问题",
+	}[category]
+	message := mail.Message{
+		Subject: fmt.Sprintf("[DetectRadar][%s] %s", label, scanID),
+		Text:    fmt.Sprintf("分类：%s\n描述：%s\n检测编号：%s\n时间（UTC）：%s\n", label, note, scanID, timestamp),
+		ReplyTo: replyEmail,
+	}
+	if replyEmail != "" {
+		message.Text += "联系邮箱：" + replyEmail + "\n"
+	}
+	return message
 }

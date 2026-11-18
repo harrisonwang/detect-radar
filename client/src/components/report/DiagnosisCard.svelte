@@ -6,8 +6,9 @@
     report: ReportModel | null;
     isScanning?: boolean;
     active?: boolean;
+    onCopyPromo?: (code: string) => void;
   }
-  let { report, isScanning = false, active = false }: Props = $props();
+  let { report, isScanning = false, active = false, onCopyPromo }: Props = $props();
 
   const SEV: Record<Severity, { color: string; soft: string; label: string; icon: string }> = {
     leak: { color: 'var(--leak)', soft: 'var(--leak-soft)', label: '暴露', icon: 'fa-triangle-exclamation' },
@@ -61,6 +62,43 @@
           {/each}
         </ul>
       {/if}
+    </div>
+
+    <!-- 合作推荐位：完全复用上方暴露项的「左胶囊 + 右主副双行」组件语法与像素对齐 -->
+    <div class="mt-5 pt-4 border-t border-slate-800 flex items-start gap-2.5">
+      <span
+        class="text-[10px] font-mono px-1.5 py-1 rounded shrink-0 flex items-center gap-1"
+        style="color:#38bdf8; background:rgba(56, 189, 248, 0.12)"
+      >
+        <span class="w-[1.25em] text-center leading-none">✦</span>推荐
+      </span>
+
+      <div class="min-w-0 flex-1">
+        <span class="text-sm text-(--slate-200) leading-snug block">
+          需要纯净的原生住宅或 ISP 代理？
+        </span>
+        <div class="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-(--slate-500)">
+          <a
+            href="https://proxy-seller.com/"
+            target="_blank"
+            rel="noopener sponsored"
+            class="text-(--slate-300) hover:text-white underline decoration-slate-600 hover:decoration-slate-300 underline-offset-4 transition-colors"
+          >
+            前往 Proxy-Seller 获取 ↗
+          </a>
+          <span class="text-(--slate-600)">·</span>
+          <button
+            type="button"
+            onclick={() => onCopyPromo?.('RADAR')}
+            class="inline-flex items-center gap-1.5 text-(--slate-400) hover:text-(--slate-200) transition-colors cursor-pointer"
+            title="结账时输入可享专属折扣，点击复制"
+          >
+            <span>优惠码</span>
+            <code class="px-1.5 py-0.5 rounded bg-white/5 text-(--slate-300) font-mono text-[11px]">RADAR</code>
+            <i class="fa-regular fa-copy text-[11px]"></i>
+          </button>
+        </div>
+      </div>
     </div>
   {/if}
 </div>

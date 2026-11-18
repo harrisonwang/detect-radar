@@ -232,30 +232,40 @@ func (s *Store) initialize(ctx context.Context) error {
 
 func (s *Store) Close() error { return s.db.Close() }
 
+func (s *Store) DB() *sql.DB { return s.db }
+
 func (s *Store) Append(ctx context.Context, event Event) error {
-	if s.readOnly {
-		return errors.New("扫描存储：数据库为只读模式")
-	}
-	p, err := parse(event.Payload)
-	if err != nil {
-		return err
-	}
-	if p.Event == "scan" && event.InstanceID == "" {
-		return errors.New("扫描存储：扫描实例 ID 不能为空")
-	}
 	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
 		return err
 	}
 	defer tx.Rollback()
+	if _, err = s.AppendTx(ctx, tx, event); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+// AppendTx 写入事件，由调用方提交事务。
+func (s *Store) AppendTx(ctx context.Context, tx *sql.Tx, event Event) (string, error) {
+	if s.readOnly {
+		return "", errors.New("扫描存储：数据库为只读模式")
+	}
+	p, err := parse(event.Payload)
+	if err != nil {
+		return "", err
+	}
+	if p.Event == "scan" && event.InstanceID == "" {
+		return "", errors.New("扫描存储：扫描实例 ID 不能为空")
+	}
 	if event.Key != "" {
-		var exists int
-		err = tx.QueryRowContext(ctx, "SELECT 1 FROM scan_events WHERE event_key=?", event.Key).Scan(&exists)
+		var existingID string
+		err = tx.QueryRowContext(ctx, "SELECT event_id FROM scan_events WHERE event_key=?", event.Key).Scan(&existingID)
 		if err == nil {
-			return nil
+			return existingID, nil
 		}
 		if !errors.Is(err, sql.ErrNoRows) {
-			return err
+			return "", err
 		}
 	}
 	eventID := uuid.NewString()
@@ -270,7 +280,7 @@ func (s *Store) Append(ctx context.Context, event Event) error {
 		}
 		_, err = tx.ExecContext(ctx, `INSERT INTO scans(instance_id,client_scan_id,created_at,expires_at,initial_event_id,initial_score,initial_risk_level,score,risk_level,analysis_json,diagnosis_json,intel_json,latest_at,dns_status_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?)`, event.InstanceID, p.ScanID, p.at, expires, eventID, p.Score, nullString(p.RiskLevel), p.Score, nullString(p.RiskLevel), jsonValue(p.Analysis), jsonValue(p.Diagnosis), jsonValue(p.Intel), p.at, p.at)
 		if err != nil {
-			return fmt.Errorf("扫描存储：写入扫描记录失败：%w", err)
+			return "", fmt.Errorf("扫描存储：写入扫描记录失败：%w", err)
 		}
 	} else {
 		if p.BindingStatus == "ambiguous" {
@@ -282,7 +292,7 @@ func (s *Store) Append(ctx context.Context, event Event) error {
 			err = tx.QueryRowContext(ctx, "SELECT expires_at,client_scan_id FROM scans WHERE instance_id=?", event.InstanceID).Scan(&parentExpiry, &parentClient)
 			if err == nil {
 				if parentClient != p.ScanID {
-					return errors.New("扫描存储：扫描实例与客户端扫描 ID 不匹配")
+					return "", errors.New("扫描存储：扫描实例与客户端扫描 ID 不匹配")
 				}
 				instance = event.InstanceID
 				association = "matched"
@@ -290,7 +300,7 @@ func (s *Store) Append(ctx context.Context, event Event) error {
 					expires = parentExpiry.Int64
 				}
 			} else if !errors.Is(err, sql.ErrNoRows) {
-				return err
+				return "", err
 			}
 		}
 		if p.Event == "feedback" {
@@ -304,18 +314,18 @@ func (s *Store) Append(ctx context.Context, event Event) error {
 	}
 	result, err := tx.ExecContext(ctx, `INSERT INTO scan_events(event_id,event_key,event_type,instance_id,client_scan_id,association_status,occurred_at,expires_at,payload_json,schema_version,build_revision,ingested_at) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)`, eventID, nullString(event.Key), p.Event, instance, p.ScanID, association, p.at, expires, string(event.Payload), schemaVersion, s.build, time.Now().UnixMilli())
 	if err != nil {
-		return fmt.Errorf("扫描存储：写入事件失败：%w", err)
+		return "", fmt.Errorf("扫描存储：写入事件失败：%w", err)
 	}
 	seq, err := result.LastInsertId()
 	if err != nil {
-		return err
+		return "", err
 	}
 	if instance != nil {
 		if err = updateProjection(ctx, tx, event.InstanceID, p, seq); err != nil {
-			return fmt.Errorf("扫描存储：更新扫描汇总失败：%w", err)
+			return "", fmt.Errorf("扫描存储：更新扫描汇总失败：%w", err)
 		}
 	}
-	return tx.Commit()
+	return eventID, nil
 }
 
 type payload struct {

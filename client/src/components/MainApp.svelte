@@ -240,6 +240,15 @@
     }
   }
 
+  async function handleCopyPromo(code: string) {
+    try {
+      await navigator.clipboard.writeText(code);
+      showToast(`优惠码 ${code} 已复制`);
+    } catch {
+      showToast('复制失败，请检查浏览器权限');
+    }
+  }
+
   function toggleReveal() {
     ipRevealed = !ipRevealed;
   }
@@ -349,7 +358,7 @@
     ready={!!report && !isScanning}
   />
 
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 relative z-10">
+  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-8 relative z-10">
     <!-- 标题 -->
     <div class="mb-8">
       <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">
@@ -372,7 +381,7 @@
         />
       </div>
       <div class="lg:col-span-8">
-        <DiagnosisCard report={report} isScanning={isScanning} active={activeDimension === 'identity'} />
+        <DiagnosisCard report={report} isScanning={isScanning} active={activeDimension === 'identity'} onCopyPromo={handleCopyPromo} />
       </div>
     </div>
 
@@ -436,12 +445,13 @@
     {/if}
   </main>
 
-  <footer class="border-t border-slate-800 mt-12 py-8 relative z-10">
+  <footer class="border-t border-slate-800 py-8 relative z-10">
     <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center text-(--slate-500) text-sm gap-3">
       <p>© 2026 DetectRadar.com</p>
-      <div class="flex gap-4">
+      <div class="flex flex-wrap justify-center gap-x-4 gap-y-2">
         <a href="/privacy" class="hover:text-white transition">隐私政策</a>
         <a href="/terms" class="hover:text-white transition">服务条款</a>
+        <a href="/contact" class="hover:text-white transition">联系我们</a>
       </div>
     </div>
   </footer>

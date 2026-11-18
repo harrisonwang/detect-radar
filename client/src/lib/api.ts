@@ -108,18 +108,16 @@ export type FeedbackCategory =
   | 'data_wrong' // 位置/运营商/ASN 等数据不对
   | 'other';
 
-/**
- * 提交对某次扫描结论的反馈（误报/漏检/数据不对）。误报标注只能来自真实用户，
- * 是校准规则的唯一现场信号。后端仅落遥测流水，成功返回 204 无内容。
- */
+/** 保存检测反馈并安排邮件通知，成功返回 204。 */
 export const submitScanFeedback = (
   id: string,
   category: FeedbackCategory,
   note?: string,
+  replyEmail?: string,
 ) =>
   request<void>(`/scans/${encodeURIComponent(id)}/feedback`, {
     method: 'POST',
-    body: JSON.stringify(note ? { category, note } : { category }),
+    body: JSON.stringify({ category, note, reply_email: replyEmail }),
   });
 
 // ============================================================================

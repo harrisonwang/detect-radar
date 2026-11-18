@@ -209,7 +209,7 @@ export interface PrivacyAnalysis {
     leaked_ips: string[];
     matches_exit_ip: boolean;
   };
-  dns: { status: 'safe' | 'danger' | 'blocked'; matches_exit_ip: boolean };
+  dns: { status: 'safe' | 'danger' | 'blocked'; matches_exit_ip: boolean; country?: string; isp?: string };
   ipv6: { status: 'safe' | 'danger' | 'disabled'; address?: string };
   overall_status: 'safe' | 'warning' | 'danger' | 'disabled';
 }

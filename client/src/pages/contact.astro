@@ -1,0 +1,35 @@
+---
+import Layout from '../layouts/Layout.astro';
+import StaticHeader from '../components/StaticHeader.astro';
+
+const contacts = [
+	{ name: '问题反馈', purpose: '检测纠错与使用建议', email: 'feedback@detectradar.com' },
+	{ name: '一般联系', purpose: '咨询与合作', email: 'admin@detectradar.com' },
+	{ name: '隐私请求', purpose: '数据访问与删除', email: 'privacy@detectradar.com' },
+	{ name: '滥用举报', purpose: '与本站有关的违规行为', email: 'abuse@detectradar.com' },
+];
+---
+
+<Layout
+	title="联系我们"
+	canonical="/contact"
+	description="DetectRadar 联系方式：问题反馈、一般联系、隐私请求与滥用举报。"
+>
+	<StaticHeader />
+	<main class="mx-auto max-w-3xl px-6 py-12 sm:py-16 prose prose-invert prose-headings:font-semibold prose-a:text-(--radar-400)">
+		<h1>联系我们</h1>
+		<dl class="not-prose mt-6 divide-y divide-slate-800/70">
+			{contacts.map(({ name, purpose, email }) => (
+				<div class="flex flex-col gap-2 py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+					<dt class="leading-6">
+						<span class="font-semibold text-(--slate-200)">{name}</span>
+						<p class="mt-1 text-sm text-(--slate-500)">{purpose}</p>
+					</dt>
+					<dd class="text-sm leading-5">
+						<a href={`mailto:${email}`} class="font-mono text-sm text-(--radar-400) transition-colors hover:text-white">{email}</a>
+					</dd>
+				</div>
+			))}
+		</dl>
+	</main>
+</Layout>

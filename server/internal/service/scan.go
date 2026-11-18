@@ -199,6 +199,10 @@ func (s *ScanService) UpdateDNSObservation(instanceID, clientID string, result *
 	var updated *model.ScanResponse
 	if ok && time.Since(stored.createdAt) < s.ttl {
 		updated = rescoreDNS(stored.resp, result.Leaked)
+		if resolver, mismatch := mismatchedDNSResolver(result.ExpectedCountry, result.DNSServers); result.Leaked && mismatch {
+			updated.Analysis.Privacy.DNS.Country = resolver.Country
+			updated.Analysis.Privacy.DNS.ISP = resolver.ISP
+		}
 	}
 	if err := s.journal.DNSLeakEvent(instanceID, clientID, result, updated); err != nil {
 		return nil, err
@@ -213,10 +217,13 @@ func (s *ScanService) UpdateDNSObservation(instanceID, clientID string, result *
 // 复制响应后再修改，避免影响并发读取或发布未提交的结果。
 func rescoreDNS(previous *model.ScanResponse, leaked bool) *model.ScanResponse {
 	resp := *previous
+	resp.Analysis.Privacy.DNS.Status = "safe"
+	resp.Analysis.Privacy.DNS.MatchesExitIP = !leaked
 	if leaked {
-		resp.Analysis.Privacy.DNS = model.PrivacyDNS{Status: "danger", MatchesExitIP: false}
+		resp.Analysis.Privacy.DNS.Status = "danger"
 	} else {
-		resp.Analysis.Privacy.DNS = model.PrivacyDNS{Status: "safe", MatchesExitIP: true}
+		resp.Analysis.Privacy.DNS.Country = ""
+		resp.Analysis.Privacy.DNS.ISP = ""
 	}
 	pv := &resp.Analysis.Privacy
 	switch {

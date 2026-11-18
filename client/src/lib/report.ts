@@ -337,6 +337,14 @@ function buildGroups(dims: DimensionScore[]): ReportGroup[] {
 
 // ---- 破绽清单 ----
 
+function countryName(code: string): string {
+  try {
+    return new Intl.DisplayNames(["zh-CN"], { type: "region" }).of(code) || code;
+  } catch {
+    return code;
+  }
+}
+
 function buildFindings(a: ScanAnalysis, id: IdentityReadout): Finding[] {
   const F: Finding[] = [];
   const push = (f: Finding) => F.push(f);
@@ -353,12 +361,14 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout): Finding[] {
       fix: "检查代理是否覆盖 WebRTC，或关闭浏览器 WebRTC 公网候选。",
     });
   }
-  if (pv.dns.status === "danger") {
+  if (pv.dns.status === "danger" && pv.dns.country && pv.dns.isp && id.countryCode) {
+    const country = countryName(pv.dns.country);
+    const provider = pv.dns.isp.startsWith(country) ? pv.dns.isp : `${country}${pv.dns.isp}`;
     push({
       id: "dns-leak",
       severity: "leak",
-      title: "DNS 与出口 IP 地区不一致",
-      fact: "DNS 解析地区与出口 IP 地区不一致",
+      title: "DNS 地区不一致",
+      fact: `出口：${countryName(id.countryCode)} · DNS：${provider}`,
       meaning: "DNS 与出口地区不一致会降低环境一致性。",
       fix: "检查系统或浏览器 DNS 设置。",
     });

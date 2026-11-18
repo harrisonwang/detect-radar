@@ -6,6 +6,7 @@ import (
 	"detect-radar/internal/util"
 	"errors"
 	"log"
+	"strings"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -97,22 +98,20 @@ func ambiguousScan(c *fiber.Ctx) error {
 	return util.Error(c, fiber.StatusConflict, "扫描标识冲突", "该扫描标识已被重复使用，无法关联 DNS 结果，请重新检测")
 }
 
-// SubmitFeedback 提交反馈（POST /scans/:id/feedback）。
-// 结果反馈通道：用户是误报/漏检标注的唯一来源，反馈落遥测流水（feedback 事件）。
-// 扫描仍在内存 store（30 分钟内）时附带当时评分现场；过期也照收——过期扫描的反馈
-// 仍是有效数据，靠 scan_id 与先前 scan 行关联。校验通过返回 204，不回显任何内容。
+// SubmitFeedback 保存反馈；扫描过期后仍可提交。
 func (h *ScanHandler) SubmitFeedback(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" || !util.IsValidScanID(id) {
 		return util.InvalidParameter(c, "scan_id 格式非法")
 	}
-	// 反馈体都是极小 JSON，超过 2KB 视为异常输入直接拒绝（全局 BodyLimit 之外的收紧）
-	if len(c.Body()) > 2048 {
+	// 容纳 500 个四字节字符及选填邮箱，同时收紧全局 BodyLimit。
+	if len(c.Body()) > 4096 {
 		return util.InvalidParameter(c, "请求体过大")
 	}
 	var body struct {
-		Category string `json:"category"`
-		Note     string `json:"note"`
+		Category   string `json:"category"`
+		Note       string `json:"note"`
+		ReplyEmail string `json:"reply_email"`
 	}
 	if err := c.BodyParser(&body); err != nil {
 		return util.InvalidParameter(c, "请求内容无效："+err.Error())
@@ -124,10 +123,13 @@ func (h *ScanHandler) SubmitFeedback(c *fiber.Ctx) error {
 	if !ok {
 		return util.InvalidParameter(c, "note 过长（≤500 字）")
 	}
+	replyEmail := strings.TrimSpace(body.ReplyEmail)
+	if replyEmail != "" && !util.IsValidEmailAddress(replyEmail) {
+		return util.InvalidParameter(c, "联系邮箱格式无效，请填写单个邮箱地址")
+	}
 
-	// 扫描仍在内存 store 时取回作为评分现场；已过期 Get 返回 nil，反馈照落
 	resp, _ := h.service.Get(id)
-	if err := h.journal.FeedbackEvent(id, body.Category, note, resp); err != nil {
+	if err := h.journal.FeedbackEvent(id, body.Category, note, replyEmail, resp); err != nil {
 		return storageUnavailable(c, err)
 	}
 	return c.SendStatus(fiber.StatusNoContent)

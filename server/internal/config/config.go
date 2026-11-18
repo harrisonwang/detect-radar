@@ -2,7 +2,11 @@ package config
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
 	"time"
+
+	"detect-radar/internal/util"
 
 	"github.com/spf13/viper"
 )
@@ -20,6 +24,32 @@ type Config struct {
 	Reputation ReputationConfig
 	RTT        RTTConfig
 	Telemetry  TelemetryConfig
+	Mail       MailConfig `mapstructure:"mail"`
+}
+
+type MailConfig struct {
+	AccountID string `mapstructure:"account_id"`
+	APIToken  string `mapstructure:"api_token"`
+	From      string `mapstructure:"from"`
+	To        string `mapstructure:"to"`
+}
+
+func (c MailConfig) Enabled() bool { return c.AccountID != "" && c.APIToken != "" }
+
+func (c MailConfig) validate() error {
+	if c.AccountID == "" && c.APIToken == "" {
+		return nil
+	}
+	if !c.Enabled() {
+		return fmt.Errorf("邮件通知需同时设置 mail.account_id 和 mail.api_token")
+	}
+	if !regexp.MustCompile(`^[a-fA-F0-9]{32}$`).MatchString(c.AccountID) {
+		return fmt.Errorf("mail.account_id 必须为 32 位十六进制账户 ID")
+	}
+	if strings.ContainsAny(c.APIToken, "\r\n") || !util.IsValidEmailAddress(c.From) || !util.IsValidEmailAddress(c.To) {
+		return fmt.Errorf("mail 的凭证或收发邮箱格式无效")
+	}
+	return nil
 }
 
 // RTTConfig RTT 物理探测配置（Phase 1 只采集不计分）。
@@ -138,6 +168,9 @@ func Load() (*Config, error) {
 	if err := viper.Unmarshal(&cfg); err != nil {
 		return nil, err
 	}
+	if err := cfg.Mail.validate(); err != nil {
+		return nil, err
+	}
 
 	if cfg.Telemetry.Path == "" || cfg.Telemetry.ScanRetentionDays <= 0 || cfg.Telemetry.FeedbackRetentionDays <= 0 || cfg.Telemetry.CleanupInterval <= 0 {
 		return nil, fmt.Errorf("遥测数据库路径不能为空，保留天数和清理间隔必须大于零")
@@ -188,7 +221,11 @@ func setDefaults() {
 	viper.SetDefault("telemetry.retention_enabled", true)
 	viper.SetDefault("telemetry.scan_retention_days", 90)
 	viper.SetDefault("telemetry.feedback_retention_days", 90)
-	viper.SetDefault("telemetry.cleanup_interval", 90*24*time.Hour)
+	viper.SetDefault("telemetry.cleanup_interval", time.Hour)
+
+	// 填写账户 ID 和 Token 后启用邮件。
+	viper.SetDefault("mail.from", "noreply@detectradar.com")
+	viper.SetDefault("mail.to", "feedback@detectradar.com")
 
 	// Reputation 默认值（信誉/暴露检测，免费源）
 	viper.SetDefault("reputation.enabled", true)

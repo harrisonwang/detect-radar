@@ -60,6 +60,14 @@ redis:
 sqlite:
   path: "./data/hosting.db"
 
+# Cloudflare 发信；账户 ID 和 Token 留空时关闭。
+# Token 权限：Email Sending: Edit。
+mail:
+  account_id: ""
+  api_token: ""
+  from: "noreply@detectradar.com"
+  to: "feedback@detectradar.com"
+
 # RTT 物理探测（Phase 1 只采集不计分）：服务器自身坐标，用于地理-延迟下限校验。
 # 填部署机房经纬度。IP 声称位置到本机的大圆距离 → 物理最小往返时延；
 # nginx 实测出口↔服务器 TCP RTT 低于下限即 geo violation（IP 位置与延迟矛盾）。

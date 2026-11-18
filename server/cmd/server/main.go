@@ -62,7 +62,23 @@ func main() {
 		log.Fatal("打开遥测数据库失败：", err)
 	}
 	defer store.Close()
-	journal := service.NewJournal(store)
+	var mailer *service.Mailer
+	if cfg.Mail.Enabled() {
+		outbox, err := repository.NewMailOutbox(store.DB())
+		if err != nil {
+			log.Fatal("初始化邮件队列失败：", err)
+		}
+		mailer = service.NewMailer(outbox, cfg.Mail)
+		mailCtx, cancelMail := context.WithCancel(context.Background())
+		mailDone := make(chan struct{})
+		go func() {
+			defer close(mailDone)
+			mailer.Run(mailCtx)
+		}()
+		defer func() { cancelMail(); <-mailDone }()
+		log.Println("[邮件] Cloudflare 发信已启用")
+	}
+	journal := service.NewJournal(store, mailer)
 	if cfg.Telemetry.RetentionEnabled {
 		cleanupCtx, cancelCleanup := context.WithCancel(context.Background())
 		cleanupDone := make(chan struct{})
@@ -152,11 +168,7 @@ func cleanupTelemetry(ctx context.Context, store *telemetry.Store, interval time
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-		}
+		// 启动即清理，避免频繁重启使过期反馈一直保留。
 		for ctx.Err() == nil {
 			n, err := store.Prune(ctx, time.Now())
 			if err != nil {
@@ -168,6 +180,11 @@ func cleanupTelemetry(ctx context.Context, store *telemetry.Store, interval time
 			if n < 1000 {
 				break
 			}
+		}
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
 		}
 	}
 }

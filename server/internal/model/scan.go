@@ -283,6 +283,8 @@ type PrivacyWebRTC struct {
 type PrivacyDNS struct {
 	Status        string `json:"status"`
 	MatchesExitIP bool   `json:"matches_exit_ip"`
+	Country       string `json:"country,omitempty"`
+	ISP           string `json:"isp,omitempty"`
 }
 
 type PrivacyIPv6 struct {

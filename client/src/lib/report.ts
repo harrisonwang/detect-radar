@@ -203,13 +203,6 @@ function tzToZone(tz: string): string {
   return tz;
 }
 
-// IANA 名与中文偏移并排（America/New_York（西四区））；纯偏移串只显示偏移。
-// 带上原始时区名，用户才能核对是浏览器设置还是 IP 库的数据不对
-function tzLabel(tz: string): string {
-  const zone = tzToZone(tz);
-  return tz.includes("/") ? `${tz}（${zone}）` : zone;
-}
-
 // ---- 身份读数 ----
 
 function buildIdentity(
@@ -444,8 +437,8 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout): Finding[] {
     push({
       id: "tz-mismatch",
       severity: "contradiction",
-      title: "时区与 IP 归属地冲突",
-      fact: `浏览器时区 ${tzLabel(tz.browser)}，IP 时区 ${tzLabel(tz.expected)}`,
+      title: "浏览器时区与 IP 归属地冲突",
+      fact: `浏览器时区为${tzToZone(tz.browser)}，IP 归属地时区为${tzToZone(tz.expected)}。`,
       meaning: "时区对不上是最常见的环境破绽，单项就足以拉低可信度。",
       fix: "把系统时区改成与 IP 归属地一致。",
     });

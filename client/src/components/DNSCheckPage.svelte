@@ -254,7 +254,19 @@
             {/if}
             <dl class="change-list">
               <div><dt>DNS</dt><dd>
-                {#each comparison.dnsChanges as change}<p>{busy ? change.replace(/^本次/, '') : change}</p>{:else}服务商未变{/each}
+                {#each comparison.dnsChanges as { prefix = '', removed = [], text = '' }}
+                  <p>
+                    {busy ? prefix.replace(/^本次/, '') : prefix}{#each removed as { name, region }, index}
+                      {index > 0 ? '、' : ''}{#if region}
+                        {name}<s>{region}</s>
+                      {:else}
+                        <s>{name}</s>
+                      {/if}
+                    {/each}{busy ? text.replace(/^本次/, '') : text}
+                  </p>
+                {:else}
+                  服务商未变
+                {/each}
               </dd></div>
               <div><dt>出口 IP</dt><dd>{(busy ? comparison.exitChange.replace(/^本次/, '当时') : comparison.exitChange) || '未变'}</dd></div>
             </dl>
@@ -267,7 +279,7 @@
         </h2>
         <ul class="rule-note">
           <li>结果来自当前浏览器的 DNS 检测。</li>
-          <li>出口 IP 在海外且测到<span class="nowrap">国内运营商 DNS</span>，判为<strong>泄露</strong>。</li>
+          <li>出口 IP 在海外，测到<span class="nowrap">国内运营商 DNS</span>，判为<strong>泄露</strong>。</li>
         </ul>
       </aside>
     </div>
@@ -304,6 +316,7 @@
   .change-list > div { display: grid; grid-template-columns: 3.25rem minmax(0, 1fr); align-items: baseline; gap: 0.5rem; }
   .change-list dt { color: var(--slate-400); font-size: 0.8125rem; }
   .change-list dd { color: var(--slate-200); overflow-wrap: anywhere; }
+  .change-list s { color: var(--slate-400); }
   .verdict-title {
     position: relative; min-width: 0; color: white; font-size: 1.125rem;
     font-weight: 700; line-height: 1.4;

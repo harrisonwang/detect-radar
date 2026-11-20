@@ -136,9 +136,16 @@ export function dnsProviderGroups(networks: Iterable<DNSNetwork>) {
 }
 
 function networkLabels(networks: DNSNetwork[], other: Set<string>) {
-  return dnsProviderGroups(networks).map(({ key, name, regions }) =>
-    other.has(key) ? `${name}（${regions.map((region) => dnsRegion(region.country)).join('、')}）` : name
-  ).join('、');
+  return dnsProviderGroups(networks).map(({ key, name, regions }) => ({
+    name,
+    region: other.has(key) ? `（${regions.map((region) => dnsRegion(region.country)).join('、')}）` : '',
+  }));
+}
+
+interface DNSChange {
+  prefix?: string;
+  removed?: ReturnType<typeof networkLabels>;
+  text?: string;
 }
 
 function exitLabel(exit: DNSExit) {
@@ -155,7 +162,7 @@ export function compareDNS(previous: DNSCheck, current: DNSCheck, after: Map<str
   const removed = [...before].filter(([key]) => !after.has(key)).map(([, n]) => n);
   const added = [...after].filter(([key]) => !before.has(key)).map(([, n]) => n);
   const oldDNS = networkLabels(removed, afterProviders);
-  const newDNS = networkLabels(added, beforeProviders);
+  const newDNS = networkLabels(added, beforeProviders).map(({ name, region }) => name + region).join('、');
   const beforeIPs = new Set(previous.resolvers.map((r) => r.ip));
   const afterIPs = new Set(current.resolvers.map((r) => r.ip));
   const addedIPs = new Set([...afterIPs].filter((ip) => !beforeIPs.has(ip)));
@@ -163,15 +170,18 @@ export function compareDNS(previous: DNSCheck, current: DNSCheck, after: Map<str
   const dnsIPsChanged = addedIPs.size > 0 || removedIPs.length > 0;
   const sameDNS = !added.length && !removed.length && [...before].every(([key, n]) =>
     after.get(key)?.type === n.type && after.get(key)?.suspect === n.suspect);
-  const dnsChanges: string[] = [];
-  if (oldDNS && newDNS && removed.length === before.size && added.length === after.size) {
-    dnsChanges.push(`${oldDNS} → ${newDNS}`);
+  const dnsChanges: DNSChange[] = [];
+  if (oldDNS.length && newDNS && removed.length === before.size && added.length === after.size) {
+    dnsChanges.push({ removed: oldDNS, text: ` → ${newDNS}` });
   } else {
-    if (oldDNS) dnsChanges.push(`本次未再测到${/^[A-Za-z0-9]/.test(oldDNS) ? ' ' : ''}${oldDNS}`);
-    if (newDNS) dnsChanges.push(`本次新增${/^[A-Za-z0-9]/.test(newDNS) ? ' ' : ''}${newDNS}`);
+    if (oldDNS.length) {
+      const space = /^[A-Za-z0-9]/.test(oldDNS[0].name) ? ' ' : '';
+      dnsChanges.push({ prefix: `本次未再测到${space}`, removed: oldDNS });
+    }
+    if (newDNS) dnsChanges.push({ text: `本次新增${/^[A-Za-z0-9]/.test(newDNS) ? ' ' : ''}${newDNS}` });
   }
-  if (!dnsChanges.length && !sameDNS) dnsChanges.push('网络归属信息有变化');
-  if (!dnsChanges.length && dnsIPsChanged) dnsChanges.push('仅服务器地址有变化');
+  if (!dnsChanges.length && !sameDNS) dnsChanges.push({ text: '网络归属信息有变化' });
+  if (!dnsChanges.length && dnsIPsChanged) dnsChanges.push({ text: '仅服务器地址有变化' });
 
   const oldExit = previous.exit;
   const newExit = current.exit;

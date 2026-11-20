@@ -438,7 +438,7 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout): Finding[] {
       id: "tz-mismatch",
       severity: "contradiction",
       title: "浏览器时区与 IP 归属地冲突",
-      fact: `浏览器时区为${tzToZone(tz.browser)}，IP 归属地时区为${tzToZone(tz.expected)}。`,
+      fact: `浏览器时区为${tzToZone(tz.browser)}，IP 归属地时区为${tzToZone(tz.expected)}`,
       meaning: "时区对不上是最常见的环境破绽，单项就足以拉低可信度。",
       fix: "把系统时区改成与 IP 归属地一致。",
     });

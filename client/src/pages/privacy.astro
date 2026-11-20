@@ -1,6 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import StaticHeader from '../components/StaticHeader.astro';
+import AppHeader from '../components/report/AppHeader.svelte';
 ---
 
 <Layout
@@ -8,7 +8,7 @@ import StaticHeader from '../components/StaticHeader.astro';
 	canonical="/privacy/"
 	description="DetectRadar 检测数据与反馈的处理方式，以及隐私联系方式。"
 >
-	<StaticHeader />
+	<AppHeader page="static" />
 	<main class="mx-auto max-w-3xl px-6 py-16 prose prose-invert prose-headings:font-semibold prose-a:text-(--radar-400)">
 		<h1>隐私政策</h1>
 		<h2>检测数据</h2>

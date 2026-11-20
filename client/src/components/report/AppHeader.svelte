@@ -1,6 +1,6 @@
 <script lang="ts">
   interface Props {
-    page?: "home" | "dns";
+    page?: "home" | "dns" | "static";
     onScreenshot?: () => void;
     onShare?: () => void;
     onRescan?: () => void;
@@ -11,7 +11,6 @@
   let { page = "home", onScreenshot, onRescan, isScanning = false, ready = false, failureText }: Props = $props();
   let statusText = $derived(isScanning ? '检测中' : failureText || (ready ? '检测完成' : '待检测'));
   let statusColor = $derived(isScanning ? 'var(--warn)' : ready && !failureText ? 'var(--sig)' : 'var(--unknown)');
-
 </script>
 
 <header class="border-b border-slate-800/60 bg-space-950/80 sticky top-0 z-50 backdrop-blur-md">
@@ -30,23 +29,25 @@
         <a href="/dns-leak-test/" aria-current={page === 'dns' ? 'page' : undefined}>DNS 泄露检测</a>
       </nav>
 
-      <div class="report-actions">
-        <span class="flex items-center gap-1.5 text-xs font-mono text-(--slate-500) whitespace-nowrap" role="status">
-          <span aria-hidden="true" class="dot" style:background={statusColor} style:--_soft="transparent"></span>
-          {statusText}
-        </span>
-        {#if ready || page === "dns"}
-          <div class="icon-actions">
-            <button type="button" onclick={onRescan} disabled={isScanning} class="hbtn" title="重新检测" aria-label="重新检测">
-              <i class="fa-solid fa-rotate-right text-sm" aria-hidden="true"></i>
-            </button>
-            <button type="button" onclick={onScreenshot} disabled={!onScreenshot} class="hbtn"
-              title={onScreenshot ? '生成分享图（IP 自动脱敏）' : '截图功能暂未开放'} aria-label="生成分享图">
-              <i class="fa-solid fa-camera text-sm" aria-hidden="true"></i>
-            </button>
-          </div>
-        {/if}
-      </div>
+      {#if page !== "static"}
+        <div class="report-actions">
+          <span class="flex items-center gap-1.5 text-xs font-mono text-(--slate-500) whitespace-nowrap" role="status">
+            <span aria-hidden="true" class="dot" style:background={statusColor} style:--_soft="transparent"></span>
+            {statusText}
+          </span>
+          {#if ready || page === "dns"}
+            <div class="icon-actions">
+              <button type="button" onclick={onRescan} disabled={isScanning} class="hbtn" title="重新检测" aria-label="重新检测">
+                <i class="fa-solid fa-rotate-right text-sm" aria-hidden="true"></i>
+              </button>
+              <button type="button" onclick={onScreenshot} disabled={!onScreenshot} class="hbtn"
+                title={onScreenshot ? '生成分享图（IP 自动脱敏）' : '截图功能暂未开放'} aria-label="生成分享图">
+                <i class="fa-solid fa-camera text-sm" aria-hidden="true"></i>
+              </button>
+            </div>
+          {/if}
+        </div>
+      {/if}
     </div>
   </div>
 </header>

@@ -1,10 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import AppHeader from './report/AppHeader.svelte';
+  import ExitIPAddress from './report/ExitIPAddress.svelte';
+  import ReportToast from './report/ReportToast.svelte';
   import { compareDNS, DNSCheckError, dnsNetworks, dnsProviderGroups, measureDNS, withDNSAssessment } from '../lib/dnsCheck';
   import { dnsHistory, emptyDNSHistory, type DNSHistory } from '../lib/dnsHistory';
   import { dnsExitType, dnsProviderName, dnsRegion, dnsStatus, dnsVerdictNote, exitTypeLabel } from '../lib/dnsPresentation';
-  import { maskIP } from '../lib/ipDisplay';
   import type { DNSExit } from '../lib/types';
 
   const failures = {
@@ -17,7 +18,8 @@
   let busy = $state(false);
   let failure = $state<keyof typeof failures | null>(null);
   let pendingExit = $state.raw<DNSExit | null>(null);
-  let revealExit = $state(false);
+  let revealExit = $state(true);
+  let toast: ReturnType<typeof ReportToast> | undefined = $state();
 
   let current = $derived(history.current);
   let networks = $derived(current ? dnsNetworks(current) : null);
@@ -63,7 +65,6 @@
       } catch {
         history = { previous: history.current, current: result };
       }
-      revealExit = false;
     } catch (cause) {
       failure = cause instanceof DNSCheckError ? cause.kind : 'unavailable';
     } finally {
@@ -76,18 +77,16 @@
   <div class="reading">
     <h3 class="field" title="你访问本站时使用的公网 IP"><i class="fa-solid fa-globe" aria-hidden="true"></i>出口 IP</h3>
     {#if exit?.ip}
-      {@const address = revealExit ? exit.ip : maskIP(exit.ip)}
-      {@const action = revealExit ? '隐藏完整出口 IP' : '显示完整出口 IP'}
       {@const networkType = exitTypeLabel(dnsExitType(exit))}
       <div class="network-identity exit-identity">
         <span class="network-name">{dnsProviderName(exit.network) || '网络未知'}</span>
         <span class="region">{dnsRegion(exit.country)}</span>
       </div>
-      <button class="exit-address" class:ipv6={revealExit && exit.ip.includes(':')} type="button"
-        data-ip-display title={action} aria-label={`${action}，${address}`} onclick={() => { revealExit = !revealExit; }}>
-        <span class="ip-address">{address}</span>
-        <i class={revealExit ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye'} aria-hidden="true"></i>
-      </button>
+      <div class="mt-0.5 mb-1.5">
+        <ExitIPAddress ip={exit.ip} revealed={revealExit}
+          onToggleReveal={() => { revealExit = !revealExit; }}
+          onCopyFeedback={(message) => toast?.show(message)} />
+      </div>
       {#if networkType || exit.asn}
         <div class="exit-meta">
           {#if networkType}<span class="badge">{networkType}</span>{/if}
@@ -275,8 +274,10 @@
   </div>
 </main>
 
+<ReportToast bind:this={toast} />
+
 <style>
-  .exit-address:focus-visible, summary:focus-visible {
+  summary:focus-visible {
     outline: 2px solid var(--radar-400); outline-offset: -2px;
   }
   .result-card { border-radius: 0.875rem; overflow: hidden; }
@@ -332,14 +333,6 @@
   .region { color: var(--slate-400); font-size: 0.8125rem; }
   .exit-identity, .readout-placeholder { margin-top: 0.625rem; }
   .readout-placeholder { color: var(--slate-400); font-size: 0.9375rem; }
-  .exit-address {
-    display: inline-flex; align-items: center; gap: 0.6rem; max-width: 100%; min-height: 2rem;
-    margin: 0.1rem 0 0.3rem; border-radius: 0.25rem; color: white; cursor: pointer; text-align: left;
-  }
-  .exit-address .ip-address { color: inherit; font-size: 1.25rem; font-weight: 600; }
-  .exit-address.ipv6 .ip-address { font-size: 0.75rem; }
-  .exit-address i { flex: none; color: var(--slate-400); font-size: 0.875rem; }
-  .exit-address:hover, .exit-address:hover i { color: var(--radar-400); }
   .exit-meta, .network-tags { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem 0.55rem; }
   .network-tags { flex: none; }
   .exit-meta { color: var(--slate-400); font-size: 0.75rem; }

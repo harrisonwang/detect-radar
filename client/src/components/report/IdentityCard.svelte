@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { IdentityReadout, RTTReadout } from '../../lib/report';
   import { stateVar, stateSoft } from '../../lib/report';
+  import ExitIPAddress from './ExitIPAddress.svelte';
 
   interface Props {
     identity: IdentityReadout;
@@ -10,9 +11,9 @@
     revealed?: boolean;
     active?: boolean;
     onToggleReveal?: () => void;
-    onCopy?: () => void;
+    onCopyFeedback?: (message: string) => void;
   }
-  let { identity, rtt, isScanning = false, settled = false, revealed = false, active = false, onToggleReveal, onCopy }: Props = $props();
+  let { identity, rtt, isScanning = false, settled = false, revealed = false, active = false, onToggleReveal, onCopyFeedback }: Props = $props();
 
   // 仪表读数固定一位小数（tnum 下位数对齐）
   const ms = (x: number) => x.toFixed(1);
@@ -64,19 +65,7 @@
       <!-- 左：核芯 IP -->
       <div class="md:w-[32%] md:border-r border-slate-800 md:pr-6 flex flex-col justify-center">
         <div class="text-xs text-(--slate-500) mb-1.5">出口 IP</div>
-        <div class="flex items-center gap-2.5">
-          <button
-            class="text-2xl font-mono font-semibold text-white hover:text-(--radar-400) transition-colors cursor-pointer"
-            onclick={onToggleReveal}
-            title={revealed ? '点击脱敏' : '点击显示完整 IP'}
-            data-ip-display
-          >{revealed ? identity.ip || '—' : identity.masked}</button>
-          {#if onCopy}
-            <button class="text-(--slate-500) hover:text-(--radar-400) transition-colors cursor-pointer" onclick={onCopy} title="复制完整 IP" aria-label="复制">
-              <i class="fa-regular fa-copy text-sm"></i>
-            </button>
-          {/if}
-        </div>
+        <ExitIPAddress ip={identity.ip} {revealed} {onToggleReveal} {onCopyFeedback} />
         <div class="mt-3.5">
           <span
             class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md"

@@ -7,6 +7,7 @@
   import RadarCard from './report/RadarCard.svelte';
   import DiagnosisCard from './report/DiagnosisCard.svelte';
   import IdentityCard from './report/IdentityCard.svelte';
+  import ReportToast from './report/ReportToast.svelte';
   import ReadoutCard from './report/ReadoutCard.svelte';
   import FeedbackCard from './report/FeedbackCard.svelte';
 
@@ -233,17 +234,6 @@
     }
   }
 
-  async function handleCopyIP() {
-    const ip = report?.identity.ip;
-    if (!ip) return;
-    try {
-      await navigator.clipboard.writeText(ip);
-      showToast('IP 已复制');
-    } catch {
-      showToast('复制失败，请检查浏览器权限');
-    }
-  }
-
   async function handleCopyPromo(code: string) {
     try {
       await navigator.clipboard.writeText(code);
@@ -272,16 +262,13 @@
 
   // ============ 截图 / 分享 / Toast ============
 
-  let toastVisible = $state(false);
-  let toastMessage = $state('');
+  let toast: ReturnType<typeof ReportToast> | undefined = $state();
   let isCapturing = $state(false);
   let captureProgress = $state(0);
   let captureTimer: number | null = null;
 
   function showToast(message: string) {
-    toastMessage = message;
-    toastVisible = true;
-    setTimeout(() => (toastVisible = false), 3000);
+    toast?.show(message);
   }
 
   function startCaptureProgress() {
@@ -303,7 +290,7 @@
     try {
       isCapturing = true;
       startCaptureProgress();
-      toastVisible = false;
+      toast?.dismiss();
       // 分享卡由 Canvas 从报告数据直接生成（IP 脱敏），与页面布局和用户环境解耦
       const blob = await renderShareCard(report, {
         riskLabel: RISK_LABEL[report.riskLevel] ?? report.riskLevel,
@@ -407,7 +394,7 @@
           settled={revealedKeys.includes('identity')}
           active={activeDimension === 'identity'}
           onToggleReveal={toggleReveal}
-          onCopy={handleCopyIP}
+          onCopyFeedback={showToast}
         />
       </div>
 
@@ -447,15 +434,7 @@
 
   <SiteFooter />
 
-  <!-- Toast -->
-  {#if toastVisible && !isCapturing}
-    <div class="fixed bottom-6 right-6 z-50 reveal">
-      <div class="glass-card rounded-lg flex items-center gap-2.5 px-4 py-3 shadow-xl">
-        <i class="fa-solid fa-circle-check" style="color:var(--sig)"></i>
-        <span class="text-sm text-white">{toastMessage}</span>
-      </div>
-    </div>
-  {/if}
+  <ReportToast bind:this={toast} suppressed={isCapturing} />
 
   <!-- 截图进度 -->
   {#if isCapturing}

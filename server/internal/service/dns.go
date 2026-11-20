@@ -13,6 +13,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"detect-radar/dnsassessment"
 	"detect-radar/internal/config"
 	"detect-radar/internal/model"
 )
@@ -49,8 +50,10 @@ type dnsTestState struct {
 }
 
 type geoInfo struct {
-	Country string
-	ISP     string
+	Country     string
+	ISP         string
+	ASN         string
+	NetworkType string
 }
 
 func NewDNSService(dnsCfg config.DNSConfig, ipIntel *IPIntelService, journal *Journal) *DNSService {
@@ -88,6 +91,7 @@ func (s *DNSService) CreateLeakTest(ctx context.Context, scanID string) (*model.
 
 	instanceID := ""
 	expectedCountry := ""
+	var exit *dnsassessment.Exit
 	if s.scan != nil && scanID != "" {
 		var err error
 		instanceID, err = s.scan.InstanceID(scanID)
@@ -97,6 +101,7 @@ func (s *DNSService) CreateLeakTest(ctx context.Context, scanID string) (*model.
 		s.scan.mu.RLock()
 		if stored, ok := s.scan.store[instanceID]; ok && stored.resp.ServerData.IPIntel != nil {
 			expectedCountry = stored.resp.ServerData.IPIntel.Country
+			exit = dnsExit(stored.resp.ServerData.IPIntel)
 		}
 		s.scan.mu.RUnlock()
 	}
@@ -106,6 +111,7 @@ func (s *DNSService) CreateLeakTest(ctx context.Context, scanID string) (*model.
 		ScanID:          scanID,
 		ScanInstanceID:  instanceID,
 		ExpectedCountry: expectedCountry,
+		Exit:            exit,
 		ExpiresAt:       expiresAt.Unix(),
 		CreatedAt:       now,
 		DNSQueries:      []model.DNSQuery{},
@@ -127,6 +133,23 @@ func (s *DNSService) CreateLeakTest(ctx context.Context, scanID string) (*model.
 	}, nil
 }
 
+func dnsExit(intel *model.IPIntel) *dnsassessment.Exit {
+	network := intel.ISP
+	if strings.TrimSpace(network) == "" || strings.EqualFold(strings.TrimSpace(network), "unknown") {
+		network = intel.Org
+	}
+	exit := &dnsassessment.Exit{IP: intel.IP, Country: intel.Country, Network: network, ASN: intel.ASN}
+	switch {
+	case intel.IsVPN || intel.IsProxy || intel.IsTor:
+		exit.Type = "proxy"
+	case intel.InferUsageType() == "hosting":
+		exit.Type = "hosting"
+	case intel.IsMobile || intel.UsageTypeRaw == "mobile" || intel.UsageTypeRaw == "residential":
+		exit.Type = "access"
+	}
+	return exit
+}
+
 // RecordDNSQuery 由 DNSTap（或权威 NS）在观测到某 testID 的查询时调用
 func (s *DNSService) RecordDNSQuery(testID, resolverIP string) error {
 	value, ok := s.testCache.Load(testID)
@@ -136,7 +159,7 @@ func (s *DNSService) RecordDNSQuery(testID, resolverIP string) error {
 	state := value.(*dnsTestState)
 
 	// 远程地理查询可能较慢，不能阻塞同一测试的轮询或清理。
-	country, isp := s.getGeoInfo(resolverIP)
+	geo := s.getGeoInfo(resolverIP)
 	state.mu.Lock()
 	defer state.mu.Unlock()
 	test := &state.test
@@ -144,10 +167,12 @@ func (s *DNSService) RecordDNSQuery(testID, resolverIP string) error {
 		return ErrDNSTestNotFound
 	}
 	test.DNSQueries = append(test.DNSQueries, model.DNSQuery{
-		IP:        resolverIP,
-		Country:   country,
-		ISP:       isp,
-		QueriedAt: time.Now().UTC().Format(time.RFC3339),
+		IP:          resolverIP,
+		Country:     geo.Country,
+		ISP:         geo.ISP,
+		ASN:         geo.ASN,
+		NetworkType: geo.NetworkType,
+		QueriedAt:   time.Now().UTC().Format(time.RFC3339),
 	})
 	return nil
 }
@@ -193,9 +218,9 @@ func (s *DNSService) analyzeLeakage(test *model.DNSLeakTest) *model.DNSLeakResul
 	}
 
 	if len(test.DNSQueries) == 0 {
-		result.Leaked = false
-		result.Level = "safe"
-		result.Recommendation = "未检测到 DNS 查询，可能查询尚未到达或已被缓存"
+		result.Level = "unknown"
+		result.Assessment = &dnsassessment.Verdict{PolicyVersion: dnsassessment.PolicyVersion, State: "unobserved", Reason: "no-samples"}
+		result.Recommendation = "无 DNS 结果"
 		return result
 	}
 
@@ -226,14 +251,27 @@ func (s *DNSService) analyzeLeakage(test *model.DNSLeakTest) *model.DNSLeakResul
 	}
 	sort.Strings(result.ActualCountries)
 
-	if _, mismatch := mismatchedDNSResolver(result.ExpectedCountry, result.DNSServers); mismatch {
-		result.Leaked = true
+	resolvers := make([]dnsassessment.Resolver, 0, len(result.DNSServers))
+	for _, q := range result.DNSServers {
+		resolvers = append(resolvers, dnsassessment.Resolver{
+			IP: q.IP, Country: q.Country, ISP: q.ISP, ASN: q.ASN, NetworkType: q.NetworkType,
+		})
+	}
+	assessment := dnsassessment.Evaluate(dnsassessment.Input{
+		Exit: test.Exit, Resolvers: resolvers, ObservedRounds: 1, TotalRounds: 1,
+	}).Verdict
+	result.Assessment = &assessment
+	switch assessment.State {
+	case "suspected":
 		result.Level = "danger"
-		result.Recommendation = "DNS 地区不一致"
-	} else {
-		result.Leaked = false
+		result.Leaked = true // 旧客户端用此字段表示观察到了异常。
+		result.Recommendation = "泄露"
+	case "clear":
 		result.Level = "safe"
-		result.Recommendation = "DNS 配置正常，未检测到泄露"
+		result.Recommendation = "未泄露"
+	default:
+		result.Level = "unknown"
+		result.Recommendation = "无法判断"
 	}
 
 	return result
@@ -248,42 +286,30 @@ func normalizeDNSCountry(country string) string {
 	return country
 }
 
-// 公共 DNS 的地区不用于判定旁路；只比较归属明确的非公共解析器与网页出口。
-func mismatchedDNSResolver(exitCountry string, resolvers []model.DNSQuery) (model.DNSQuery, bool) {
-	exitCountry = normalizeDNSCountry(exitCountry)
-	if exitCountry == "" {
-		return model.DNSQuery{}, false
-	}
-	for _, q := range resolvers {
-		country := normalizeDNSCountry(q.Country)
-		isp := strings.TrimSpace(q.ISP)
-		if country == "" || country == exitCountry || isp == "" || strings.EqualFold(isp, "Unknown") || isPublicDNSProvider(isp) {
-			continue
-		}
-		q.Country, q.ISP = country, isp
-		return q, true
-	}
-	return model.DNSQuery{}, false
-}
-
-// getGeoInfo 复用本项目的 IP 信息服务解析 resolver 出口 IP 的国家/ISP
-func (s *DNSService) getGeoInfo(ip string) (country, isp string) {
+// getGeoInfo 复用同一次 IP 查询，补充解析器归属及网络类型。
+func (s *DNSService) getGeoInfo(ip string) geoInfo {
 	if cached, ok := s.geoCache.Load(ip); ok {
-		g := cached.(geoInfo)
-		return g.Country, g.ISP
+		return cached.(geoInfo)
 	}
 
-	country, isp = "Unknown", "Unknown"
+	geo := geoInfo{Country: "Unknown", ISP: "Unknown"}
 	if s.ipIntel != nil {
 		intel, err := s.ipIntel.Lookup(context.Background(), ip, LookupOptions{DeepScan: false})
 		if err == nil && intel != nil {
 			if intel.Country != "" {
-				country = intel.Country
+				geo.Country = intel.Country
 			}
 			if intel.ISP != "" {
-				isp = intel.ISP
+				geo.ISP = intel.ISP
 			} else if intel.Org != "" {
-				isp = intel.Org
+				geo.ISP = intel.Org
+			}
+			geo.ASN = intel.ASN
+			switch {
+			case intel.InferUsageType() == "hosting":
+				geo.NetworkType = "hosting"
+			case intel.IsMobile || intel.UsageTypeRaw == "residential" || intel.UsageTypeRaw == "mobile":
+				geo.NetworkType = "access"
 			}
 		}
 	}
@@ -293,8 +319,8 @@ func (s *DNSService) getGeoInfo(ip string) (country, isp string) {
 		s.geoCache.Range(func(k, _ any) bool { s.geoCache.Delete(k); return true })
 		s.geoCount.Store(0)
 	}
-	s.geoCache.Store(ip, geoInfo{Country: country, ISP: isp})
-	return country, isp
+	s.geoCache.Store(ip, geo)
+	return geo
 }
 
 func (s *DNSService) generateTestID() string {
@@ -338,13 +364,4 @@ func (s *DNSService) expireTests(now time.Time) {
 		s.testCache.CompareAndDelete(test.TestID[:8], state)
 		return true
 	})
-}
-
-// isPublicDNSProvider 判断 ISP 名称是否属于常见公共 DNS 提供商
-func isPublicDNSProvider(isp string) bool {
-	known := map[string]bool{
-		"cloudflare": true, "cloudflarenet": true, "cloudflare, inc.": true,
-		"google": true, "google llc": true, "quad9": true, "opendns": true,
-	}
-	return known[strings.ToLower(strings.TrimSpace(isp))]
 }

@@ -2,6 +2,8 @@
   import { onMount } from 'svelte';
 
   import AppHeader from './report/AppHeader.svelte';
+  import ReportBackdrop from './ReportBackdrop.svelte';
+  import SiteFooter from './SiteFooter.svelte';
   import RadarCard from './report/RadarCard.svelte';
   import DiagnosisCard from './report/DiagnosisCard.svelte';
   import IdentityCard from './report/IdentityCard.svelte';
@@ -221,9 +223,11 @@
       const scanId = report?.meta.scanId;
       const dns = await collectDNSLeak(scanId);
       if (!report || !scanId || dns.status !== 'success' || !dns.data || dns.data.resolvers.length === 0) return;
-      // 纯后端评分：把 DNS 结果回传后端重算，再用返回的响应整体重建报告
-      const updated = await api.updateScanDNS(scanId, dns.data.leaked);
-      if (lastSignals) report = buildReport(updated, lastSignals.collectors, lastSignals.device);
+      // 新后端已用权威观测重算，旧后端仍走原来的更新接口。
+      const updated = dns.data.assessed ? await api.getScan(scanId) : await api.updateScanDNS(scanId, dns.data.leaked);
+      if (report?.meta.scanId === scanId && lastSignals) {
+        report = buildReport(updated, lastSignals.collectors, lastSignals.device);
+      }
     } catch {
       /* 忽略：DNS 富化失败不影响已呈现的报告 */
     }
@@ -344,11 +348,7 @@
 </script>
 
 <div class="min-h-screen bg-space-950 scan-grid relative">
-  <!-- 背景光晕 -->
-  <div class="fixed inset-0 overflow-hidden pointer-events-none">
-    <div class="absolute top-[-10%] left-[-10%] w-125 h-125 bg-(--radar-500)/10 rounded-full blur-[120px]"></div>
-    <div class="absolute bottom-[-10%] right-[-10%] w-150 h-150 bg-blue-600/10 rounded-full blur-[120px]"></div>
-  </div>
+  <ReportBackdrop />
 
   <AppHeader
     onScreenshot={handleScreenshot}
@@ -358,10 +358,10 @@
     ready={!!report && !isScanning}
   />
 
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 pb-8 relative z-10">
+  <main class="report-main">
     <!-- 标题 -->
     <div class="mb-8">
-      <h1 class="text-3xl md:text-4xl font-bold text-white mb-2">
+      <h1 class="report-title mb-2">
         网络环境一致性检测<span class="text-(--radar-400)">雷达</span>
       </h1>
     </div>
@@ -445,16 +445,7 @@
     {/if}
   </main>
 
-  <footer class="border-t border-slate-800 py-8 relative z-10">
-    <div class="max-w-7xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center text-(--slate-500) text-sm gap-3">
-      <p>© 2026 DetectRadar.com</p>
-      <div class="flex flex-wrap justify-center gap-x-4 gap-y-2">
-        <a href="/privacy/" class="hover:text-white transition">隐私政策</a>
-        <a href="/terms/" class="hover:text-white transition">服务条款</a>
-        <a href="/contact/" class="hover:text-white transition">联系我们</a>
-      </div>
-    </div>
-  </footer>
+  <SiteFooter />
 
   <!-- Toast -->
   {#if toastVisible && !isCapturing}

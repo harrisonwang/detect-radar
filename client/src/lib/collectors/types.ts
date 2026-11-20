@@ -153,6 +153,7 @@ export interface WebRTCLeakData {
 /** DNS 泄漏数据 */
 export interface DNSLeakData {
   leaked: boolean;
+  assessed?: boolean;     // 新服务端已根据实际观测更新扫描报告
   test_id?: string;       // 后端一次性测试 ID
   resolvers: string[];    // DNS 解析器列表
 }

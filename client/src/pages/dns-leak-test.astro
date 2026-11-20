@@ -1,0 +1,15 @@
+---
+import Layout from '../layouts/Layout.astro';
+import DNSCheckPage from '../components/DNSCheckPage.svelte';
+import ReportBackdrop from '../components/ReportBackdrop.svelte';
+import SiteFooter from '../components/SiteFooter.svelte';
+---
+
+<Layout title="DNS 泄露检测" canonical="/dns-leak-test/" description="查看访问本站的出口 IP、本次检测到的 DNS 地址及归属地。换节点或改完 DNS 后再测一次，就能看到和上次的差别。">
+  <div class="min-h-screen bg-space-950 scan-grid flex flex-col relative">
+    <ReportBackdrop />
+    <DNSCheckPage client:load />
+    <noscript><p class="report-main text-sm text-(--slate-300)">请启用 JavaScript 后再检测 DNS。</p></noscript>
+    <SiteFooter />
+  </div>
+</Layout>

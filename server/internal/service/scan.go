@@ -175,6 +175,9 @@ func (s *ScanService) UpdateDNSLeak(scanID string, leaked bool) (*model.ScanResp
 	if !ok || time.Since(stored.createdAt) >= s.ttl {
 		return nil, false, nil
 	}
+	if stored.resp.Analysis.Privacy.DNS.Assessment != nil {
+		return stored.resp, true, nil
+	}
 	expected := "safe"
 	if leaked {
 		expected = "danger"
@@ -198,10 +201,28 @@ func (s *ScanService) UpdateDNSObservation(instanceID, clientID string, result *
 	stored, ok := s.store[instanceID]
 	var updated *model.ScanResponse
 	if ok && time.Since(stored.createdAt) < s.ttl {
-		updated = rescoreDNS(stored.resp, result.Leaked)
-		if resolver, mismatch := mismatchedDNSResolver(result.ExpectedCountry, result.DNSServers); result.Leaked && mismatch {
-			updated.Analysis.Privacy.DNS.Country = resolver.Country
-			updated.Analysis.Privacy.DNS.ISP = resolver.ISP
+		if result.Assessment == nil {
+			updated = rescoreDNS(stored.resp, result.Leaked)
+		} else {
+			status := "unknown"
+			switch result.Assessment.State {
+			case "suspected":
+				status = "danger"
+			case "clear":
+				status = "safe"
+			case "unobserved":
+				status = "blocked"
+			}
+			dns := model.PrivacyDNS{Status: status, Assessment: result.Assessment}
+			if len(result.Assessment.SuspectIPs) > 0 {
+				for _, resolver := range result.DNSServers {
+					if resolver.IP == result.Assessment.SuspectIPs[0] {
+						dns.Country, dns.ISP = resolver.Country, resolver.ISP
+						break
+					}
+				}
+			}
+			updated = rescoreDNSStatus(stored.resp, dns)
 		}
 	}
 	if err := s.journal.DNSLeakEvent(instanceID, clientID, result, updated); err != nil {
@@ -214,28 +235,34 @@ func (s *ScanService) UpdateDNSObservation(instanceID, clientID string, result *
 	return updated, nil
 }
 
-// 复制响应后再修改，避免影响并发读取或发布未提交的结果。
 func rescoreDNS(previous *model.ScanResponse, leaked bool) *model.ScanResponse {
-	resp := *previous
-	resp.Analysis.Privacy.DNS.Status = "safe"
-	resp.Analysis.Privacy.DNS.MatchesExitIP = !leaked
+	dns := model.PrivacyDNS{Status: "safe", MatchesExitIP: !leaked}
 	if leaked {
-		resp.Analysis.Privacy.DNS.Status = "danger"
-	} else {
-		resp.Analysis.Privacy.DNS.Country = ""
-		resp.Analysis.Privacy.DNS.ISP = ""
+		dns.Status = "danger"
+		dns.Country = previous.Analysis.Privacy.DNS.Country
+		dns.ISP = previous.Analysis.Privacy.DNS.ISP
 	}
-	pv := &resp.Analysis.Privacy
-	switch {
-	case pv.WebRTC.Status == "danger" || pv.DNS.Status == "danger" || pv.IPv6.Status == "danger":
-		pv.OverallStatus = "danger"
-	case pv.WebRTC.Status == "warning":
-		pv.OverallStatus = "warning"
-	default:
-		pv.OverallStatus = "safe"
-	}
+	return rescoreDNSStatus(previous, dns)
+}
+
+// 复制响应后再修改，避免影响并发读取或发布未提交的结果。
+func rescoreDNSStatus(previous *model.ScanResponse, dns model.PrivacyDNS) *model.ScanResponse {
+	resp := *previous
+	resp.Analysis.Privacy.DNS = dns
+	resp.Analysis.Privacy.OverallStatus = privacyOverallStatus(resp.Analysis.Privacy)
 	resp.Score, resp.RiskLevel, resp.Diagnosis, resp.Dimensions = score(resp.Analysis, resp.ServerData.IPIntel)
 	return &resp
+}
+
+func privacyOverallStatus(pv model.PrivacyAnalysis) string {
+	switch {
+	case pv.WebRTC.Status == "danger" || pv.DNS.Status == "danger" || pv.IPv6.Status == "danger":
+		return "danger"
+	case pv.WebRTC.Status == "warning" || pv.DNS.Status == "warning":
+		return "warning"
+	default:
+		return "safe"
+	}
 }
 
 func (s *ScanService) cleanup() {
@@ -373,15 +400,7 @@ func buildPrivacy(req *model.ScanRequest, exitIP string, intel *model.IPIntel) m
 		}
 	}
 
-	// 综合
-	switch {
-	case pa.WebRTC.Status == "danger" || pa.DNS.Status == "danger" || pa.IPv6.Status == "danger":
-		pa.OverallStatus = "danger"
-	case pa.WebRTC.Status == "warning":
-		pa.OverallStatus = "warning"
-	default:
-		pa.OverallStatus = "safe"
-	}
+	pa.OverallStatus = privacyOverallStatus(pa)
 	return pa
 }
 

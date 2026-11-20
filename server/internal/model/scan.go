@@ -1,5 +1,7 @@
 package model
 
+import "detect-radar/dnsassessment"
+
 // ============================================================================
 // POST /scans 统一扫描请求（对齐 client/docs/api-scans.md）
 // 客户端采集原始信号，服务端分析。以下只声明服务端实际消费的字段。
@@ -281,10 +283,11 @@ type PrivacyWebRTC struct {
 }
 
 type PrivacyDNS struct {
-	Status        string `json:"status"`
-	MatchesExitIP bool   `json:"matches_exit_ip"`
-	Country       string `json:"country,omitempty"`
-	ISP           string `json:"isp,omitempty"`
+	Status        string                 `json:"status"`
+	MatchesExitIP bool                   `json:"matches_exit_ip"`
+	Country       string                 `json:"country,omitempty"`
+	ISP           string                 `json:"isp,omitempty"`
+	Assessment    *dnsassessment.Verdict `json:"assessment,omitempty"`
 }
 
 type PrivacyIPv6 struct {

@@ -49,6 +49,8 @@
                 <span class="text-[10px] text-(--slate-500) font-mono">IP</span>
                 {r.compare.ip}
               </span>
+            {:else if r.href}
+              <a href={r.href} aria-label={`${r.label} ${r.value}`} class="text-sm text-(--slate-200) underline decoration-slate-600 underline-offset-4 hover:text-(--radar-400)">{r.value}</a>
             {:else}
               <span class="text-sm text-(--slate-200) tnum">{r.value}</span>
             {/if}

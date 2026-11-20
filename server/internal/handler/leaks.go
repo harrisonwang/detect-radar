@@ -4,6 +4,7 @@ import (
 	"errors"
 	"strings"
 
+	"detect-radar/dnsassessment"
 	"detect-radar/internal/model"
 	"detect-radar/internal/service"
 	"detect-radar/internal/util"
@@ -21,6 +22,17 @@ type DNSHandler struct {
 
 func NewDNSHandler(s *service.DNSService) *DNSHandler {
 	return &DNSHandler{service: s}
+}
+
+// Assess runs the same read-only evaluator used by the homepage on all rounds
+// collected by the DNS page. It does not change any stored scan.
+func (h *DNSHandler) Assess(c *fiber.Ctx) error {
+	var input dnsassessment.Input
+	if err := c.BodyParser(&input); err != nil || !input.Valid() {
+		return util.InvalidParameter(c, "DNS 检测样本无效")
+	}
+	c.Set("Cache-Control", "no-store")
+	return c.JSON(dnsassessment.Evaluate(input))
 }
 
 // CreateLeakTest 创建 DNS 泄露测试（POST /leaks/dns）。

@@ -9,8 +9,9 @@
  *   POST /scans                  GET  /scans/:id
  *   POST /scans/:id/dns          POST /scans/:id/feedback
  *   POST /leaks/dns              GET  /leaks/dns/:id
+ *   GET  /ip
  * RTT 探针 GET /ping 由 collectors/network/rtt.ts 直接 fetch（需自行掐表计时，不走本层）。
- * 后端另有 GET /ip、GET /ip/reputation 两个公开自查端点，本 SPA 全程走 /scans，故不封装。
+ * DNS 专项页通过 /ip 获取本次连接的出口。
  */
 
 import type {
@@ -18,6 +19,9 @@ import type {
   ScanResponse,
   DNSLeakTestResponse,
   DNSLeakResult,
+  DNSAssessmentInput,
+  DNSAssessmentResult,
+  IPIntel,
 } from './types';
 
 // Astro/Vite：仅 PUBLIC_ 前缀的变量会暴露到客户端
@@ -133,4 +137,9 @@ export const createDNSLeakTest = (scanId?: string) =>
 
 /** 拉取 DNS 泄露测试结果（客户端触发解析后轮询） */
 export const getDNSLeakResult = (id: string) =>
-  request<DNSLeakResult>(`/leaks/dns/${encodeURIComponent(id)}`);
+  request<DNSLeakResult>(`/leaks/dns/${encodeURIComponent(id)}`, { cache: 'no-store' });
+
+export const getBrowserExit = () => request<IPIntel>('/ip', { cache: 'no-store' });
+
+export const assessDNSObservation = (observation: DNSAssessmentInput) =>
+  request<DNSAssessmentResult>('/leaks/dns/assessment', { method: 'POST', body: JSON.stringify(observation) }, 6000);

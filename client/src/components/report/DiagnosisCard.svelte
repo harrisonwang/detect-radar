@@ -60,7 +60,13 @@
                 <i class="fa-solid {m.icon}"></i>{m.label}
               </span>
               <div class="min-w-0 flex-1">
-                <span class="text-sm text-(--slate-200) leading-snug">{f.title}</span>
+                {#if f.id === 'dns-leak'}
+                  <a href="/dns-leak-test/" class="text-sm text-(--slate-200) leading-snug hover:text-(--radar-400) underline decoration-slate-600 underline-offset-4">
+                    {f.title}<i class="fa-solid fa-arrow-right ml-1.5 text-[10px]" aria-hidden="true"></i>
+                  </a>
+                {:else}
+                  <span class="text-sm text-(--slate-200) leading-snug">{f.title}</span>
+                {/if}
                 <!-- 窄屏放开换行：单行省略号会把暴露项的证据（被比对的两个值）截掉一半 -->
                 <span class="text-xs text-(--slate-500) block sm:truncate mt-0.5">{f.fact}</span>
               </div>

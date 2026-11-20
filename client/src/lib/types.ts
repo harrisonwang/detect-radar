@@ -209,7 +209,7 @@ export interface PrivacyAnalysis {
     leaked_ips: string[];
     matches_exit_ip: boolean;
   };
-  dns: { status: 'safe' | 'danger' | 'blocked'; matches_exit_ip: boolean; country?: string; isp?: string };
+  dns: { status: 'safe' | 'warning' | 'danger' | 'unknown' | 'blocked'; matches_exit_ip: boolean; country?: string; isp?: string; assessment?: DNSVerdict };
   ipv6: { status: 'safe' | 'danger' | 'disabled'; address?: string };
   overall_status: 'safe' | 'warning' | 'danger' | 'disabled';
 }
@@ -309,17 +309,51 @@ export interface DNSQuery {
   ip: string;
   country: string;
   isp: string;
+  asn?: string;
+  network_type?: 'public' | 'access' | 'hosting';
   queried_at: string;
 }
 
 export interface DNSLeakResult {
   id: string;
   leaked: boolean;
-  level: 'safe' | 'warning' | 'danger';
+  level: 'safe' | 'warning' | 'danger' | 'unknown';
   dns_servers: DNSQuery[];
   expected_country: string;
   actual_countries: string[];
   recommendation: string;
+  assessment?: DNSVerdict;
+}
+
+export interface DNSVerdict {
+  policy_version?: number;
+  state: 'suspected' | 'clear' | 'unknown' | 'unobserved';
+  reason: string;
+  networks?: string[];
+  suspect_ips?: string[];
+}
+
+export interface DNSExit {
+  ip: string;
+  country: string;
+  network: string;
+  asn?: string;
+  type?: 'proxy' | 'hosting' | 'access';
+}
+
+export type DNSResolver = Omit<DNSQuery, 'queried_at'> & { rounds: number; round_ids?: number[] };
+
+export interface DNSAssessmentInput {
+  exit: DNSExit | null;
+  resolvers: DNSResolver[];
+  observed_rounds: number;
+  total_rounds: number;
+}
+
+export interface DNSAssessmentResult {
+  verdict: DNSVerdict;
+  exit: DNSExit | null;
+  resolvers: DNSResolver[];
 }
 
 // ============ 场景专属卡片类型 ============

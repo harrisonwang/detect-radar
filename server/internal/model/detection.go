@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"detect-radar/dnsassessment"
+)
 
 // ============================================================================
 // DNS 泄露检测（自建权威 NS / DNSTap 记录 resolver）
@@ -13,15 +17,16 @@ type DNSLeakTestRequest struct {
 
 // DNSLeakTest 一次 DNS 泄露测试的内部记录
 type DNSLeakTest struct {
-	TestID          string     `json:"-"`
-	TestDomain      string     `json:"-"`
-	ScanID          string     `json:"-"`
-	ScanInstanceID  string     `json:"-"` // 创建测试时冻结的服务端扫描实例，避免客户端 scan_id 复用导致串联
-	ExpectedCountry string     `json:"-"` // 所属扫描的出口国家
-	ExpiresAt       int64      `json:"-"`
-	CreatedAt       time.Time  `json:"-"`
-	DNSQueries      []DNSQuery `json:"-"`
-	Journaled       bool       `json:"-"` // 观测结果是否已写入遥测流水（只写一次）
+	TestID          string              `json:"-"`
+	TestDomain      string              `json:"-"`
+	ScanID          string              `json:"-"`
+	ScanInstanceID  string              `json:"-"` // 创建测试时冻结的服务端扫描实例，避免客户端 scan_id 复用导致串联
+	ExpectedCountry string              `json:"-"` // 所属扫描的出口国家
+	Exit            *dnsassessment.Exit `json:"-"` // 创建测试时冻结的网页出口
+	ExpiresAt       int64               `json:"-"`
+	CreatedAt       time.Time           `json:"-"`
+	DNSQueries      []DNSQuery          `json:"-"`
+	Journaled       bool                `json:"-"` // 观测结果是否已写入遥测流水（只写一次）
 }
 
 // DNSLeakTestResponse 创建测试后返回给客户端的信息
@@ -34,21 +39,24 @@ type DNSLeakTestResponse struct {
 
 // DNSQuery 一条被记录到的 resolver 查询
 type DNSQuery struct {
-	IP        string `json:"ip"`
-	Country   string `json:"country"`
-	ISP       string `json:"isp"`
-	QueriedAt string `json:"queried_at"`
+	IP          string `json:"ip"`
+	Country     string `json:"country"`
+	ISP         string `json:"isp"`
+	ASN         string `json:"asn,omitempty"`
+	NetworkType string `json:"network_type,omitempty"` // public / access / hosting
+	QueriedAt   string `json:"queried_at"`
 }
 
 // DNSLeakResult DNS 泄露分析结果
 type DNSLeakResult struct {
-	ID              string     `json:"id"`
-	Leaked          bool       `json:"leaked"`
-	Level           string     `json:"level"` // safe / warning / danger
-	DNSServers      []DNSQuery `json:"dns_servers"`
-	ExpectedCountry string     `json:"expected_country"`
-	ActualCountries []string   `json:"actual_countries"`
-	Recommendation  string     `json:"recommendation"`
+	ID              string                 `json:"id"`
+	Leaked          bool                   `json:"leaked"`
+	Level           string                 `json:"level"` // safe / warning / danger
+	DNSServers      []DNSQuery             `json:"dns_servers"`
+	ExpectedCountry string                 `json:"expected_country"`
+	ActualCountries []string               `json:"actual_countries"`
+	Recommendation  string                 `json:"recommendation"`
+	Assessment      *dnsassessment.Verdict `json:"assessment,omitempty"`
 }
 
 // ============================================================================

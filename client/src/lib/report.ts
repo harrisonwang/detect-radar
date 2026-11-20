@@ -12,10 +12,15 @@ import type {
   ScanResponse,
   ScanAnalysis,
   IdentityAnalysis,
+  DNSExit,
+  DNSVerdict,
   IPIntel,
   RiskLevel,
   DimensionScore,
 } from "./types";
+
+import { browserExit, DNS_POLICY_VERSION, dnsVerdictNote, dnsStatus } from "./dnsPresentation";
+import { maskIP } from "./ipDisplay";
 
 // 四态语义（对应 global.css 的 --sig / --warn / --leak / --unknown）
 export type SignalState = "coherent" | "contradiction" | "leak" | "unknown";
@@ -45,6 +50,7 @@ export interface ReadoutRow {
   label: string;
   value: string;
   state: SignalState;
+  href?: string;
   hint?: string;
   compare?: { browser: string; ip: string }; // 浏览器↔IP 对比行
 }
@@ -105,15 +111,6 @@ export interface ReportModel {
 }
 
 // ---- 工具 ----
-
-function maskIP(ip: string): string {
-  if (!ip) return "—";
-  const v4 = ip.split(".");
-  if (v4.length === 4) return `${v4[0]}.${v4[1]}.···.···`;
-  const v6 = ip.split(":");
-  if (v6.length > 2) return `${v6[0]}:${v6[1]}:···`;
-  return ip;
-}
 
 const USAGE_LABEL: Record<string, string> = {
   residential: "普通网络",
@@ -337,14 +334,6 @@ function buildGroups(dims: DimensionScore[]): ReportGroup[] {
 
 // ---- 破绽清单 ----
 
-function countryName(code: string): string {
-  try {
-    return new Intl.DisplayNames(["zh-CN"], { type: "region" }).of(code) || code;
-  } catch {
-    return code;
-  }
-}
-
 function buildFindings(a: ScanAnalysis, id: IdentityReadout): Finding[] {
   const F: Finding[] = [];
   const push = (f: Finding) => F.push(f);
@@ -361,16 +350,14 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout): Finding[] {
       fix: "检查代理是否覆盖 WebRTC，或关闭浏览器 WebRTC 公网候选。",
     });
   }
-  if (pv.dns.status === "danger" && pv.dns.country && pv.dns.isp && id.countryCode) {
-    const country = countryName(pv.dns.country);
-    const provider = pv.dns.isp.startsWith(country) ? pv.dns.isp : `${country}${pv.dns.isp}`;
+  if (dnsVerdictState(pv.dns) === "suspected") {
     push({
       id: "dns-leak",
       severity: "leak",
-      title: "DNS 地区不一致",
-      fact: `出口：${countryName(id.countryCode)} · DNS：${provider}`,
-      meaning: "DNS 与出口地区不一致会降低环境一致性。",
-      fix: "检查系统或浏览器 DNS 设置。",
+      title: "DNS 泄露",
+      fact: dnsVerdictNote(pv.dns.assessment),
+      meaning: "国内运营商参与了本次域名解析。",
+      fix: "在 DNS 泄露检测页复测，核对测到的解析网络。",
     });
   }
   if (pv.ipv6.status === "danger") {
@@ -586,8 +573,14 @@ function isExpectedDualStackWebRTC(
   return !!exitIP && !isIPv6Address(exitIP);
 }
 
-function leakRows(a: ScanAnalysis, exitIP = ""): ReadoutRow[] {
+function dnsVerdictState(dns: ScanAnalysis["privacy"]["dns"]): DNSVerdict["state"] {
+  if (dns.assessment?.policy_version === DNS_POLICY_VERSION) return dns.assessment.state;
+  return dns.status === "blocked" ? "unobserved" : "unknown";
+}
+
+function leakRows(a: ScanAnalysis, exit: DNSExit | null): ReadoutRow[] {
   const pv = a.privacy;
+  const exitIP = exit?.ip ?? "";
   // 仅「danger」算真泄露；warning=仅内网候选、blocked=已挡、disabled=无候选，均非泄露
   const webrtcState: SignalState =
     pv.webrtc.status === "danger"
@@ -595,12 +588,7 @@ function leakRows(a: ScanAnalysis, exitIP = ""): ReadoutRow[] {
       : pv.webrtc.status === "warning"
         ? "unknown"
         : "coherent";
-  const dnsState: SignalState =
-    pv.dns.status === "danger"
-      ? "leak"
-      : pv.dns.status === "blocked"
-        ? "unknown"
-        : "coherent";
+  const dnsState = dnsVerdictState(pv.dns);
   const ipv6State: SignalState =
     pv.ipv6.status === "danger" ? "leak" : "coherent";
   const webrtcValue = (() => {
@@ -643,19 +631,10 @@ function leakRows(a: ScanAnalysis, exitIP = ""): ReadoutRow[] {
     },
     {
       label: "DNS",
-      value:
-        pv.dns.status === "danger"
-          ? "与出口 IP 地区不一致"
-          : pv.dns.status === "blocked"
-            ? "未检测"
-            : "与出口 IP 地区一致",
-      state: dnsState,
-      hint:
-        pv.dns.status === "blocked"
-          ? undefined
-          : pv.dns.matches_exit_ip
-            ? "与出口 IP 地区一致"
-            : "与出口 IP 不在同一地区",
+      value: dnsStatus[dnsState].title,
+      state: dnsState === "suspected" ? "leak" : dnsState === "clear" ? "coherent" : "unknown",
+      href: dnsState === "suspected" ? "/dns-leak-test/" : undefined,
+      hint: pv.dns.assessment?.policy_version === DNS_POLICY_VERSION ? dnsVerdictNote(pv.dns.assessment) : undefined,
     },
     {
       label: "IPv6",
@@ -781,6 +760,7 @@ export function buildReport(
   const a = resp.analysis;
   const groups = buildGroups(resp.dimensions ?? []);
   const identity = buildIdentity(a.identity, resp.server_data.ip_intel);
+  const exit = resp.server_data.ip_intel ? browserExit(resp.server_data.ip_intel) : null;
   const idGroup = groups.find((g) => g.key === "identity");
   if (idGroup) identity.state = idGroup.state; // 身份卡状态色与后端评分对齐
   const verdict = buildVerdict(groups);
@@ -793,7 +773,7 @@ export function buildReport(
     identity,
     findings: buildFindings(a, identity),
     consistency: consistencyRows(a),
-    leaks: leakRows(a, identity.ip),
+    leaks: leakRows(a, exit),
     environment: environmentRows(a, collectors, device),
     rtt: buildRTT(a),
     meta: {

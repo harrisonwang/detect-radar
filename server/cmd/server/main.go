@@ -232,6 +232,7 @@ func setupRoutes(app *fiber.App, services *Services) {
 	// DNS 泄露（P2）
 	dnsHandler := handler.NewDNSHandler(services.DNS)
 	api.Post("/leaks/dns", dnsHandler.CreateLeakTest)
+	api.Post("/leaks/dns/assessment", dnsHandler.Assess)
 	api.Get("/leaks/dns/:id", dnsHandler.GetLeakResult)
 }
 

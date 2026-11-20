@@ -525,7 +525,7 @@ export async function renderShareCard(
     cx += colW;
   });
 
-  // 物理延迟读数行（Phase 1）：与页面同一形态——纯测量值、全灰阶、明标不参与评分
+  // 物理延迟读数行（Phase 1）：与页面一样使用灰阶和试运行标记。
   if (rtt) {
     ctx.strokeStyle = C.line;
     ctx.beginPath();
@@ -557,11 +557,11 @@ export async function renderShareCard(
       text(ctx, "ms", rx, ly, { font: font(11), color: C.slate600 });
       rx += ctx.measureText("ms").width + 34;
     };
-    if (rtt.clientMinMS != null) item("浏览器 ↔ 服务器", rtt.clientMinMS);
-    if (rtt.serverTCPMS != null) item("出口 ↔ 服务器", rtt.serverTCPMS);
-    if (rtt.deltaMS != null) item("Δ 浏览器 ↔ 出口", rtt.deltaMS);
+    if (rtt.clientMinMS != null) item("延迟", rtt.clientMinMS);
+    if (rtt.serverTCPMS != null) item("TCP 延迟", rtt.serverTCPMS);
+    if (rtt.deltaMS != null) item("延迟差", rtt.deltaMS);
 
-    text(ctx, "试运行 · 不参与评分", W - PAD - 28, ly, {
+    text(ctx, "试运行", W - PAD - 28, ly, {
       font: font(11),
       color: C.slate600,
       align: "right",

@@ -136,30 +136,27 @@
     {#if rtt}
       <div class="mt-5 pt-4 border-t border-slate-800">
         <div class="flex items-center justify-between mb-2.5">
-          <span
-            class="text-xs font-mono text-(--slate-500) tracking-wider"
-            title="任何代理都会在浏览器与服务器之间插入额外物理链路，往返时延藏不住"
-          >物理延迟</span>
-          <span class="text-[10px] text-(--slate-600)" title="延迟阈值仍在标定期，读数不参与评分与判定">试运行 · 不参与评分</span>
+          <span class="text-xs font-mono text-(--slate-500) tracking-wider">物理延迟</span>
+          <span class="text-[10px] text-(--slate-600)" title="延迟阈值仍在标定期，读数不参与评分与判定">试运行</span>
         </div>
         <div class="flex flex-wrap gap-x-7 gap-y-2">
           {#if rtt.clientMinMS != null}
-            <div title={rtt.jitterMS != null ? `多次采样取最小值；抖动 ${ms(rtt.jitterMS)} ms` : '多次采样取最小值'}>
-              <span class="text-xs text-(--slate-500)">浏览器 ↔ 服务器</span>
+            <div title={`请求本站的耗时，多次采样取最小值${rtt.jitterMS != null ? `，抖动 ${ms(rtt.jitterMS)} ms` : ''}`}>
+              <span class="text-xs text-(--slate-500)">延迟</span>
               <span class="text-sm text-(--slate-200) tnum ml-1.5">{ms(rtt.clientMinMS)}</span>
               <span class="text-xs text-(--slate-600)">ms</span>
             </div>
           {/if}
           {#if rtt.serverTCPMS != null}
-            <div title="服务器侧内核实测：出口 IP 到服务器的 TCP 往返">
-              <span class="text-xs text-(--slate-500)">出口 ↔ 服务器</span>
+            <div title="本站从当前 TCP 连接读取的往返时间">
+              <span class="text-xs text-(--slate-500)">TCP 延迟</span>
               <span class="text-sm text-(--slate-200) tnum ml-1.5">{ms(rtt.serverTCPMS)}</span>
               <span class="text-xs text-(--slate-600)">ms</span>
             </div>
           {/if}
           {#if rtt.deltaMS != null}
-            <div title="两段之差，近似浏览器到出口这一段；含测量噪声，可能略偏">
-              <span class="text-xs text-(--slate-500)">Δ 浏览器 ↔ 出口</span>
+            <div title="延迟减去 TCP 延迟">
+              <span class="text-xs text-(--slate-500)">延迟差</span>
               <span class="text-sm text-(--slate-200) tnum ml-1.5">{ms(rtt.deltaMS)}</span>
               <span class="text-xs text-(--slate-600)">ms</span>
             </div>

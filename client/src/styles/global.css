@@ -183,3 +183,11 @@ body {
 .bg-space-950 { background-color: var(--space-950); }
 .border-slate-700 { border-color: var(--slate-700); }
 .border-slate-800 { border-color: var(--slate-800); }
+
+.prose [id] {
+  scroll-margin-top: 5rem;
+}
+
+.prose :not(pre) > code {
+  overflow-wrap: anywhere;
+}

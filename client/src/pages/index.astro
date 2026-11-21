@@ -1,8 +1,17 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import MainApp from '../components/MainApp.svelte';
+import ReportBackdrop from '../components/ReportBackdrop.svelte';
+import SiteFooter from '../components/SiteFooter.svelte';
 ---
 
-<Layout canonical="/">
-  <MainApp client:load />
+<Layout canonical="/" pageType="home">
+  <div class="min-h-screen bg-space-950 scan-grid flex flex-col relative">
+    <ReportBackdrop />
+    <MainApp client:load />
+    <noscript>
+      <p class="report-main pt-0 text-sm text-(--slate-300)">请启用 JavaScript 后运行实时检测。</p>
+    </noscript>
+    <SiteFooter />
+  </div>
 </Layout>

@@ -75,7 +75,7 @@
 
 {#snippet exitReadout(exit: DNSExit | null, pending: boolean)}
   <div class="reading">
-    <h3 class="field" title="你访问本站时使用的公网 IP"><i class="fa-solid fa-globe" aria-hidden="true"></i>出口 IP</h3>
+    <p class="field" title="你访问本站时使用的公网 IP"><i class="fa-solid fa-globe" aria-hidden="true"></i>出口 IP</p>
     {#if exit?.ip}
       {@const networkType = exitTypeLabel(dnsExitType(exit))}
       <div class="network-identity exit-identity">
@@ -104,7 +104,6 @@
 <main class="report-main flex-1">
   <header class="mb-6">
     <h1 class="report-title"><span class="text-radar">DNS</span> 泄露检测</h1>
-    <p class="mt-2 text-sm sm:text-[15px] leading-6 text-(--slate-400)">查看当前出口 IP 和 DNS</p>
   </header>
 
   <div role="status" class="sr-only">
@@ -122,15 +121,18 @@
         {/if}
 
         <header class="diagnosis" style:--verdict-color={status.color} style:--verdict-soft={status.soft}>
-          <p class="card-label">{busy || error ? '上次结果' : '本次检测'}</p>
-          <h2 class="verdict-title"><span class="dot" aria-hidden="true"></span>{status.title}</h2>
+          <p class="card-label">{busy ? '正在重新检测 · 上次结果' : error ? '上次结果' : '本次检测'}</p>
+          <p class="verdict-title"><span class="dot" class:loading-dot={busy} aria-hidden="true"></span>{status.title}</p>
           {#if note}<p class="diagnosis-note">{busy || error ? note.replace(/本次 ?/g, '') : note}</p>{/if}
         </header>
+        {#if busy}
+          <div class="progress-track" role="progressbar" aria-label="DNS 重新检测进度"><span></span></div>
+        {/if}
 
-        <div class="columns">
+        <div class="columns" class:retesting={busy}>
           {@render exitReadout(current.exit, false)}
           <div class="reading">
-            <h3 class="field"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i>DNS</h3>
+            <p class="field"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i>DNS</p>
             <ul class="network-list" aria-label="检测到的 DNS 网络">
               {#each providers as provider (provider.key)}
                 <li class="network-row" class:suspect-network={provider.suspect}>
@@ -208,21 +210,21 @@
     {:else if error}
       <section class="glass-card result-card" aria-label={error.title}>
         <div class="failure-card">
-          <h2 class="verdict-title">{error.title}</h2>
+          <p class="verdict-title">{error.title}</p>
           <p class="diagnosis-note">{error.note}</p>
         </div>
       </section>
     {:else}
       <section class="glass-card result-card" aria-label="正在检测">
         <header class="diagnosis">
-          <h2 class="verdict-title"><span class="dot loading-dot" aria-hidden="true"></span>正在检测 DNS</h2>
+          <p class="verdict-title"><span class="dot loading-dot" aria-hidden="true"></span>正在检测 DNS</p>
           <p class="diagnosis-note">通常需要几秒。</p>
         </header>
         <div class="progress-track" role="progressbar" aria-label="DNS 检测进度"><span></span></div>
         <div class="columns">
           {@render exitReadout(pendingExit, true)}
           <div class="reading">
-            <h3 class="field"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i>DNS</h3>
+            <p class="field"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i>DNS</p>
             <div class="mt-3 h-5 w-36 rounded bg-white/8" aria-hidden="true"></div>
             <div class="mt-2 h-3 w-21 rounded bg-white/5" aria-hidden="true"></div>
           </div>
@@ -233,10 +235,10 @@
     <div class="side-stack">
       {#if comparison && !error}
         <aside class="glass-card side-card" aria-labelledby="dns-comparison-title">
-          <h2 class="side-heading" id="dns-comparison-title">
+          <p class="side-heading" id="dns-comparison-title">
             <i class="fa-solid fa-arrow-right-arrow-left" aria-hidden="true"></i>
             {busy ? '上次对比' : '和上次比'}
-          </h2>
+          </p>
           {#if comparison.summary}
             <p class="comparison-summary">{comparison.summary}</p>
           {:else}
@@ -274,9 +276,9 @@
         </aside>
       {/if}
       <aside class="glass-card side-card" aria-labelledby="dns-info-title">
-        <h2 class="side-heading" id="dns-info-title">
+        <p class="side-heading" id="dns-info-title">
           <i class="fa-solid fa-circle-info" aria-hidden="true"></i>检测说明
-        </h2>
+        </p>
         <ul class="rule-note">
           <li>结果来自当前浏览器的 DNS 检测。</li>
           <li>出口 IP 在海外，测到<span class="nowrap">国内运营商 DNS</span>，判为<strong>泄露</strong>。</li>
@@ -336,7 +338,8 @@
   }
   .result-notice i { color: var(--warn); flex: none; }
   .failure-card { padding: 1.25rem; }
-  .columns { display: grid; }
+  .columns { display: grid; transition: opacity 0.2s ease; }
+  .columns.retesting { opacity: 0.55; }
   .columns > :global(.reading) + :global(.reading) { border-top: 1px solid var(--line); }
   .reading { min-width: 0; padding: 1rem 1.25rem; }
   .field { display: flex; align-items: center; gap: 0.5rem; color: var(--slate-400); font-size: 0.8125rem; font-weight: 500; }

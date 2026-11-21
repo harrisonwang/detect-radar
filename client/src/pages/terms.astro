@@ -1,16 +1,20 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import AppHeader from '../components/report/AppHeader.svelte';
+import SiteFooter from '../components/SiteFooter.svelte';
 ---
 
 <Layout
 	title="服务条款"
 	canonical="/terms/"
 	description="DetectRadar 服务条款：本工具提供网络身份与环境一致性的检测与信息呈现，仅供参考；不隐藏身份、不是 VPN / 代理，也不保证你不被平台关联或封号。"
+	pageType="static"
+	dateModified="2026-10-23"
 >
-	<AppHeader page="static" />
-	<main class="mx-auto max-w-3xl px-6 py-16 prose prose-invert prose-headings:font-semibold prose-a:text-(--radar-400)">
-		<h1>服务条款</h1>
+	<div class="min-h-screen flex flex-col">
+		<AppHeader page="static" />
+		<main class="flex-1 mx-auto w-full max-w-3xl px-6 py-16 prose prose-invert prose-headings:font-semibold prose-a:text-(--radar-400)">
+			<h1>服务条款</h1>
 		<p>使用 DetectRadar 即表示你已阅读并同意本条款。</p>
 
 		<h2>服务性质</h2>
@@ -44,7 +48,10 @@ import AppHeader from '../components/report/AppHeader.svelte';
 		<h2>变更与联系</h2>
 		<p>
 			条款更新会在本页公布。一般咨询：<a class="wrap-break-word" href="mailto:admin@detectradar.com">admin@detectradar.com</a>。
-			最后更新：<strong>2026-10-23</strong>。
 		</p>
-	</main>
+
+		<p>最后更新：2026-11-21</p>
+		</main>
+		<SiteFooter />
+	</div>
 </Layout>

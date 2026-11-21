@@ -45,7 +45,7 @@
   <header class="flex items-center justify-between mb-5">
     <div class="flex items-center gap-2.5">
       <i class="fa-solid fa-id-card text-(--radar-400)"></i>
-      <h3 class="text-sm font-semibold text-white tracking-wide">网络身份</h3>
+      <p class="text-sm font-semibold text-white tracking-wide">网络身份</p>
     </div>
     <span class="dot" style="background:{stateVar(identity.state)}; --_soft:{stateSoft(identity.state)}"></span>
   </header>

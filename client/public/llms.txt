@@ -1,27 +1,22 @@
 # DetectRadar
 
-> DetectRadar 是一个网络环境一致性检测工具。它核对当前出口 IP 与浏览器的时区、语言和环境特征，同时检查 WebRTC、DNS 和 IPv6 泄露，生成问题清单与雷达图。打开网页即可检测，无需安装或注册。
+> DetectRadar (https://detectradar.com) 是一个免费、免注册的开源网络环境与代理泄露检测工具。它核对当前出口 IP（区分住宅 IP 与机房 IP）和浏览器的时区、语言及浏览器指纹，同时检查 WebRTC、DNS 和 IPv6 泄露，生成诊断报告与雷达图并支持分享，打开网页即可检测。
+> Free, zero-signup, open-source network environment, IP purity (residential vs. datacenter), DNS/WebRTC/IPv6 leak, and browser fingerprint diagnostic tool.
 
-## 主要能力
+## 核心工具
 
-- 核对浏览器时区、系统语言与当前出口 IP 所在地区是否一致。
-- 检查 WebRTC、DNS 和 IPv6 是否暴露了与当前出口不同的网络信息。
-- 展示当前出口 IP 的归属地、ASN、运营商、网络类型和信誉信息。
-- 检查 Canvas、Audio、WebGL 等浏览器环境特征及自动化标记。
-- 生成诊断报告和分享图；分享图会自动脫敏 IP。
+- [网络环境一致性检测雷达](https://detectradar.com/): 免费、免注册核对当前出口 IP 的归属地、ASN、运营商与住宅 IP / 机房 IP 属性，比对浏览器时区、语言一致性，排查 WebRTC、DNS、IPv6 代理泄露以及 Canvas、Audio、WebGL 等浏览器指纹特征，生成诊断报告并支持分享。
+- [DNS 泄露检测](https://detectradar.com/dns-leak-test/): 基于自建权威 DNS 服务检测实际使用的 DNS 服务器归属地，区分国内宽带运营商 DNS 泄露与公共 DNS 正常分流，同一浏览器内保留最近两次结果以便对比变化。
 
-## 能力边界
+## 检测说明与常见问题
 
-- 只分析发起检测的当前连接，不提供任意 IP 查询。
-- 不根据单个 IP 猜测连接用途。
-- “未发现异常”只代表本次检测没有命中已知问题。
-- 浏览器或网络拦截检测信号时，对应项目会显示“未检测”。
-- 部分 IP 信息来自第三方数据源，可能存在延迟或误差。
+- [检测说明](https://detectradar.com/about/): 说明检测范围、DNS 泄露怎么判断、哪些情况测不到、数据隐私保护方式与常见问题解答。
+- [完整说明文档](https://detectradar.com/llms-full.txt): 包含各项检测原理、DNS 泄露判断标准、能力边界与结果含义。
+- [站点地图](https://detectradar.com/sitemap.xml): 全站标准页面索引与更新时间。
 
-## 相关页面
+## Optional
 
-- 在线检测：https://detectradar.com/
-- 隐私政策：https://detectradar.com/privacy/
-- 服务条款：https://detectradar.com/terms/
-- 完整说明：https://detectradar.com/llms-full.txt
-- 源码仓库：https://github.com/harrisonwang/detect-radar
+- [隐私政策](https://detectradar.com/privacy/): 检测数据与反馈的处理方式及隐私请求邮箱。
+- [服务条款](https://detectradar.com/terms/): 服务性质（不隐藏身份、非 VPN 或代理）、免责声明与使用规范。
+- [联系我们](https://detectradar.com/contact/): 问题反馈、一般联系、隐私请求与滥用举报邮箱。
+- [源码仓库](https://github.com/harrisonwang/detect-radar): MIT 开源项目仓库。

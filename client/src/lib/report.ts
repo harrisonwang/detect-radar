@@ -552,18 +552,25 @@ function allSameAddress(addrs: string[], target: string): boolean {
   return addrs.length > 0 && addrs.every((ip) => ip.toLowerCase() === t);
 }
 
-function isExpectedDualStackWebRTC(
+export function isExpectedDualStackWebRTC(
   pv: ScanAnalysis["privacy"],
   exitIP = "",
 ): boolean {
   const extra = pv.webrtc.leaked_ips ?? [];
-  if (extra.length !== 1 || !isIPv6Address(extra[0])) return false;
-  if (
-    pv.ipv6.address &&
-    extra[0].toLowerCase() === pv.ipv6.address.toLowerCase()
-  )
+  if (extra.length === 0 || pv.ipv6.status === "danger") return false;
+  if (pv.ipv6.address && allSameAddress(extra, pv.ipv6.address)) return true;
+  if (exitIP && !isIPv6Address(exitIP) && extra.every(isIPv6Address))
     return true;
-  return !!exitIP && !isIPv6Address(exitIP);
+  // 本机以 IPv6 出口访问且未触发代理/机房风险（非 danger）时，STUN 返回 IPv4 属正常双栈
+  if (
+    exitIP &&
+    isIPv6Address(exitIP) &&
+    pv.webrtc.status !== "danger" &&
+    extra.every((ip) => !isIPv6Address(ip))
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function dnsVerdictState(dns: ScanAnalysis["privacy"]["dns"]): DNSVerdict["state"] {
@@ -574,32 +581,23 @@ function dnsVerdictState(dns: ScanAnalysis["privacy"]["dns"]): DNSVerdict["state
 function leakRows(a: ScanAnalysis, exit: DNSExit | null): ReadoutRow[] {
   const pv = a.privacy;
   const exitIP = exit?.ip ?? "";
-  // 仅「danger」算真泄露；warning=仅内网候选、blocked=已挡、disabled=无候选，均非泄露
+  const dualStack = isExpectedDualStackWebRTC(pv, exitIP);
+  // 仅「danger」且非预期双栈才算真泄露；safe / blocked / 预期双栈均为一致；warning=仅内网或待确认差异
   const webrtcState: SignalState =
-    pv.webrtc.status === "danger"
-      ? "leak"
-      : pv.webrtc.status === "warning"
-        ? "unknown"
-        : "coherent";
+    dualStack || pv.webrtc.status === "safe" || pv.webrtc.status === "blocked"
+      ? "coherent"
+      : pv.webrtc.status === "danger"
+        ? "leak"
+        : "unknown";
   const dnsState = dnsVerdictState(pv.dns);
   const ipv6State: SignalState =
     pv.ipv6.status === "danger" ? "leak" : "coherent";
   const webrtcValue = (() => {
     if (pv.webrtc.status === "blocked") return "未检测到公网地址";
     if (pv.webrtc.status === "safe") return "与出口 IP 一致";
-    if (pv.webrtc.status === "danger") return "公网地址与出口 IP 不一致";
-
+    if (dualStack) return "检测到 IPv6 双栈";
     const extra = pv.webrtc.leaked_ips ?? [];
     if (extra.length === 0) return "未检测到公网地址";
-    if (pv.ipv6.address && allSameAddress(extra, pv.ipv6.address))
-      return "检测到 IPv6 双栈";
-    if (
-      extra.length === 1 &&
-      isIPv6Address(extra[0]) &&
-      exitIP &&
-      !isIPv6Address(exitIP)
-    )
-      return "检测到 IPv6 双栈";
     return "公网地址与出口 IP 不一致";
   })();
 

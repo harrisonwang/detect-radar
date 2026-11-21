@@ -2,8 +2,6 @@
   import { onMount } from 'svelte';
 
   import AppHeader from './report/AppHeader.svelte';
-  import ReportBackdrop from './ReportBackdrop.svelte';
-  import SiteFooter from './SiteFooter.svelte';
   import RadarCard from './report/RadarCard.svelte';
   import DiagnosisCard from './report/DiagnosisCard.svelte';
   import IdentityCard from './report/IdentityCard.svelte';
@@ -334,24 +332,21 @@
   }
 </script>
 
-<div class="min-h-screen bg-space-950 scan-grid relative">
-  <ReportBackdrop />
+<AppHeader
+  onScreenshot={handleScreenshot}
+  onShare={handleShare}
+  onRescan={runScan}
+  isScanning={isScanning}
+  ready={!!report && !isScanning}
+/>
 
-  <AppHeader
-    onScreenshot={handleScreenshot}
-    onShare={handleShare}
-    onRescan={runScan}
-    isScanning={isScanning}
-    ready={!!report && !isScanning}
-  />
-
-  <main class="report-main">
-    <!-- 标题 -->
-    <div class="mb-8">
-      <h1 class="report-title mb-2">
-        网络环境一致性检测<span class="text-(--radar-400)">雷达</span>
-      </h1>
-    </div>
+<main class="report-main flex-1">
+  <!-- 标题 -->
+  <div class="mb-8">
+    <h1 class="report-title mb-2">
+      网络环境一致性检测<span class="text-(--radar-400)">雷达</span>
+    </h1>
+  </div>
 
     <!-- 评分 + 判定 -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
@@ -432,8 +427,6 @@
     {/if}
   </main>
 
-  <SiteFooter />
-
   <ReportToast bind:this={toast} suppressed={isCapturing} />
 
   <!-- 截图进度 -->
@@ -449,4 +442,3 @@
       </div>
     </div>
   {/if}
-</div>

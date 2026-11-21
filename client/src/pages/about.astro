@@ -1,0 +1,78 @@
+---
+import Layout from '../layouts/Layout.astro';
+import AppHeader from '../components/report/AppHeader.svelte';
+import SiteFooter from '../components/SiteFooter.svelte';
+import { ABOUT_FAQS } from '../lib/seoContent';
+---
+
+<Layout
+	title="检测说明：DNS 泄露判断、住宅与机房 IP 识别及浏览器指纹说明"
+	canonical="/about/"
+	description="说明 DetectRadar 的检测范围、DNS 泄露怎么判断、哪些情况测不到，以及数据隐私保护与常见问题解答。"
+	pageType="article"
+	faqs={ABOUT_FAQS}
+	dateModified="2026-11-21"
+>
+	<div class="min-h-screen flex flex-col">
+		<AppHeader page="static" />
+		<main class="flex-1 mx-auto w-full max-w-3xl px-6 py-16 prose prose-invert prose-headings:font-semibold prose-a:text-(--radar-400)">
+			<h1>检测说明</h1>
+			<p>
+				DetectRadar 是一个免费、免注册的开源网络环境与代理泄露检测工具。它把你访问网页时的出口 IP 信息（区分住宅 IP 与机房 IP），和浏览器的时区、语言、DNS / WebRTC / IPv6 泄露信号以及浏览器指纹放在一起比对，直接呈现检测到的事实。
+			</p>
+
+			<h2>检测范围</h2>
+			<ul>
+				<li>
+					<strong>出口网络身份</strong>：识别当前出口 IP 的归属地、ASN 与运营商，结合云厂商网段、BGP 宣告与反向解析区分普通家庭或办公宽带（常称住宅 IP）与云服务器、托管机房 IP，并检查公开黑名单（DNSBL / PBL）、常见开放代理端口与 Tor 出口列表。物理延迟仅按实测毫秒数展示，不主观打分。
+				</li>
+				<li>
+					<strong>环境一致性</strong>：核对浏览器时区与出口 IP 所在地区的时区偏移是否匹配，以及浏览器首选语言是否符合出口国家或地区的常用语言。页面上显示的 CPU 核心数、内存和触控点只作展示，不会当作异常扣分。
+				</li>
+				<li>
+					<strong>网络泄露</strong>：比对 WebRTC 获取到的公网候选地址、DNS 解析出口以及全局 IPv6 地址，查看是否存在和当前主出口不同的网络路径。
+				</li>
+				<li>
+					<strong>浏览器指纹与自动化</strong>：检查 Canvas、Audio、WebGL 等原生绘制接口是否被外部插件改写，检查浏览器自动化控制标记，并核对 WebGL 显卡信息与浏览器声明的操作系统是否相符（只对照操作系统，不对照出口国家）。
+				</li>
+			</ul>
+
+			<h2 id="dns">DNS 泄露怎么判断</h2>
+			<p>
+				<a href="/dns-leak-test/">DNS 泄露检测页</a>每次测试都会生成独立的随机探测域名，不会受到历史缓存影响，由自建权威 DNS 服务记录实际向本站发起解析请求的 DNS 服务器。
+			</p>
+			<p>
+				<strong>只有当你的出口 IP 位于海外，同时检测到了中国大陆宽带运营商的本地 DNS 服务器时，才会判定为“泄露”。</strong>
+			</p>
+			<ul>
+				<li>如果当前出口本来就在中国大陆，使用本地或公共 DNS 属于正常直连路径，判为“未泄露”。</li>
+				<li>
+					阿里 DNS（223.5.5.5 / 223.6.6.6）、腾讯 DNSPod（119.29.29.29）、AdGuard DNS、Cloudflare（1.1.1.1）、Google（8.8.8.8）、Quad9、OpenDNS、NextDNS 等常见公共 DNS，以及常规海外机房 DNS 会跳过运营商泄露判定，避免误报成国内运营商直连泄露。
+				</li>
+				<li>如果测试请求被插件或网络拦截导致没有收到解析记录，页面会显示“无 DNS 结果”；缺少归属地信息时显示“无法判断”。</li>
+			</ul>
+
+			<h2 id="boundaries">哪些情况测不到，以及隐私说明</h2>
+			<ul>
+				<li>只分析当前打开页面的这一条连接，不提供任意 IP 查询，也不会根据单个 IP 去猜测访问用途。</li>
+				<li>检测结果“未见明显异常”只代表当前可检测项目之间没有发现明显矛盾或泄露，不代表目标网站的风控规则，本工具也不负责隐藏身份或修改指纹。</li>
+				<li>网页端的 IPv6 检测复用了 WebRTC 的连接候选信息；如果你在浏览器里彻底关掉了 WebRTC，页面会同步跳过这一步的 IPv6 检测。</li>
+				<li>Canvas、Audio、WebGL 的渲染结果和扩展列表都会先在浏览器本地算成 SHA-256 哈希值再上报，不上传原始画面；报告分享图也在本地生成并会自动隐藏 IP。详情可查看<a href="/privacy/">隐私政策</a>和<a href="/terms/">服务条款</a>。</li>
+			</ul>
+
+			<h2 id="faq">常见问题</h2>
+			<div class="not-prose mt-4 divide-y divide-slate-800/70 border-y border-slate-800/70">
+				{ABOUT_FAQS.map((item) => (
+					<details class="group py-4">
+						<summary class="cursor-pointer list-none flex items-center justify-between gap-4 text-[15px] font-medium text-(--slate-200) hover:text-white transition-colors select-none">
+							<span>{item.question}</span>
+							<span aria-hidden="true" class="text-(--slate-500) text-xs transition-transform duration-150 group-open:rotate-45">+</span>
+						</summary>
+						<p class="mt-2.5 text-sm leading-7 text-(--slate-300)">{item.answer}</p>
+					</details>
+				))}
+			</div>
+		</main>
+		<SiteFooter />
+	</div>
+</Layout>

@@ -40,10 +40,12 @@
               <button type="button" onclick={onRescan} disabled={isScanning} class="hbtn" title="重新检测" aria-label="重新检测">
                 <i class="fa-solid fa-rotate-right text-sm" aria-hidden="true"></i>
               </button>
-              <button type="button" onclick={onScreenshot} disabled={!onScreenshot} class="hbtn"
-                title={onScreenshot ? '生成分享图（IP 自动脱敏）' : '截图功能暂未开放'} aria-label="生成分享图">
-                <i class="fa-solid fa-camera text-sm" aria-hidden="true"></i>
-              </button>
+              {#if onScreenshot}
+                <button type="button" onclick={onScreenshot} class="hbtn"
+                  title="生成分享图（IP 自动脱敏）" aria-label="生成分享图">
+                  <i class="fa-solid fa-camera text-sm" aria-hidden="true"></i>
+                </button>
+              {/if}
             </div>
           {/if}
         </div>

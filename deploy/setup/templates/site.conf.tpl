@@ -32,6 +32,7 @@ server {
 
     location = /health {
         proxy_pass http://127.0.0.1:8080/api/v1/health;
+        add_header X-Robots-Tag "noindex, nofollow" always;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header Connection "";
@@ -42,6 +43,7 @@ server {
 
     location /api/ {
         proxy_pass http://127.0.0.1:8080/api/;
+        add_header X-Robots-Tag "noindex, nofollow" always;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header Connection "";

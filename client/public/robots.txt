@@ -1,10 +1,26 @@
-# DetectRadar robots.txt
-# 完整定位与边界见 /llms.txt 与 /llms-full.txt
+# DetectRadar Crawler Policy
+# AI Content Signals: allow traditional search, RAG/grounded citations, and AI training.
 
 User-agent: *
+Content-Signal: search=yes, ai-input=yes, ai-train=yes
 Allow: /
 
-# 主流 AI 爬虫 / 检索器（部分默认保守不抓，显式放行）
+# Major Search & AI Crawlers
+User-agent: Googlebot
+Allow: /
+
+User-agent: Bingbot
+Allow: /
+
+User-agent: Baiduspider
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: Google-Extended
+Allow: /
+
 User-agent: GPTBot
 Allow: /
 
@@ -17,19 +33,27 @@ Allow: /
 User-agent: ClaudeBot
 Allow: /
 
-User-agent: Claude-Web
+User-agent: Claude-SearchBot
+Allow: /
+
+User-agent: Claude-User
+Allow: /
+
+User-agent: anthropic-ai
 Allow: /
 
 User-agent: PerplexityBot
 Allow: /
 
-User-agent: Google-Extended
+User-agent: Perplexity-User
+Allow: /
+
+User-agent: DuckAssistBot
 Allow: /
 
 User-agent: Applebot-Extended
 Allow: /
 
-User-agent: CCBot
-Allow: /
-
+# Machine-Readable Documentation: /llms.txt and /llms-full.txt
+Sitemap: https://detectradar.com/sitemap-index.xml
 Sitemap: https://detectradar.com/sitemap.xml

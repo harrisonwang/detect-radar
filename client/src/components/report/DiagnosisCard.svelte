@@ -36,7 +36,7 @@
     <div class="flex items-start gap-3">
       <span class="dot mt-2" style="background:{stateVar(report.verdict.state)}; --_soft:{stateSoft(report.verdict.state)}"></span>
       <div>
-        <h2 class="text-xl md:text-2xl font-bold text-white leading-snug">{report.verdict.headline}</h2>
+        <p class="text-xl md:text-2xl font-bold text-white leading-snug">{report.verdict.headline}</p>
         <p class="text-sm text-(--slate-400) mt-1.5 leading-relaxed max-w-xl">{report.verdict.sub}</p>
       </div>
     </div>

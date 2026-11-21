@@ -38,23 +38,26 @@ export interface RTCGatherResult {
   ipv6Global: string | null; // 命中的全局 IPv6，用于 IPv6 泄露判定
 }
 
-function isPrivateIPv4(ip: string): boolean {
+export function isPrivateIPv4(ip: string): boolean {
   const p = ip.split('.').map(Number);
   if (p.length !== 4 || p.some((n) => Number.isNaN(n))) return false;
   return (
+    p[0] === 0 ||
     p[0] === 10 ||
+    (p[0] === 100 && p[1] >= 64 && p[1] <= 127) || // 运营商级 NAT（CGNAT RFC 6598）与 Tailscale 网段
+    p[0] === 127 ||
+    (p[0] === 169 && p[1] === 254) || // 链路本地
     (p[0] === 172 && p[1] >= 16 && p[1] <= 31) ||
     (p[0] === 192 && p[1] === 168) ||
-    (p[0] === 169 && p[1] === 254) || // 链路本地
-    p[0] === 127
+    (p[0] === 198 && (p[1] === 18 || p[1] === 19)) // 代理虚拟网卡 / Fake-IP（RFC 2544）
   );
 }
 
-function isPrivateIPv6(ip: string): boolean {
+export function isPrivateIPv6(ip: string): boolean {
   const l = ip.toLowerCase();
   return (
     l === '::1' ||
-    l.startsWith('fe80') || // 链路本地
+    /^fe[89ab][0-9a-f]:/.test(l) || // 链路本地 fe80::/10
     l.startsWith('fc') ||
     l.startsWith('fd') // 唯一本地地址 ULA
   );

@@ -20,7 +20,7 @@
   <header class="flex items-center justify-between mb-3.5">
     <div class="flex items-center gap-2.5">
       <i class="fa-solid {icon} text-(--slate-400) text-sm"></i>
-      <h3 class="text-sm font-semibold text-white tracking-wide">{title}</h3>
+      <p class="text-sm font-semibold text-white tracking-wide">{title}</p>
     </div>
     <span class="dot" style="background:{stateVar(state)}; --_soft:{stateSoft(state)}"></span>
   </header>

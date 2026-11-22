@@ -8,7 +8,8 @@
 
 - **在线综合检测（https://detectradar.com/）**：免费、免注册采集浏览器指纹与当前连接出口信息，检查住宅 IP / 机房 IP 属性、环境一致性与代理泄露，生成问题清单与四维雷达图，支持在浏览器本地生成隐藏 IP 的分享图。
 - **DNS 泄露检测（https://detectradar.com/dns-leak-test/）**：每次使用独立的随机子域名，通过自建权威 DNS 服务识别实际使用的 DNS 服务器及归属地，并在当前浏览器保留最近两次结果，方便换节点或改完 DNS 后对比差别。
-- **检测说明（https://detectradar.com/about/）**：说明检测范围、DNS 泄露怎么判断、哪些情况测不到、数据隐私保护以及常见问题解答。
+- **WebRTC 泄露检测（https://detectradar.com/webrtc-leak-test/）**：通过浏览器本地 STUN ICE 收集公网与内网候选地址，并与当前出口 IP 比对；展示 mDNS（`*.local`）隐藏状态与 ICE 捕获到的全局 IPv6，支持在同一浏览器保留最近两次检测并对比变化。
+- **检测说明（https://detectradar.com/about/）**：说明检测范围、DNS 与 WebRTC 泄露怎么判断、哪些情况测不到、数据隐私保护以及常见问题解答。
 - **隐私政策（https://detectradar.com/privacy/）**、**服务条款（https://detectradar.com/terms/）**、**联系我们（https://detectradar.com/contact/）**。
 
 ---
@@ -30,7 +31,7 @@
 
 ### 3. WebRTC、DNS 与 IPv6 泄露
 
-- **WebRTC**：比较浏览器通过 STUN 获取到的公网候选地址与当前出口 IP 是否一致。
+- **WebRTC**：比较浏览器通过 STUN 获取到的公网候选地址与当前出口 IP 是否一致。仅当当前出口为代理/机房 IP 且测到额外公网 IP 时判为 `泄露`；未命中代理风险的额外差异或未被 mDNS（`*.local`）隐藏的真实内网地址提示 `存在差异`；直连双栈网络下的正常 IPv4/IPv6 公网候选、mDNS 隐藏或已禁用 WebRTC 均判为 `未泄露`。
 - **IPv6**：检查是否存在与当前出口不一致的全局 IPv6 地址。网页端的 IPv6 检测复用了 WebRTC 的连接候选信息；如果在浏览器中彻底禁用了 WebRTC，网页端会同步跳过该项检测。
 - **DNS 泄露判断标准**：
   - 每次测试均生成独立随机子域名，不受历史 DNS 缓存影响。
@@ -60,6 +61,7 @@
 
 - 在线检测：https://detectradar.com/
 - DNS 泄露检测：https://detectradar.com/dns-leak-test/
+- WebRTC 泄露检测：https://detectradar.com/webrtc-leak-test/
 - 检测说明：https://detectradar.com/about/
 - 站点地图：https://detectradar.com/sitemap.xml
 - 源码仓库：https://github.com/harrisonwang/detect-radar

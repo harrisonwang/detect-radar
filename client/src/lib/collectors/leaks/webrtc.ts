@@ -2,7 +2,7 @@
  * WebRTC 泄露采集器
  *
  * 通过 RTCPeerConnection 收集 ICE 候选，提取本机内网 IP 与 STUN 反射得到的公网 IP。
- * 判定「是否泄露」由服务端完成（公网候选 != 出口 IP 即泄露），客户端只如实上报候选。
+ * 判定「是否泄露」由服务端或专项页对照出口 IP 完成，客户端只如实上报候选与特征。
  *
  * 现代浏览器默认用 mDNS(`*.local`) 隐藏内网 IP，因此 local_ips 可能为空或为 .local 主机名——
  * 这本身是隐私保护生效的表现，不作为泄露。
@@ -16,6 +16,18 @@ const STUN_SERVERS = [
 ];
 
 const GATHER_TIMEOUT_MS = 2500;
+
+export type RTCCandidateType = 'host' | 'srflx' | 'relay' | 'prflx' | 'unknown';
+export type RTCLocalScope = 'lan' | 'cgnat' | 'fakeip' | 'link-local' | 'ula' | 'loopback';
+
+export interface RTCCandidateDetail {
+  address: string;
+  kind: 'public' | 'local' | 'mdns';
+  family: 'ipv4' | 'ipv6' | 'mdns';
+  type: RTCCandidateType;
+  protocol: string;
+  localScope?: RTCLocalScope;
+}
 
 // 校验 IPv4：四段 0-255
 function isIPv4(s: string): boolean {
@@ -31,43 +43,66 @@ function isIPv6(s: string): boolean {
   return /^([0-9a-fA-F]{1,4})?(:[0-9a-fA-F]{0,4}){2,}$/.test(s);
 }
 
+function isMDNSHost(s: string): boolean {
+  const clean = s.replace(/\.$/, '');
+  return clean.toLowerCase().endsWith('.local') && /^[a-zA-Z0-9.-]+$/.test(clean);
+}
+
 export interface RTCGatherResult {
+  apiSupported: boolean;
   localIPs: string[]; // 私网 IPv4 / 链路本地
   publicIPs: string[]; // 公网 IPv4/IPv6（srflx 反射）
   stunIPs: string[]; // 来自 srflx（STUN 服务器观测到的地址）
+  mdnsHosts: string[]; // 浏览器隐藏内网 IP 时生成的 *.local 地址
   ipv6Global: string | null; // 命中的全局 IPv6，用于 IPv6 泄露判定
+  candidates: RTCCandidateDetail[];
+}
+
+export function classifyLocalScope(ip: string): RTCLocalScope | undefined {
+  if (ip.includes(':')) {
+    const l = ip.toLowerCase();
+    if (l === '::1') return 'loopback';
+    if (/^fe[89ab][0-9a-f]:/.test(l)) return 'link-local';
+    if (l.startsWith('fc') || l.startsWith('fd')) return 'ula';
+    return undefined;
+  }
+  const p = ip.split('.').map(Number);
+  if (p.length !== 4 || p.some((n) => Number.isNaN(n))) return undefined;
+  if (p[0] === 0 || p[0] === 127) return 'loopback';
+  if (p[0] === 198 && (p[1] === 18 || p[1] === 19)) return 'fakeip';
+  if (p[0] === 100 && p[1] >= 64 && p[1] <= 127) return 'cgnat';
+  if (p[0] === 169 && p[1] === 254) return 'link-local';
+  if (
+    p[0] === 10 ||
+    (p[0] === 172 && p[1] >= 16 && p[1] <= 31) ||
+    (p[0] === 192 && p[1] === 168)
+  ) {
+    return 'lan';
+  }
+  return undefined;
 }
 
 export function isPrivateIPv4(ip: string): boolean {
-  const p = ip.split('.').map(Number);
-  if (p.length !== 4 || p.some((n) => Number.isNaN(n))) return false;
-  return (
-    p[0] === 0 ||
-    p[0] === 10 ||
-    (p[0] === 100 && p[1] >= 64 && p[1] <= 127) || // 运营商级 NAT（CGNAT RFC 6598）与 Tailscale 网段
-    p[0] === 127 ||
-    (p[0] === 169 && p[1] === 254) || // 链路本地
-    (p[0] === 172 && p[1] >= 16 && p[1] <= 31) ||
-    (p[0] === 192 && p[1] === 168) ||
-    (p[0] === 198 && (p[1] === 18 || p[1] === 19)) // 代理虚拟网卡 / Fake-IP（RFC 2544）
-  );
+  return !ip.includes(':') && classifyLocalScope(ip) !== undefined;
 }
 
 export function isPrivateIPv6(ip: string): boolean {
-  const l = ip.toLowerCase();
-  return (
-    l === '::1' ||
-    /^fe[89ab][0-9a-f]:/.test(l) || // 链路本地 fe80::/10
-    l.startsWith('fc') ||
-    l.startsWith('fd') // 唯一本地地址 ULA
-  );
+  return ip.includes(':') && classifyLocalScope(ip) !== undefined;
 }
 
-function extractIP(candidate: string): string | null {
+function parseCandidateType(parts: string[]): RTCCandidateType {
+  const typIdx = parts.indexOf('typ');
+  const raw = typIdx >= 0 ? (parts[typIdx + 1] ?? '').toLowerCase() : '';
+  if (raw === 'host' || raw === 'srflx' || raw === 'relay' || raw === 'prflx') {
+    return raw;
+  }
+  return 'unknown';
+}
+
+function extractIP(parts: string[]): string | null {
   // RFC5245 candidate 属性：foundation component transport priority ADDRESS port typ ...
   // 地址固定在按空格切分后的第 5 段（index 4）。只认这一段并严格校验，
   // 不做正则全串兜底——否则会把 priority/foundation 这类大整数误当成 IP。
-  const parts = candidate.trim().split(/\s+/);
   const tok = parts[4];
   if (!tok) return null;
   if (isIPv4(tok) || isIPv6(tok)) return tok;
@@ -79,41 +114,92 @@ function extractIP(candidate: string): string | null {
  * 单次 RTCPeerConnection 同时服务 WebRTC 与 IPv6 两个采集器，避免重复建连。
  */
 export async function gatherRTCCandidates(): Promise<RTCGatherResult> {
+  const apiSupported = typeof RTCPeerConnection !== 'undefined';
   const result: RTCGatherResult = {
+    apiSupported,
     localIPs: [],
     publicIPs: [],
     stunIPs: [],
+    mdnsHosts: [],
     ipv6Global: null,
+    candidates: [],
   };
 
-  if (typeof RTCPeerConnection === 'undefined') {
+  if (!apiSupported) {
     return result;
   }
 
   const local = new Set<string>();
   const pub = new Set<string>();
   const stun = new Set<string>();
+  const mdns = new Set<string>();
+  const seenCandidates = new Set<string>();
+  const details: RTCCandidateDetail[] = [];
 
   const pc = new RTCPeerConnection({
     iceServers: STUN_SERVERS.map((urls) => ({ urls })),
   });
 
+  const pushCandidate = (detail: RTCCandidateDetail) => {
+    const key = `${detail.address}|${detail.type}|${detail.protocol}`;
+    if (seenCandidates.has(key)) return;
+    seenCandidates.add(key);
+    details.push(detail);
+  };
+
   const classify = (candidate: string) => {
-    const ip = extractIP(candidate);
-    if (!ip || ip.endsWith('.local') || ip.includes('.local')) return;
+    const parts = candidate.trim().split(/\s+/);
+    const tok = parts[4];
+    if (!tok) return;
 
-    const isV6 = ip.includes(':');
-    const isSrflx = candidate.includes('typ srflx') || candidate.includes('typ relay');
-    const isPrivate = isV6 ? isPrivateIPv6(ip) : isPrivateIPv4(ip);
+    const protocol = (parts[2] || 'udp').toLowerCase();
+    const type = parseCandidateType(parts);
 
-    if (isPrivate) {
-      local.add(ip);
+    if (isMDNSHost(tok)) {
+      const clean = tok.replace(/\.$/, '').toLowerCase();
+      mdns.add(clean);
+      pushCandidate({
+        address: clean,
+        kind: 'mdns',
+        family: 'mdns',
+        type,
+        protocol,
+      });
       return;
     }
+
+    const ip = extractIP(parts);
+    if (!ip) return;
+
+    const isV6 = ip.includes(':');
+    const family: 'ipv4' | 'ipv6' = isV6 ? 'ipv6' : 'ipv4';
+    const isSrflx = type === 'srflx' || type === 'relay';
+    const localScope = classifyLocalScope(ip);
+
+    if (localScope) {
+      local.add(ip);
+      pushCandidate({
+        address: ip,
+        kind: 'local',
+        family,
+        type,
+        protocol,
+        localScope,
+      });
+      return;
+    }
+
     // 公网地址
     pub.add(ip);
     if (isSrflx) stun.add(ip);
     if (isV6 && !result.ipv6Global) result.ipv6Global = ip;
+    pushCandidate({
+      address: ip,
+      kind: 'public',
+      family,
+      type,
+      protocol,
+    });
   };
 
   try {
@@ -157,12 +243,14 @@ export async function gatherRTCCandidates(): Promise<RTCGatherResult> {
   result.localIPs = [...local];
   result.publicIPs = [...pub];
   result.stunIPs = [...stun];
+  result.mdnsHosts = [...mdns];
+  result.candidates = details;
   return result;
 }
 
 /** 将收集结果封装为 WebRTC 泄露采集结果 */
 export function toWebRTCLeakResult(g: RTCGatherResult): CollectorResult<WebRTCLeakData> {
-  if (typeof RTCPeerConnection === 'undefined') {
+  if (!g.apiSupported) {
     return { status: 'unsupported', error: 'RTCPeerConnection 不可用' };
   }
   return {

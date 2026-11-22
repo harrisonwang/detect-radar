@@ -1,6 +1,6 @@
 <script lang="ts">
   interface Props {
-    page?: "home" | "dns" | "static";
+    page?: "home" | "dns" | "webrtc" | "static";
     onScreenshot?: () => void;
     onShare?: () => void;
     onRescan?: () => void;
@@ -27,6 +27,7 @@
       <nav aria-label="主导航" class="site-nav">
         <a href="/" aria-current={page === 'home' ? 'page' : undefined}>网络环境检测</a>
         <a href="/dns-leak-test/" aria-current={page === 'dns' ? 'page' : undefined}>DNS 泄露检测</a>
+        <a href="/webrtc-leak-test/" aria-current={page === 'webrtc' ? 'page' : undefined}>WebRTC 泄露检测</a>
       </nav>
 
       {#if page !== "static"}
@@ -35,7 +36,7 @@
             <span aria-hidden="true" class="dot" style:background={statusColor} style:--_soft="transparent"></span>
             {statusText}
           </span>
-          {#if ready || page === "dns"}
+          {#if ready || page === "dns" || page === "webrtc"}
             <div class="icon-actions">
               <button type="button" onclick={onRescan} disabled={isScanning} class="hbtn" title="重新检测" aria-label="重新检测">
                 <i class="fa-solid fa-rotate-right text-sm" aria-hidden="true"></i>
@@ -79,8 +80,10 @@
     grid-area: nav;
     place-self: center;
     display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
     align-items: center;
-    gap: clamp(1rem, 1.65vw, 1.5rem);
+    gap: 0.25rem clamp(0.75rem, 1.5vw, 1.35rem);
   }
   .site-nav a {
     display: flex;
@@ -93,6 +96,15 @@
     font-weight: 500;
     line-height: 1.35;
     white-space: nowrap;
+  }
+  @media (max-width: 26rem) {
+    .site-nav {
+      gap: 0.15rem 0.65rem;
+    }
+    .site-nav a {
+      font-size: 0.8125rem;
+      min-height: 40px;
+    }
   }
   .site-nav a[aria-current="page"] { color: var(--radar-400); font-weight: 600; }
   @media (hover: hover) {

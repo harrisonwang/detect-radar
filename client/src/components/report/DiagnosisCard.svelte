@@ -8,6 +8,11 @@
     active?: boolean;
     onCopyPromo?: (code: string) => void;
   }
+  const FINDING_LINKS: Record<string, string> = {
+    'dns-leak': '/dns-leak-test/',
+    'webrtc-leak': '/webrtc-leak-test/',
+  };
+
   let { report, isScanning = false, active = false, onCopyPromo }: Props = $props();
 
   const SEV: Record<Severity, { color: string; soft: string; label: string; icon: string }> = {
@@ -55,13 +60,14 @@
         <ul class="space-y-2.5">
           {#each report.findings as f}
             {@const m = SEV[f.severity]}
+            {@const href = FINDING_LINKS[f.id]}
             <li class="flex items-start gap-2.5">
               <span class="text-[10px] font-mono px-1.5 py-1 rounded shrink-0 flex items-center gap-1" style="color:{m.color}; background:{m.soft}">
                 <i class="fa-solid {m.icon}"></i>{m.label}
               </span>
               <div class="min-w-0 flex-1">
-                {#if f.id === 'dns-leak'}
-                  <a href="/dns-leak-test/" class="text-sm text-(--slate-200) leading-snug hover:text-(--radar-400) underline decoration-slate-600 underline-offset-4">
+                {#if href}
+                  <a {href} class="text-sm text-(--slate-200) leading-snug hover:text-(--radar-400) underline decoration-slate-600 underline-offset-4">
                     {f.title}<i class="fa-solid fa-arrow-right ml-1.5 text-[10px]" aria-hidden="true"></i>
                   </a>
                 {:else}

@@ -113,7 +113,9 @@ function extractIP(parts: string[]): string | null {
  * 执行一次 ICE 收集，分类所有候选地址。
  * 单次 RTCPeerConnection 同时服务 WebRTC 与 IPv6 两个采集器，避免重复建连。
  */
-export async function gatherRTCCandidates(): Promise<RTCGatherResult> {
+export async function gatherRTCCandidates(
+  onUpdate?: (snapshot: RTCGatherResult) => void,
+): Promise<RTCGatherResult> {
   const apiSupported = typeof RTCPeerConnection !== 'undefined';
   const result: RTCGatherResult = {
     apiSupported,
@@ -140,11 +142,24 @@ export async function gatherRTCCandidates(): Promise<RTCGatherResult> {
     iceServers: STUN_SERVERS.map((urls) => ({ urls })),
   });
 
+  const emitUpdate = () => {
+    onUpdate?.({
+      apiSupported,
+      localIPs: [...local],
+      publicIPs: [...pub],
+      stunIPs: [...stun],
+      mdnsHosts: [...mdns],
+      ipv6Global: result.ipv6Global,
+      candidates: [...details],
+    });
+  };
+
   const pushCandidate = (detail: RTCCandidateDetail) => {
     const key = `${detail.address}|${detail.type}|${detail.protocol}`;
     if (seenCandidates.has(key)) return;
     seenCandidates.add(key);
     details.push(detail);
+    emitUpdate();
   };
 
   const classify = (candidate: string) => {

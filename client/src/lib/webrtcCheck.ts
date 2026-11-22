@@ -9,9 +9,23 @@ import { browserExit } from './dnsPresentation';
 import { recentHistory, type RecentHistory } from './recentHistory';
 import type { DNSExit } from './types';
 
-export type WebRTCVerdictState = 'leaked' | 'mismatch' | 'clear' | 'unknown';
+export type WebRTCVerdictState = 'leaked' | 'clear' | 'unknown';
+
+export type WebRTCPhase = 'gathering' | 'collected' | 'comparing';
+
+export interface WebRTCProgress {
+  phase: WebRTCPhase;
+  exit: DNSExit | null;
+  candidateCount: number;
+  publicIPs: string[];
+  localIPs: string[];
+  mdnsHosts: string[];
+  ipv6Global: string | null;
+  apiSupported: boolean;
+}
 
 export type WebRTCVerdictReason =
+  | 'public-leak'
   | 'proxy-bypass'
   | 'public-mismatch'
   | 'local-exposed'
@@ -63,7 +77,6 @@ export const webrtcStatus: Record<
   { title: string; color: string; soft: string }
 > = {
   leaked: { title: '泄露', color: 'var(--leak)', soft: 'var(--leak-soft)' },
-  mismatch: { title: '存在差异', color: 'var(--warn)', soft: 'var(--warn-soft)' },
   clear: { title: '未泄露', color: 'var(--sig)', soft: 'var(--sig-soft)' },
   unknown: { title: '无法判断', color: 'var(--unknown)', soft: 'var(--unknown-soft)' },
 };
@@ -97,7 +110,7 @@ export function evaluateWebRTC(exit: DNSExit | null, rtc: RTCGatherResult): WebR
     return {
       state: 'clear',
       reason: 'disabled',
-      note: '浏览器已禁用 WebRTC 接口，网页无法读取候选地址（同时会跳过依赖 ICE 的 IPv6 探测）。',
+      note: '浏览器已禁用 WebRTC，未暴露任何地址（同时会跳过网页 IPv6 探测）。',
       suspectIPs: [],
     };
   }
@@ -107,47 +120,37 @@ export function evaluateWebRTC(exit: DNSExit | null, rtc: RTCGatherResult): WebR
     return {
       state: 'unknown',
       reason: 'missing-exit',
-      note: '已获取到 WebRTC 公网候选，但未能获取当前出口 IP 进行比对。',
+      note: '已测到 WebRTC 公网 IP，但未获取到出口 IP 进行比对。',
       suspectIPs: [],
     };
   }
 
-  const exitHasProxyRisk = exit?.type === 'proxy' || exit?.type === 'hosting';
   const extraPublicIPs = exitIP
     ? rtc.publicIPs.filter((ip) => ip.toLowerCase() !== exitIP.toLowerCase())
     : rtc.publicIPs;
-
-  if (extraPublicIPs.length > 0 && exitHasProxyRisk) {
-    return {
-      state: 'leaked',
-      reason: 'proxy-bypass',
-      note: '当前为代理或机房出口，WebRTC 暴露了与出口不同的公网地址，可能绕过代理直连。',
-      suspectIPs: extraPublicIPs,
-    };
-  }
 
   if (extraPublicIPs.length > 0) {
     if (isExpectedDualStack(exitIP, extraPublicIPs)) {
       return {
         state: 'clear',
         reason: 'dual-stack',
-        note: '测到另一协议栈的公网地址，在直连网络下属于正常 IPv4/IPv6 双栈表现。',
+        note: '测到另一协议栈的公网 IP，属正常 IPv4/IPv6 双栈。',
         suspectIPs: [],
       };
     }
     return {
-      state: 'mismatch',
-      reason: 'public-mismatch',
-      note: 'WebRTC 公网候选与当前出口 IP 不一致；如正在使用代理或分流，请核对 UDP 转发规则。',
+      state: 'leaked',
+      reason: 'public-leak',
+      note: 'WebRTC 测到的公网 IP 与当前出口不一致。',
       suspectIPs: extraPublicIPs,
     };
   }
 
   if (rtc.publicIPs.length === 0 && rtc.localIPs.length > 0) {
     return {
-      state: 'mismatch',
+      state: 'clear',
       reason: 'local-exposed',
-      note: '未暴露公网地址，但网页可直接读取局域网或虚拟网卡内网地址（mDNS 未隐藏）。',
+      note: '未测到额外公网 IP（仅读取到本机内网地址）。',
       suspectIPs: [],
     };
   }
@@ -156,7 +159,7 @@ export function evaluateWebRTC(exit: DNSExit | null, rtc: RTCGatherResult): WebR
     return {
       state: 'clear',
       reason: 'matches-exit',
-      note: 'WebRTC 公网候选与当前出口 IP 一致，未发现额外的公网导出路径。',
+      note: 'WebRTC 测到的公网 IP 与当前出口一致。',
       suspectIPs: [],
     };
   }
@@ -165,7 +168,7 @@ export function evaluateWebRTC(exit: DNSExit | null, rtc: RTCGatherResult): WebR
     return {
       state: 'clear',
       reason: 'mdns-protected',
-      note: '浏览器仅返回 mDNS（*.local）加密主机名，未暴露公网或真实内网 IP。',
+      note: '仅返回 mDNS（*.local），未暴露公网或内网 IP。',
       suspectIPs: [],
     };
   }
@@ -173,25 +176,66 @@ export function evaluateWebRTC(exit: DNSExit | null, rtc: RTCGatherResult): WebR
   return {
     state: 'clear',
     reason: 'no-candidates',
-    note: '本次未收集到 WebRTC 公网或内网 IP 候选。',
+    note: '本次未测到 WebRTC 地址。',
     suspectIPs: [],
   };
 }
 
-export async function measureWebRTC(onExit?: (exit: DNSExit) => void): Promise<WebRTCCheck> {
+export async function measureWebRTC(
+  onExit?: (exit: DNSExit) => void,
+  onProgress?: (progress: WebRTCProgress) => void,
+): Promise<WebRTCCheck> {
   let exit: DNSExit | null = null;
   let exitError: WebRTCCheck['exitError'];
+  let phase: WebRTCPhase = 'gathering';
+  let candidateCount = 0;
+  let publicIPs: string[] = [];
+  let localIPs: string[] = [];
+  let mdnsHosts: string[] = [];
+  let ipv6Global: string | null = null;
+  let apiSupported = typeof RTCPeerConnection !== 'undefined';
+
+  const emit = () => {
+    onProgress?.({
+      phase,
+      exit,
+      candidateCount,
+      publicIPs,
+      localIPs,
+      mdnsHosts,
+      ipv6Global,
+      apiSupported,
+    });
+  };
+
+  emit();
 
   const exitPromise = getBrowserExit()
     .then((info) => {
       exit = browserExit(info);
       onExit?.(exit);
+      emit();
     })
     .catch((err) => {
       exitError = err instanceof ApiError && err.status === 429 ? 'limited' : 'unavailable';
     });
 
-  const [rtc] = await Promise.all([gatherRTCCandidates(), exitPromise]);
+  const [rtc] = await Promise.all([
+    gatherRTCCandidates((snap) => {
+      apiSupported = snap.apiSupported;
+      candidateCount = snap.candidates.length;
+      publicIPs = snap.publicIPs;
+      localIPs = snap.localIPs;
+      mdnsHosts = snap.mdnsHosts;
+      ipv6Global = snap.ipv6Global;
+      if (candidateCount > 0) phase = 'collected';
+      emit();
+    }),
+    exitPromise,
+  ]);
+
+  phase = 'comparing';
+  emit();
 
   return {
     time: Date.now(),
@@ -216,9 +260,18 @@ export const webrtcHistory = (
 const STATE_RANK: Record<WebRTCVerdictState, number> = {
   clear: 0,
   unknown: 1,
-  mismatch: 2,
-  leaked: 3,
+  leaked: 2,
 };
+
+function normalizeVerdictState(verdict: WebRTCVerdict): WebRTCVerdictState {
+  const raw = verdict.state as string;
+  if (raw === 'mismatch') {
+    return verdict.reason === 'public-mismatch' || verdict.reason === 'proxy-bypass'
+      ? 'leaked'
+      : 'clear';
+  }
+  return raw === 'leaked' || raw === 'clear' || raw === 'unknown' ? raw : 'unknown';
+}
 
 function formatIPDiff(added: string[], removed: string[], fallbackEmpty: string): string {
   const parts: string[] = [];
@@ -261,9 +314,10 @@ export function compareWebRTC(previous: WebRTCCheck, current: WebRTCCheck): WebR
   })();
 
   const publicChange = formatIPDiff(addedPublicList, removedPublicIPs, '未变');
-  const previousVerdict =
-    previous.verdict.state !== current.verdict.state ? previous.verdict.state : undefined;
-  const improved = STATE_RANK[current.verdict.state] < STATE_RANK[previous.verdict.state];
+  const prevState = normalizeVerdictState(previous.verdict);
+  const curState = normalizeVerdictState(current.verdict);
+  const previousVerdict = prevState !== curState ? prevState : undefined;
+  const improved = STATE_RANK[curState] < STATE_RANK[prevState];
 
   const unchanged =
     !previousVerdict &&
@@ -284,6 +338,6 @@ export function compareWebRTC(previous: WebRTCCheck, current: WebRTCCheck): WebR
     publicChange,
     localChange,
     exitChange,
-    summary: unchanged ? 'WebRTC 候选与出口 IP 都和上次一样。' : null,
+    summary: unchanged ? 'WebRTC 地址与出口 IP 都和上次一样。' : null,
   };
 }

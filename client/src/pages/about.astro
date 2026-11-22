@@ -8,6 +8,7 @@ import { ABOUT_FAQS } from '../lib/seoContent';
 <Layout
 	title="检测说明：DNS 泄露判断、住宅与机房 IP 识别及浏览器指纹说明"
 	canonical="/about/"
+	ogImage="/og-about.png"
 	description="说明 DetectRadar 的检测范围、DNS 泄露怎么判断、哪些情况测不到，以及数据隐私保护与常见问题解答。"
 	pageType="article"
 	faqs={ABOUT_FAQS}
@@ -57,9 +58,9 @@ import { ABOUT_FAQS } from '../lib/seoContent';
 				<a href="/webrtc-leak-test/">WebRTC 泄露检测页</a>会在浏览器本地发起 STUN ICE 候选收集，并对照当前出口 IP 核查是否存在绕过代理的公网地址、内网地址暴露与全局 IPv6 候选。
 			</p>
 			<ul>
-				<li><strong>判为“泄露”</strong>：当前出口为代理或机房 IP，同时浏览器通过 WebRTC 获取到了与出口不同的公网 IP。</li>
-				<li><strong>判为“存在差异”</strong>：未命中代理/机房风险但公网候选与出口不一致，或网页直接读取到了未被 mDNS 隐藏的局域网/虚拟网卡内网地址（<code>192.168.*</code>、<code>10.*</code>、<code>198.18.*</code> 等）。</li>
-				<li><strong>判为“未泄露”</strong>：公网候选与当前出口一致、直连双栈网络下的正常 IPv4/IPv6 候选、浏览器以 mDNS（<code>*.local</code>）隐藏内网地址，或已禁用 WebRTC 接口。</li>
+				<li><strong>判为“泄露”</strong>：浏览器通过 WebRTC 获取到了与当前出口 IP 不同的公网 IP（排除同连接下的正常 IPv4/IPv6 双栈）。</li>
+				<li><strong>判为“未泄露”</strong>：WebRTC 公网 IP 与当前出口一致、直连双栈网络下的正常 IPv4/IPv6 地址、仅返回 mDNS（<code>*.local</code>）或局域网内网地址（未暴露额外公网 IP），或已禁用 WebRTC 接口。</li>
+				<li><strong>判为“无法判断”</strong>：已获取到 WebRTC 公网 IP，但未能获取当前出口 IP 进行比对。</li>
 				<li><strong>能力边界</strong>：禁用 WebRTC 后，依赖 ICE 候选的网页端 IPv6 探测也会一并跳过；如需在终端独立核对 IPv6 出口，可执行 <code>curl -6 -s https://detectradar.com/api/v1/ip</code>。</li>
 			</ul>
 

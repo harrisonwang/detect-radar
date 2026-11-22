@@ -1,11 +1,13 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import AppHeader from './report/AppHeader.svelte';
+  import DNSFlowStage from './report/DNSFlowStage.svelte';
   import ExitIPAddress from './report/ExitIPAddress.svelte';
   import ReportToast from './report/ReportToast.svelte';
-  import { compareDNS, DNSCheckError, dnsNetworks, dnsProviderGroups, measureDNS, withDNSAssessment } from '../lib/dnsCheck';
+  import { compareDNS, DNSCheckError, dnsNetworks, dnsProviderGroups, measureDNS, type DNSProgress, withDNSAssessment } from '../lib/dnsCheck';
   import { dnsHistory, emptyDNSHistory, type DNSHistory } from '../lib/dnsHistory';
   import { dnsExitType, dnsProviderName, dnsRegion, dnsStatus, dnsVerdictNote, exitTypeLabel } from '../lib/dnsPresentation';
+  import { renderDNSShareCard, saveShareImage } from '../lib/toolShareCard';
   import type { DNSExit } from '../lib/types';
 
   const failures = {
@@ -18,7 +20,9 @@
   let busy = $state(false);
   let failure = $state<keyof typeof failures | null>(null);
   let pendingExit = $state.raw<DNSExit | null>(null);
+  let liveProgress = $state.raw<DNSProgress | null>(null);
   let revealExit = $state(true);
+  let capturing = $state(false);
   let toast: ReturnType<typeof ReportToast> | undefined = $state();
 
   let current = $derived(history.current);
@@ -33,6 +37,15 @@
     && providers.some((p) => p.regions.some((r) => r.country && r.country !== current?.exit?.country)));
   let note = $derived(publicDNSAbroad ? '公共 DNS 和出口 IP 的归属地可以不同。' : dnsVerdictNote(current?.verdict));
   let error = $derived(failure ? failures[failure] : null);
+  let flowProviders = $derived(
+    providers.map((p) => ({
+      name: p.name,
+      country: p.regions[0]?.country ?? '',
+      type: p.type,
+      suspect: p.suspect,
+      count: p.regions.reduce((sum, r) => sum + r.samples.length, 0),
+    })),
+  );
 
   onMount(() => {
     async function restore() {
@@ -56,8 +69,12 @@
     busy = true;
     failure = null;
     pendingExit = null;
+    liveProgress = null;
     try {
-      const result = await measureDNS((exit) => { pendingExit = exit; });
+      const result = await measureDNS(
+        (exit) => { pendingExit = exit; },
+        (progress) => { liveProgress = progress; },
+      );
       try {
         const saved = await dnsHistory(result, history.current);
         const previous = saved.previous && await withDNSAssessment(saved.previous);
@@ -68,7 +85,37 @@
     } catch (cause) {
       failure = cause instanceof DNSCheckError ? cause.kind : 'unavailable';
     } finally {
+      liveProgress = null;
       busy = false;
+    }
+  }
+
+  async function handleScreenshot() {
+    if (!current || busy || capturing) return;
+    capturing = true;
+    try {
+      const blob = await renderDNSShareCard({
+        time: current.time,
+        verdictState,
+        verdictTitle: status.title,
+        note,
+        exit: current.exit,
+        exitNetworkName: current.exit?.ip ? (dnsProviderName(current.exit.network) || '网络未知') : '未获取',
+        exitRegion: current.exit?.ip ? dnsRegion(current.exit.country) : '',
+        exitTypeLabel: current.exit?.ip ? exitTypeLabel(dnsExitType(current.exit)) : '',
+        providers: providers.map((p) => ({
+          name: p.name,
+          regions: p.regions.map((r) => dnsRegion(r.country)).join('、'),
+          type: p.type,
+          suspect: p.suspect,
+        })),
+        resolverCount: current.resolvers.length,
+      });
+      toast?.show(await saveShareImage(blob, 'detectradar-dns'));
+    } catch (err) {
+      toast?.show('分享图生成失败：' + (err as Error).message);
+    } finally {
+      capturing = false;
     }
   }
 </script>
@@ -99,9 +146,9 @@
   </div>
 {/snippet}
 
-<AppHeader page="dns" onRescan={run} isScanning={!ready || busy} ready={!!current} failureText={error?.title} />
+<AppHeader page="dns" onScreenshot={handleScreenshot} onRescan={run} isScanning={!ready || busy} ready={!!current} failureText={error?.title} />
 
-<main class="report-main flex-1">
+<main class="report-main flex-1 min-w-0">
   <header class="mb-6">
     <h1 class="report-title"><span class="text-radar">DNS</span> 泄露检测</h1>
   </header>
@@ -120,14 +167,25 @@
           </div>
         {/if}
 
+        <DNSFlowStage
+          exit={current.exit}
+          {verdictState}
+          providers={flowProviders}
+          resolverCount={current.resolvers.length}
+          {revealExit}
+          {busy}
+          {liveProgress}
+          hasResult={true}
+        />
+        {#if busy}
+          <div class="progress-track" role="progressbar" aria-label="DNS 重新检测进度"><span></span></div>
+        {/if}
+
         <header class="diagnosis" style:--verdict-color={status.color} style:--verdict-soft={status.soft}>
           <p class="card-label">{busy ? '正在重新检测 · 上次结果' : error ? '上次结果' : '本次检测'}</p>
           <p class="verdict-title"><span class="dot" class:loading-dot={busy} aria-hidden="true"></span>{status.title}</p>
           {#if note}<p class="diagnosis-note">{busy || error ? note.replace(/本次 ?/g, '') : note}</p>{/if}
         </header>
-        {#if busy}
-          <div class="progress-track" role="progressbar" aria-label="DNS 重新检测进度"><span></span></div>
-        {/if}
 
         <div class="columns" class:retesting={busy}>
           {@render exitReadout(current.exit, false)}
@@ -216,11 +274,21 @@
       </section>
     {:else}
       <section class="glass-card result-card" aria-label="正在检测">
+        <DNSFlowStage
+          exit={pendingExit}
+          verdictState="unknown"
+          providers={[]}
+          resolverCount={0}
+          {revealExit}
+          busy={true}
+          {liveProgress}
+          hasResult={false}
+        />
+        <div class="progress-track" role="progressbar" aria-label="DNS 检测进度"><span></span></div>
         <header class="diagnosis">
           <p class="verdict-title"><span class="dot loading-dot" aria-hidden="true"></span>正在检测 DNS</p>
-          <p class="diagnosis-note">通常需要几秒。</p>
+          <p class="diagnosis-note">正在并发采集网页出口与权威 DNS 回溯。</p>
         </header>
-        <div class="progress-track" role="progressbar" aria-label="DNS 检测进度"><span></span></div>
         <div class="columns">
           {@render exitReadout(pendingExit, true)}
           <div class="reading">

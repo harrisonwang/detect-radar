@@ -191,3 +191,81 @@ body {
 .prose :not(pre) > code {
   overflow-wrap: anywhere;
 }
+
+/* 2.5D 等距实测路径画布（放在 global.css 以避免 Astro 条件挂载丢样式） */
+.dfs-stage {
+  position: relative;
+  border-bottom: 1px solid var(--line);
+  background:
+    radial-gradient(ellipse 75% 65% at 52% 48%, rgba(30, 41, 59, 0.36), transparent 72%),
+    #030917;
+}
+.dfs-status {
+  position: absolute;
+  top: 0.65rem;
+  left: 1rem;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.42rem;
+  font-size: 0.75rem;
+  color: var(--slate-400);
+  pointer-events: none;
+}
+.dfs-canvas-wrap {
+  position: relative;
+  overflow: hidden;
+}
+.dfs-svg-desktop {
+  display: none;
+}
+.dfs-svg-mobile {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 20.5rem;
+  user-select: none;
+}
+.dfs-node-hit {
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.dfs-node-hit:hover {
+  filter: brightness(1.14);
+}
+.dfs-node-hit:focus-visible {
+  outline: 2px solid var(--radar-400);
+  outline-offset: 2px;
+}
+.dfs-inspector {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin: 0 1.25rem 0.75rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.22);
+  background: rgba(15, 23, 42, 0.92);
+  font-size: 0.75rem;
+  color: var(--slate-200);
+}
+
+@media (min-width: 40rem) {
+  .dfs-status {
+    top: 0.75rem;
+    left: 1.5rem;
+  }
+  .dfs-inspector {
+    margin-inline: 1.5rem;
+  }
+  .dfs-svg-mobile {
+    display: none;
+  }
+  .dfs-svg-desktop {
+    display: block;
+    width: 100%;
+    height: auto;
+    user-select: none;
+  }
+}

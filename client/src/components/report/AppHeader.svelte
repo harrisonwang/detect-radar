@@ -42,7 +42,7 @@
                 <i class="fa-solid fa-rotate-right text-sm" aria-hidden="true"></i>
               </button>
               {#if onScreenshot}
-                <button type="button" onclick={onScreenshot} class="hbtn"
+                <button type="button" onclick={onScreenshot} disabled={isScanning || !ready} class="hbtn"
                   title="生成分享图（IP 自动脱敏）" aria-label="生成分享图">
                   <i class="fa-solid fa-camera text-sm" aria-hidden="true"></i>
                 </button>

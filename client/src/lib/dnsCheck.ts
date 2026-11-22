@@ -5,6 +5,17 @@ import type { DNSExit, DNSResolver, DNSVerdict } from './types';
 
 const DNS_ROUNDS = 3;
 
+export type DNSPhase = 'probing' | 'collecting' | 'assessing';
+
+export interface DNSProgress {
+  phase: DNSPhase;
+  startedRounds: number;
+  completedRounds: number;
+  totalRounds: number;
+  exit: DNSExit | null;
+  resolvers: DNSResolver[];
+}
+
 export interface DNSCheck {
   time: number;
   exit: DNSExit | null;
@@ -35,26 +46,44 @@ export async function withDNSAssessment(check: DNSCheck): Promise<DNSCheck> {
   return { ...check, verdict: { state: 'unknown', reason: 'assessment-unavailable' } };
 }
 
-export async function measureDNS(onExit: (exit: DNSExit) => void): Promise<DNSCheck> {
+export async function measureDNS(
+  onExit: (exit: DNSExit) => void,
+  onProgress?: (progress: DNSProgress) => void,
+): Promise<DNSCheck> {
   let exit: DNSExit | null = null;
+  const resolvers = new Map<string, DNSResolver>();
+  let phase: DNSPhase = 'probing';
+  let startedRounds = 0;
+  let completedRounds = 0;
+  let observedRounds = 0;
+
+  const emit = () => {
+    onProgress?.({
+      phase,
+      startedRounds,
+      completedRounds,
+      totalRounds: DNS_ROUNDS,
+      exit,
+      resolvers: [...resolvers.values()],
+    });
+  };
+
+  emit();
+
   const exitRequest = getBrowserExit().then((info) => {
     exit = browserExit(info);
     onExit(exit);
+    emit();
   }).catch(() => { /* DNS samples are useful even if the exit request fails. */ });
 
   // Each round uses a separate probe name. Staggering samples covers resolver rotation.
   const rounds = Array.from({ length: DNS_ROUNDS }, async (_, index) => {
     if (index) await new Promise<void>((resolve) => setTimeout(resolve, index * 1000));
-    return sampleDNSRound();
-  });
-  const [results] = await Promise.all([Promise.allSettled(rounds), exitRequest]);
-  const resolvers = new Map<string, DNSResolver>();
-  let observedRounds = 0;
-
-  for (const round of results) {
-    if (round.status !== 'fulfilled') continue;
+    startedRounds++;
+    emit();
+    const batch = await sampleDNSRound();
     const seen = new Set<string>();
-    for (const { ip, country, isp, asn, network_type } of round.value) {
+    for (const { ip, country, isp, asn, network_type } of batch) {
       if (!ip || seen.has(ip)) continue;
       seen.add(ip);
       const stored = resolvers.get(ip);
@@ -65,8 +94,16 @@ export async function measureDNS(onExit: (exit: DNSExit) => void): Promise<DNSCh
         rounds: (stored?.rounds ?? 0) + 1,
       });
     }
-    if (seen.size) observedRounds++;
-  }
+    completedRounds++;
+    if (seen.size) {
+      observedRounds++;
+      phase = 'collecting';
+    }
+    emit();
+    return batch;
+  });
+
+  const [results] = await Promise.all([Promise.allSettled(rounds), exitRequest]);
 
   if (!observedRounds) {
     const errors = results.filter((round) => round.status === 'rejected');
@@ -75,6 +112,9 @@ export async function measureDNS(onExit: (exit: DNSExit) => void): Promise<DNSCh
     }
     throw new DNSCheckError(errors.length === DNS_ROUNDS ? 'unavailable' : 'empty');
   }
+
+  phase = 'assessing';
+  emit();
 
   return withDNSAssessment({
     time: Date.now(), exit, resolvers: [...resolvers.values()], observedRounds, totalRounds: DNS_ROUNDS,

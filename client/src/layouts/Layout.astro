@@ -124,7 +124,7 @@ if (pageType === 'home' || pageType === 'tool') {
 		inLanguage: locale,
 		license: 'https://opensource.org/licenses/MIT',
 		codeRepository: 'https://github.com/harrisonwang/detect-radar',
-		screenshot: new URL('/og-default.png', site).href,
+		screenshot: (ogImageURL ?? new URL('/og-default.png', site)).href,
 		publisher: { '@id': orgId },
 		offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
 		description,

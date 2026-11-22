@@ -3,6 +3,7 @@
   import AppHeader from './report/AppHeader.svelte';
   import ExitIPAddress from './report/ExitIPAddress.svelte';
   import ReportToast from './report/ReportToast.svelte';
+  import WebRTCFlowStage from './report/WebRTCFlowStage.svelte';
   import {
     dnsExitType,
     dnsProviderName,
@@ -17,15 +18,19 @@
     webrtcStatus,
     type WebRTCCheck,
     type WebRTCHistory,
+    type WebRTCProgress,
   } from '../lib/webrtcCheck';
   import { emptyHistory } from '../lib/recentHistory';
+  import { renderWebRTCShareCard, saveShareImage } from '../lib/toolShareCard';
   import type { DNSExit } from '../lib/types';
 
   let history = $state.raw<WebRTCHistory>(emptyHistory<WebRTCCheck>());
   let ready = $state(false);
   let busy = $state(false);
   let pendingExit = $state.raw<DNSExit | null>(null);
+  let liveProgress = $state.raw<WebRTCProgress | null>(null);
   let revealExit = $state(true);
+  let capturing = $state(false);
   let toast: ReturnType<typeof ReportToast> | undefined = $state();
 
   let current = $derived(history.current);
@@ -69,17 +74,56 @@
     if (busy || !ready) return;
     busy = true;
     pendingExit = null;
+    liveProgress = null;
     try {
-      const result = await measureWebRTC((exit) => {
-        pendingExit = exit;
-      });
+      const result = await measureWebRTC(
+        (exit) => {
+          pendingExit = exit;
+        },
+        (progress) => {
+          liveProgress = progress;
+        },
+      );
       try {
         history = await webrtcHistory(result, history.current);
       } catch {
         history = { previous: history.current, current: result };
       }
     } finally {
+      liveProgress = null;
       busy = false;
+    }
+  }
+
+  async function handleScreenshot() {
+    if (!current || busy || capturing || !verdict) return;
+    capturing = true;
+    try {
+      const blob = await renderWebRTCShareCard({
+        time: current.time,
+        verdictState: verdict.state,
+        verdictTitle: status.title,
+        verdictReason: verdict.reason,
+        verdictNote: verdict.note,
+        exit: current.exit,
+        exitNetworkName: current.exit?.ip ? (dnsProviderName(current.exit.network) || '网络未知') : '未获取',
+        exitRegion: current.exit?.ip ? dnsRegion(current.exit.country) : '',
+        exitTypeLabel: current.exit?.ip ? exitTypeLabel(dnsExitType(current.exit)) : '',
+        apiSupported: current.apiSupported,
+        publicIPs: current.publicIPs,
+        suspectIPs: verdict.suspectIPs,
+        localIPs: current.localIPs.map((ip) => ({
+          ip,
+          scope: localScopeLabel(localScopeByIP.get(ip)),
+        })),
+        mdnsCount: current.mdnsHosts.length,
+        ipv6Global: current.ipv6Global,
+      });
+      toast?.show(await saveShareImage(blob, 'detectradar-webrtc'));
+    } catch (err) {
+      toast?.show('分享图生成失败：' + (err as Error).message);
+    } finally {
+      capturing = false;
     }
   }
 </script>
@@ -119,6 +163,7 @@
 
 <AppHeader
   page="webrtc"
+  onScreenshot={handleScreenshot}
   onRescan={run}
   isScanning={!ready || busy}
   ready={!!current}
@@ -153,6 +198,28 @@
           </div>
         {/if}
 
+        <WebRTCFlowStage
+          exit={current.exit}
+          verdictState={verdict?.state ?? 'unknown'}
+          verdictReason={verdict?.reason}
+          verdictNote={verdict?.note}
+          apiSupported={current.apiSupported}
+          publicIPs={current.publicIPs}
+          suspectIPs={verdict?.suspectIPs ?? []}
+          localIPs={current.localIPs}
+          mdnsHosts={current.mdnsHosts}
+          {revealExit}
+          {busy}
+          {liveProgress}
+          hasResult={true}
+        />
+
+        {#if busy}
+          <div class="progress-track" role="progressbar" aria-label="WebRTC 重新检测进度">
+            <span></span>
+          </div>
+        {/if}
+
         <header
           class="diagnosis"
           style:--verdict-color={status.color}
@@ -167,32 +234,26 @@
           {/if}
         </header>
 
-        {#if busy}
-          <div class="progress-track" role="progressbar" aria-label="WebRTC 重新检测进度">
-            <span></span>
-          </div>
-        {/if}
-
         <div class="columns" class:retesting={busy}>
           {@render exitReadout(current.exit, false)}
 
           <div class="reading">
             <p class="field">
-              <i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i>WebRTC 候选
+              <i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i>WebRTC
             </p>
 
-            <ul class="network-list" aria-label="检测到的 WebRTC 信号">
+            <ul class="network-list" aria-label="检测到的 WebRTC 地址">
               <li class="network-row network-stack">
                 <div class="row-head">
-                  <span class="row-label">公网候选（STUN / ICE）</span>
+                  <span class="row-label">公网 IP</span>
                   {#if !current.apiSupported}
                     <span class="badge">WebRTC 已禁用</span>
                   {:else if current.publicIPs.length === 0}
-                    <span class="region">未检测到公网地址</span>
+                    <span class="region">未测到公网 IP</span>
                   {/if}
                 </div>
                 {#if current.publicIPs.length > 0}
-                  <ul class="candidate-list" aria-label="公网候选 IP">
+                  <ul class="candidate-list" aria-label="WebRTC 公网 IP">
                     {#each current.publicIPs as ip (ip)}
                       {@const isSuspect = suspectSet.has(ip)}
                       {@const matchesExit =
@@ -209,11 +270,11 @@
                         <div class="network-tags">
                           {#if isV6}<span class="badge">IPv6</span>{/if}
                           {#if isSuspect}
-                            <span class="badge danger">额外公网</span>
+                            <span class="badge danger">与出口不同</span>
                           {:else if matchesExit}
                             <span class="badge">与出口一致</span>
                           {:else if verdict?.reason === 'dual-stack'}
-                            <span class="badge">双栈公网</span>
+                            <span class="badge">双栈 IP</span>
                           {/if}
                           {#if comparison?.addedPublicIPs.has(ip)}
                             <span class="badge new">新增</span>
@@ -227,17 +288,17 @@
 
               <li class="network-row network-stack">
                 <div class="row-head">
-                  <span class="row-label">内网与隐私保护</span>
+                  <span class="row-label">内网地址</span>
                   {#if !current.apiSupported}
-                    <span class="region">接口不可用</span>
+                    <span class="region">接口已禁用</span>
                   {:else if current.localIPs.length === 0 && current.mdnsHosts.length > 0}
-                    <span class="badge">mDNS 已隐藏真实 IP（*.local）</span>
+                    <span class="badge">mDNS 已隐藏（*.local）</span>
                   {:else if current.localIPs.length === 0}
-                    <span class="region">未暴露内网 IP</span>
+                    <span class="region">未暴露</span>
                   {/if}
                 </div>
                 {#if current.localIPs.length > 0}
-                  <ul class="candidate-list" aria-label="内网候选 IP">
+                  <ul class="candidate-list" aria-label="WebRTC 内网地址">
                     {#each current.localIPs as ip (ip)}
                       <li class="candidate-item">
                         <span class="ip-address">{ip}</span>
@@ -255,13 +316,13 @@
 
               <li class="network-row">
                 <div class="row-head w-full">
-                  <span class="row-label">IPv6（经 ICE 候选）</span>
+                  <span class="row-label">IPv6 地址</span>
                   {#if current.ipv6Global}
                     <span class="ip-address">{current.ipv6Global}</span>
                   {:else if !current.apiSupported}
-                    <span class="region">禁用 WebRTC 时同步跳过</span>
+                    <span class="region">禁用 WebRTC 时跳过</span>
                   {:else}
-                    <span class="region">未检测到全局 IPv6</span>
+                    <span class="region">未测到全局 IPv6</span>
                   {/if}
                 </div>
               </li>
@@ -274,16 +335,16 @@
             <summary>
               <span class="summary-name">
                 <i class="chevron fa-solid fa-chevron-right" aria-hidden="true"></i>
-                ICE 候选明细
+                WebRTC 地址
               </span>
               <span class="address-count">
-                <span class="font-mono">{current.candidates.length}</span> 条记录
+                <span class="font-mono">{current.candidates.length}</span> 个地址
               </span>
             </summary>
 
             <div class="resolver-groups">
               {#if current.candidates.length > 0}
-                <ul class="detail-list" aria-label="ICE 候选原始记录">
+                <ul class="detail-list" aria-label="WebRTC 地址原始记录">
                   {#each current.candidates as cand (`${cand.address}|${cand.type}|${cand.protocol}`)}
                     <li class="detail-row">
                       <span class="ip-address">{cand.address}</span>
@@ -295,7 +356,7 @@
                         {:else if cand.kind === 'local'}
                           <span class="badge">{localScopeLabel(cand.localScope)}</span>
                         {:else if suspectSet.has(cand.address)}
-                          <span class="badge danger">额外公网</span>
+                          <span class="badge danger">与出口不同</span>
                         {:else}
                           <span class="badge">公网</span>
                         {/if}
@@ -321,20 +382,33 @@
       </section>
     {:else}
       <section class="glass-card result-card" aria-label="正在检测 WebRTC">
+        <WebRTCFlowStage
+          exit={pendingExit}
+          verdictState="unknown"
+          apiSupported={true}
+          publicIPs={[]}
+          suspectIPs={[]}
+          localIPs={[]}
+          mdnsHosts={[]}
+          {revealExit}
+          busy={true}
+          {liveProgress}
+          hasResult={false}
+        />
+        <div class="progress-track" role="progressbar" aria-label="WebRTC 检测进度">
+          <span></span>
+        </div>
         <header class="diagnosis">
           <p class="verdict-title">
             <span class="dot loading-dot" aria-hidden="true"></span>正在检测 WebRTC
           </p>
-          <p class="diagnosis-note">通常需要 2–3 秒完成 ICE 收集。</p>
+          <p class="diagnosis-note">正在并发检测网页出口与 WebRTC 地址。</p>
         </header>
-        <div class="progress-track" role="progressbar" aria-label="WebRTC 检测进度">
-          <span></span>
-        </div>
         <div class="columns">
           {@render exitReadout(pendingExit, true)}
           <div class="reading">
             <p class="field">
-              <i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i>WebRTC 候选
+              <i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i>WebRTC
             </p>
             <div class="mt-3 h-5 w-40 rounded bg-white/8" aria-hidden="true"></div>
             <div class="mt-2 h-3 w-24 rounded bg-white/5" aria-hidden="true"></div>
@@ -368,7 +442,7 @@
             {/if}
             <dl class="change-list">
               <div>
-                <dt>公网候选</dt>
+                <dt>公网 IP</dt>
                 <dd>{comparison.publicChange}</dd>
               </div>
               <div>
@@ -389,12 +463,9 @@
           <i class="fa-solid fa-circle-info" aria-hidden="true"></i>检测说明
         </p>
         <ul class="rule-note">
-          <li>在浏览器本地收集 STUN/ICE 候选；现代浏览器常以 mDNS（<code>*.local</code>）隐藏真实内网 IP。</li>
-          <li>代理或机房出口下若出现与出口不同的公网 IP，判为<strong>泄露</strong>。</li>
-          <li>
-            IPv6 探针复用 ICE 候选，禁用 WebRTC 时会同步跳过（终端可用 <code class="font-mono text-xs">curl -6</code> 复核）。详见
-            <a href="/about/#webrtc" class="text-(--slate-200) hover:text-(--radar-400) underline decoration-slate-600 underline-offset-4">检测说明</a>。
-          </li>
+          <li>结果来自当前浏览器的 WebRTC 检测，仅在本机完成比对。</li>
+          <li>测到与当前出口不同的公网 IP（非正常双栈），判为<strong>泄露</strong>。</li>
+          <li>禁用 WebRTC 时，网页 IPv6 探测也会同步跳过。</li>
         </ul>
       </aside>
     </div>

@@ -34,6 +34,8 @@
         </div>
       {/each}
     </div>
+  {:else if rows.length === 0}
+    <p class="text-sm text-(--slate-500)">待检测</p>
   {:else}
     <div class="space-y-3">
       {#each rows as r}

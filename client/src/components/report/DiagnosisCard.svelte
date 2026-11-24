@@ -7,13 +7,14 @@
     isScanning?: boolean;
     active?: boolean;
     onCopyPromo?: (code: string) => void;
+    onStart?: () => void;
   }
   const FINDING_LINKS: Record<string, string> = {
     'dns-leak': '/dns-leak-test/',
     'webrtc-leak': '/webrtc-leak-test/',
   };
 
-  let { report, isScanning = false, active = false, onCopyPromo }: Props = $props();
+  let { report, isScanning = false, active = false, onCopyPromo, onStart }: Props = $props();
 
   const SEV: Record<Severity, { color: string; soft: string; label: string; icon: string }> = {
     leak: { color: 'var(--leak)', soft: 'var(--leak-soft)', label: '暴露', icon: 'fa-triangle-exclamation' },
@@ -122,5 +123,20 @@
         </div>
       </div>
     {/if}
+  {:else}
+    <div class="flex flex-col items-start justify-center h-full gap-2.5">
+      <p class="text-lg font-semibold text-white">待检测</p>
+      <p class="text-sm text-(--slate-400) leading-relaxed max-w-xl">
+        点击开始检测当前出口 IP、浏览器时区与语言一致性、DNS / WebRTC / IPv6 泄露及环境指纹。
+      </p>
+      {#if onStart}
+        <button
+          type="button"
+          onclick={onStart}
+          class="mt-1 text-sm px-4 py-2 rounded-lg transition-colors cursor-pointer"
+          style="color:var(--radar-400); background:var(--sig-soft)"
+        >开始检测</button>
+      {/if}
+    </div>
   {/if}
 </div>

@@ -447,16 +447,21 @@
     return revealExit ? ip : maskIP(ip);
   }
 
+  let isIdle = $derived(!busy && !hasResult);
+
   let exitName = $derived(
     activeExit?.ip
       ? `${dnsProviderName(activeExit.network) || '出口网络'} · ${dnsRegion(activeExit.country)}`
-      : '正在获取出口 IP',
+      : isIdle
+        ? '网页出口'
+        : '正在获取出口 IP',
   );
   let exitDisplayIP = $derived(
-    activeExit?.ip ? (revealExit ? activeExit.ip : maskIP(activeExit.ip)) : '…',
+    activeExit?.ip ? (revealExit ? activeExit.ip : maskIP(activeExit.ip)) : isIdle ? '待检测' : '…',
   );
 
   let stunTitle = $derived.by(() => {
+    if (isIdle) return 'WebRTC 探测';
     if (busy) {
       if (activePublicIPs.length > 0) return 'WebRTC 公网 IP';
       if (activeLocalIPs.length > 0) return 'WebRTC 内网地址';
@@ -486,6 +491,7 @@
   });
 
   let stunSub = $derived.by(() => {
+    if (isIdle) return '待检测';
     if (busy) {
       const firstPub = activePublicIPs[0];
       if (firstPub) return formatCandidateIP(firstPub);
@@ -533,6 +539,7 @@
   });
 
   let stunSubCompact = $derived.by(() => {
+    if (isIdle) return '待检测';
     if (busy) return stunSub;
     switch (verdictReason) {
       case 'mdns-protected':
@@ -638,11 +645,13 @@
   );
 
   let verdictTitleText = $derived(
-    busy
-      ? liveProgress?.phase === 'comparing'
-        ? '本地比对中…'
-        : '并发检测中…'
-      : verdictTitleWord,
+    isIdle
+      ? '待检测'
+      : busy
+        ? liveProgress?.phase === 'comparing'
+          ? '本地比对中…'
+          : '并发检测中…'
+        : verdictTitleWord,
   );
 
   let statusText = $derived.by(() => {
@@ -657,9 +666,11 @@
   });
 
   let ariaSummary = $derived(
-    busy && !hasResult
-      ? 'WebRTC 流量路径图：正在并发检测当前浏览器的 WebRTC 地址与 HTTPS 网页出口'
-      : `WebRTC 实测流量路径图：${stunTitle}为 ${stunSub}；网页出口为 ${exitName}（${exitDisplayIP}）；浏览器本地比对：${verdictTitleText}`,
+    isIdle
+      ? 'WebRTC 流量路径图：等待开始检测当前浏览器的 WebRTC 地址与 HTTPS 网页出口'
+      : busy && !hasResult
+        ? 'WebRTC 流量路径图：正在并发检测当前浏览器的 WebRTC 地址与 HTTPS 网页出口'
+        : `WebRTC 实测流量路径图：${stunTitle}为 ${stunSub}；网页出口为 ${exitName}（${exitDisplayIP}）；浏览器本地比对：${verdictTitleText}`,
   );
 </script>
 
@@ -823,10 +834,10 @@
     <circle cx="0" cy="0" r="30" fill="transparent" />
     {#if compact}
       <text x="0" y="36" text-anchor="middle" fill="#f8fafc" font-size="11.5" font-weight="600">{truncateText(exitName, 14)}</text>
-      <text x="0" y="51" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeExit?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{activeExit?.ip ? exitDisplayIP : '等待响应'}</text>
+      <text x="0" y="51" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeExit?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{activeExit?.ip ? exitDisplayIP : isIdle ? '待检测' : '等待响应'}</text>
     {:else}
       <text x="0" y="38" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="600">{truncateText(exitName, 22)}</text>
-      <text x="0" y="53" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeExit?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{activeExit?.ip ? `${exitDisplayIP} · 网页出口` : '网页出口'}</text>
+      <text x="0" y="53" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeExit?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{activeExit?.ip ? `${exitDisplayIP} · 网页出口` : isIdle ? '待检测' : '网页出口'}</text>
     {/if}
   </g>
 

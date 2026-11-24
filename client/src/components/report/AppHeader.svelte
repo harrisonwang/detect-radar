@@ -1,17 +1,72 @@
 <script lang="ts">
   interface Props {
     page?: "home" | "dns" | "webrtc" | "static";
+    onCopyText?: () => void;
     onScreenshot?: () => void;
-    onShare?: () => void;
     onRescan?: () => void;
     isScanning?: boolean;
     ready?: boolean;
     failureText?: string;
   }
-  let { page = "home", onScreenshot, onRescan, isScanning = false, ready = false, failureText }: Props = $props();
+  let {
+    page = "home",
+    onCopyText,
+    onScreenshot,
+    onRescan,
+    isScanning = false,
+    ready = false,
+    failureText,
+  }: Props = $props();
+
   let statusText = $derived(isScanning ? '检测中' : failureText || (ready ? '检测完成' : '待检测'));
   let statusColor = $derived(isScanning ? 'var(--warn)' : ready && !failureText ? 'var(--sig)' : 'var(--unknown)');
+  let canShare = $derived(Boolean(onCopyText || onScreenshot));
+  let shareDisabled = $derived(isScanning || !ready);
+
+  let shareOpen = $state(false);
+  let shareWrap: HTMLDivElement | undefined = $state();
+
+  $effect(() => {
+    if (shareDisabled && shareOpen) {
+      shareOpen = false;
+    }
+  });
+
+  function toggleShareMenu() {
+    if (shareDisabled) return;
+    if (onCopyText && onScreenshot) {
+      shareOpen = !shareOpen;
+      return;
+    }
+    if (onCopyText) onCopyText();
+    else if (onScreenshot) onScreenshot();
+  }
+
+  function handleWindowPointerDown(e: PointerEvent) {
+    if (!shareOpen) return;
+    if (shareWrap && !shareWrap.contains(e.target as Node)) {
+      shareOpen = false;
+    }
+  }
+
+  function handleWindowKeyDown(e: KeyboardEvent) {
+    if (shareOpen && e.key === 'Escape') {
+      shareOpen = false;
+    }
+  }
+
+  function runCopyText() {
+    shareOpen = false;
+    onCopyText?.();
+  }
+
+  function runScreenshot() {
+    shareOpen = false;
+    onScreenshot?.();
+  }
 </script>
+
+<svelte:window onpointerdown={handleWindowPointerDown} onkeydown={handleWindowKeyDown} />
 
 <header class="border-b border-slate-800/60 bg-space-950/80 sticky top-0 z-50 backdrop-blur-md">
   <div class="header-wrap max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -36,16 +91,39 @@
             <span aria-hidden="true" class="dot" style:background={statusColor} style:--_soft="transparent"></span>
             {statusText}
           </span>
-          {#if ready || page === "dns" || page === "webrtc"}
+          {#if ready || !isScanning || page === "dns" || page === "webrtc"}
             <div class="icon-actions">
               <button type="button" onclick={onRescan} disabled={isScanning} class="hbtn" title="重新检测" aria-label="重新检测">
                 <i class="fa-solid fa-rotate-right text-sm" aria-hidden="true"></i>
               </button>
-              {#if onScreenshot}
-                <button type="button" onclick={onScreenshot} disabled={isScanning || !ready} class="hbtn"
-                  title="生成分享图（IP 自动脱敏）" aria-label="生成分享图">
-                  <i class="fa-solid fa-camera text-sm" aria-hidden="true"></i>
-                </button>
+              {#if canShare && (ready || page === "dns" || page === "webrtc")}
+                <div class="share-wrap" bind:this={shareWrap}>
+                  <button
+                    type="button"
+                    onclick={toggleShareMenu}
+                    disabled={shareDisabled}
+                    class="hbtn"
+                    class:is-open={shareOpen}
+                    title="分享"
+                    aria-label="分享"
+                    aria-haspopup={onCopyText && onScreenshot ? 'menu' : undefined}
+                    aria-expanded={onCopyText && onScreenshot ? shareOpen : undefined}
+                  >
+                    <i class="fa-solid fa-share-nodes text-sm" aria-hidden="true"></i>
+                  </button>
+                  {#if shareOpen && onCopyText && onScreenshot}
+                    <div class="share-menu" role="menu" aria-label="分享">
+                      <button type="button" role="menuitem" class="share-item" onclick={runCopyText}>
+                        <i class="fa-regular fa-copy share-icon" aria-hidden="true"></i>
+                        <span>复制文字</span>
+                      </button>
+                      <button type="button" role="menuitem" class="share-item" onclick={runScreenshot}>
+                        <i class="fa-regular fa-image share-icon" aria-hidden="true"></i>
+                        <span>保存图片</span>
+                      </button>
+                    </div>
+                  {/if}
+                </div>
               {/if}
             </div>
           {/if}
@@ -135,13 +213,66 @@
     transition: all 0.18s ease;
     cursor: pointer;
   }
-  .hbtn:hover:not(:disabled) {
+  .hbtn:hover:not(:disabled),
+  .hbtn.is-open {
     color: var(--radar-400);
     background: var(--slate-700);
   }
   .hbtn:disabled {
     opacity: 0.4;
     cursor: not-allowed;
+  }
+  .share-wrap {
+    position: relative;
+  }
+  .share-menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.5rem);
+    z-index: 60;
+    min-width: 8.5rem;
+    max-width: calc(100vw - 1.5rem);
+    padding: 0.3rem;
+    border-radius: 0.65rem;
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    background: rgba(15, 23, 42, 0.96);
+    box-shadow: 0 14px 32px rgba(2, 6, 23, 0.6);
+    backdrop-filter: blur(14px);
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+  }
+  .share-item {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    width: 100%;
+    padding: 0.5rem 0.65rem;
+    border-radius: 0.45rem;
+    text-align: left;
+    white-space: nowrap;
+    font-size: 0.84rem;
+    font-weight: 500;
+    line-height: 1.25;
+    color: var(--slate-200);
+    transition: background-color 0.15s ease, color 0.15s ease;
+    cursor: pointer;
+  }
+  .share-item:hover,
+  .share-item:focus-visible {
+    background: rgba(30, 41, 59, 0.85);
+    color: #fff;
+    outline: none;
+  }
+  .share-item:focus-visible {
+    box-shadow: inset 0 0 0 1.5px var(--radar-400);
+  }
+  .share-icon {
+    width: 1rem;
+    text-align: center;
+    color: var(--radar-400);
+    font-size: 0.85rem;
+    flex-shrink: 0;
   }
   @media (max-width: 23rem) {
     .report-actions { column-gap: 0.25rem; }

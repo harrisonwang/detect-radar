@@ -17,8 +17,10 @@
   import { collectFingerprintAudit } from '../lib/collectors/fingerprintAudit';
   import type { AllCollectorResults } from '../lib/collectors/types';
   import * as api from '../lib/api';
+  import { isAutomatedCrawler } from '../lib/crawler';
   import { buildReport, type ReportModel, type IdentityReadout } from '../lib/report';
   import { renderShareCard } from '../lib/shareCard';
+  import { copyShareText, formatHomeShareText } from '../lib/shareSummary';
   import type { ScanRequest } from '../lib/types';
 
   interface ScanSignals {
@@ -246,6 +248,12 @@
   }
 
   onMount(() => {
+    if (isAutomatedCrawler()) {
+      isScanning = false;
+      dnsPending = false;
+      scanStage = 'complete';
+      return;
+    }
     runScan();
     // bfcache：浏览器后退会整页恢复旧状态，onMount 不再触发，需手动重扫
     const onPageShow = (e: PageTransitionEvent) => {
@@ -322,19 +330,15 @@
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
-  async function handleShare() {
-    try {
-      await navigator.clipboard.writeText(window.location.href);
-      showToast('页面链接已复制');
-    } catch {
-      showToast('复制失败，请检查浏览器权限');
-    }
+  async function handleCopyText() {
+    if (!report || isScanning) return;
+    showToast(await copyShareText(formatHomeShareText(report)));
   }
 </script>
 
 <AppHeader
+  onCopyText={handleCopyText}
   onScreenshot={handleScreenshot}
-  onShare={handleShare}
   onRescan={runScan}
   isScanning={isScanning}
   ready={!!report && !isScanning}
@@ -363,7 +367,7 @@
         />
       </div>
       <div class="lg:col-span-8">
-        <DiagnosisCard report={report} isScanning={isScanning} active={activeDimension === 'identity'} onCopyPromo={handleCopyPromo} />
+        <DiagnosisCard report={report} isScanning={isScanning} active={activeDimension === 'identity'} onCopyPromo={handleCopyPromo} onStart={runScan} />
       </div>
     </div>
 
@@ -385,6 +389,7 @@
           identity={report?.identity ?? EMPTY_IDENTITY}
           rtt={report?.rtt}
           isScanning={isScanning}
+          idle={!isScanning && !report}
           revealed={ipRevealed}
           settled={revealedKeys.includes('identity')}
           active={activeDimension === 'identity'}

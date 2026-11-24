@@ -55,5 +55,4 @@ User-agent: Applebot-Extended
 Allow: /
 
 # Machine-Readable Documentation: /llms.txt and /llms-full.txt
-Sitemap: https://detectradar.com/sitemap-index.xml
 Sitemap: https://detectradar.com/sitemap.xml

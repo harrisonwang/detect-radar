@@ -21,7 +21,9 @@
     type WebRTCProgress,
   } from '../lib/webrtcCheck';
   import { emptyHistory } from '../lib/recentHistory';
+  import { isAutomatedCrawler } from '../lib/crawler';
   import { renderWebRTCShareCard, saveShareImage } from '../lib/toolShareCard';
+  import { copyShareText, formatWebRTCShareText } from '../lib/shareSummary';
   import type { DNSExit } from '../lib/types';
 
   let history = $state.raw<WebRTCHistory>(emptyHistory<WebRTCCheck>());
@@ -55,6 +57,10 @@
   );
 
   onMount(() => {
+    if (isAutomatedCrawler()) {
+      ready = true;
+      return;
+    }
     async function restore() {
       try {
         history = await webrtcHistory();
@@ -126,9 +132,33 @@
       capturing = false;
     }
   }
+  async function handleCopyText() {
+    if (!current || busy || !verdict) return;
+    const text = formatWebRTCShareText({
+      verdictState: verdict.state,
+      verdictTitle: status.title,
+      verdictReason: verdict.reason,
+      verdictNote: verdict.note,
+      exit: current.exit,
+      exitNetworkName: current.exit?.ip ? (dnsProviderName(current.exit.network) || '网络未知') : '未获取',
+      exitRegion: current.exit?.ip ? dnsRegion(current.exit.country) : '',
+      exitTypeLabel: current.exit?.ip ? exitTypeLabel(dnsExitType(current.exit)) : '',
+      apiSupported: current.apiSupported,
+      publicIPs: current.publicIPs,
+      suspectIPs: verdict.suspectIPs,
+      localIPs: current.localIPs.map((ip) => ({
+        ip,
+        scope: localScopeLabel(localScopeByIP.get(ip)),
+      })),
+      mdnsCount: current.mdnsHosts.length,
+      ipv6Global: current.ipv6Global,
+      comparisonSummary: comparison?.summary,
+    });
+    toast?.show(await copyShareText(text));
+  }
 </script>
 
-{#snippet exitReadout(exit: DNSExit | null, pending: boolean)}
+{#snippet exitReadout(exit: DNSExit | null, pending: boolean, waiting = false)}
   <div class="reading">
     <p class="field" title="你访问本站时使用的公网 IP">
       <i class="fa-solid fa-globe" aria-hidden="true"></i>出口 IP
@@ -156,13 +186,14 @@
         </div>
       {/if}
     {:else}
-      <p class="readout-placeholder">{pending ? '正在获取…' : '未获取'}</p>
+      <p class="readout-placeholder">{pending ? '正在获取…' : waiting ? '待检测' : '未获取'}</p>
     {/if}
   </div>
 {/snippet}
 
 <AppHeader
   page="webrtc"
+  onCopyText={handleCopyText}
   onScreenshot={handleScreenshot}
   onRescan={run}
   isScanning={!ready || busy}
@@ -381,7 +412,8 @@
         {/if}
       </section>
     {:else}
-      <section class="glass-card result-card" aria-label="正在检测 WebRTC">
+      {@const isWaiting = ready && !busy}
+      <section class="glass-card result-card" aria-label={isWaiting ? '待检测 WebRTC' : '正在检测 WebRTC'}>
         <WebRTCFlowStage
           exit={pendingExit}
           verdictState="unknown"
@@ -391,27 +423,46 @@
           localIPs={[]}
           mdnsHosts={[]}
           {revealExit}
-          busy={true}
+          busy={!isWaiting}
           {liveProgress}
           hasResult={false}
         />
-        <div class="progress-track" role="progressbar" aria-label="WebRTC 检测进度">
-          <span></span>
-        </div>
+        {#if !isWaiting}
+          <div class="progress-track" role="progressbar" aria-label="WebRTC 检测进度">
+            <span></span>
+          </div>
+        {/if}
         <header class="diagnosis">
-          <p class="verdict-title">
-            <span class="dot loading-dot" aria-hidden="true"></span>正在检测 WebRTC
-          </p>
-          <p class="diagnosis-note">正在并发检测网页出口与 WebRTC 地址。</p>
+          {#if isWaiting}
+            <p class="verdict-title">
+              <span class="dot" aria-hidden="true"></span>待检测 WebRTC
+            </p>
+            <p class="diagnosis-note">点击开始后将并发检测网页出口与 WebRTC 地址。</p>
+            <button
+              type="button"
+              onclick={run}
+              class="mt-3 text-sm px-3.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+              style="color:var(--radar-400); background:var(--sig-soft)"
+            >开始检测</button>
+          {:else}
+            <p class="verdict-title">
+              <span class="dot loading-dot" aria-hidden="true"></span>正在检测 WebRTC
+            </p>
+            <p class="diagnosis-note">正在并发检测网页出口与 WebRTC 地址。</p>
+          {/if}
         </header>
         <div class="columns">
-          {@render exitReadout(pendingExit, true)}
+          {@render exitReadout(pendingExit, !isWaiting, isWaiting)}
           <div class="reading">
             <p class="field">
               <i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i>WebRTC
             </p>
-            <div class="mt-3 h-5 w-40 rounded bg-white/8" aria-hidden="true"></div>
-            <div class="mt-2 h-3 w-24 rounded bg-white/5" aria-hidden="true"></div>
+            {#if isWaiting}
+              <p class="readout-placeholder">待检测</p>
+            {:else}
+              <div class="mt-3 h-5 w-40 rounded bg-white/8" aria-hidden="true"></div>
+              <div class="mt-2 h-3 w-24 rounded bg-white/5" aria-hidden="true"></div>
+            {/if}
           </div>
         </div>
       </section>

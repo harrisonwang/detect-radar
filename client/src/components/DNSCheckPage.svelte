@@ -5,9 +5,11 @@
   import ExitIPAddress from './report/ExitIPAddress.svelte';
   import ReportToast from './report/ReportToast.svelte';
   import { compareDNS, DNSCheckError, dnsNetworks, dnsProviderGroups, measureDNS, type DNSProgress, withDNSAssessment } from '../lib/dnsCheck';
+  import { isAutomatedCrawler } from '../lib/crawler';
   import { dnsHistory, emptyDNSHistory, type DNSHistory } from '../lib/dnsHistory';
   import { dnsExitType, dnsProviderName, dnsRegion, dnsStatus, dnsVerdictNote, exitTypeLabel } from '../lib/dnsPresentation';
   import { renderDNSShareCard, saveShareImage } from '../lib/toolShareCard';
+  import { copyShareText, formatDNSShareText } from '../lib/shareSummary';
   import type { DNSExit } from '../lib/types';
 
   const failures = {
@@ -48,6 +50,10 @@
   );
 
   onMount(() => {
+    if (isAutomatedCrawler()) {
+      ready = true;
+      return;
+    }
     async function restore() {
       try {
         const saved = await dnsHistory();
@@ -118,9 +124,30 @@
       capturing = false;
     }
   }
+  async function handleCopyText() {
+    if (!current || busy) return;
+    const text = formatDNSShareText({
+      verdictState,
+      verdictTitle: status.title,
+      verdict: current.verdict,
+      note,
+      exit: current.exit,
+      exitNetworkName: current.exit?.ip ? (dnsProviderName(current.exit.network) || '网络未知') : '未获取',
+      exitRegion: current.exit?.ip ? dnsRegion(current.exit.country) : '',
+      exitTypeLabel: current.exit?.ip ? exitTypeLabel(dnsExitType(current.exit)) : '',
+      providers: providers.map((p) => ({
+        name: p.name,
+        regions: p.regions.map((r) => dnsRegion(r.country)).join('、'),
+        type: p.type,
+        suspect: p.suspect,
+      })),
+      comparisonSummary: comparison?.summary,
+    });
+    toast?.show(await copyShareText(text));
+  }
 </script>
 
-{#snippet exitReadout(exit: DNSExit | null, pending: boolean)}
+{#snippet exitReadout(exit: DNSExit | null, pending: boolean, waiting = false)}
   <div class="reading">
     <p class="field" title="你访问本站时使用的公网 IP"><i class="fa-solid fa-globe" aria-hidden="true"></i>出口 IP</p>
     {#if exit?.ip}
@@ -141,12 +168,12 @@
         </div>
       {/if}
     {:else}
-      <p class="readout-placeholder">{pending ? '正在获取…' : '未获取'}</p>
+      <p class="readout-placeholder">{pending ? '正在获取…' : waiting ? '待检测' : '未获取'}</p>
     {/if}
   </div>
 {/snippet}
 
-<AppHeader page="dns" onScreenshot={handleScreenshot} onRescan={run} isScanning={!ready || busy} ready={!!current} failureText={error?.title} />
+<AppHeader page="dns" onCopyText={handleCopyText} onScreenshot={handleScreenshot} onRescan={run} isScanning={!ready || busy} ready={!!current} failureText={error?.title} />
 
 <main class="report-main flex-1 min-w-0">
   <header class="mb-6">
@@ -273,28 +300,46 @@
         </div>
       </section>
     {:else}
-      <section class="glass-card result-card" aria-label="正在检测">
+      {@const isWaiting = ready && !busy}
+      <section class="glass-card result-card" aria-label={isWaiting ? '待检测 DNS' : '正在检测'}>
         <DNSFlowStage
           exit={pendingExit}
           verdictState="unknown"
           providers={[]}
           resolverCount={0}
           {revealExit}
-          busy={true}
+          busy={!isWaiting}
           {liveProgress}
           hasResult={false}
         />
-        <div class="progress-track" role="progressbar" aria-label="DNS 检测进度"><span></span></div>
+        {#if !isWaiting}
+          <div class="progress-track" role="progressbar" aria-label="DNS 检测进度"><span></span></div>
+        {/if}
         <header class="diagnosis">
-          <p class="verdict-title"><span class="dot loading-dot" aria-hidden="true"></span>正在检测 DNS</p>
-          <p class="diagnosis-note">正在并发采集网页出口与权威 DNS 回溯。</p>
+          {#if isWaiting}
+            <p class="verdict-title"><span class="dot" aria-hidden="true"></span>待检测 DNS</p>
+            <p class="diagnosis-note">点击开始后将并发采集网页出口与权威 DNS 回溯。</p>
+            <button
+              type="button"
+              onclick={run}
+              class="mt-3 text-sm px-3.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+              style="color:var(--radar-400); background:var(--sig-soft)"
+            >开始检测</button>
+          {:else}
+            <p class="verdict-title"><span class="dot loading-dot" aria-hidden="true"></span>正在检测 DNS</p>
+            <p class="diagnosis-note">正在并发采集网页出口与权威 DNS 回溯。</p>
+          {/if}
         </header>
         <div class="columns">
-          {@render exitReadout(pendingExit, true)}
+          {@render exitReadout(pendingExit, !isWaiting, isWaiting)}
           <div class="reading">
             <p class="field"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i>DNS</p>
-            <div class="mt-3 h-5 w-36 rounded bg-white/8" aria-hidden="true"></div>
-            <div class="mt-2 h-3 w-21 rounded bg-white/5" aria-hidden="true"></div>
+            {#if isWaiting}
+              <p class="readout-placeholder">待检测</p>
+            {:else}
+              <div class="mt-3 h-5 w-36 rounded bg-white/8" aria-hidden="true"></div>
+              <div class="mt-2 h-3 w-21 rounded bg-white/5" aria-hidden="true"></div>
+            {/if}
           </div>
         </div>
       </section>

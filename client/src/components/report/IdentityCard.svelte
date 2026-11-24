@@ -7,13 +7,14 @@
     identity: IdentityReadout;
     rtt?: RTTReadout;
     isScanning?: boolean;
+    idle?: boolean;
     settled?: boolean;
     revealed?: boolean;
     active?: boolean;
     onToggleReveal?: () => void;
     onCopyFeedback?: (message: string) => void;
   }
-  let { identity, rtt, isScanning = false, settled = false, revealed = false, active = false, onToggleReveal, onCopyFeedback }: Props = $props();
+  let { identity, rtt, isScanning = false, idle = false, settled = false, revealed = false, active = false, onToggleReveal, onCopyFeedback }: Props = $props();
 
   // 仪表读数固定一位小数（tnum 下位数对齐）
   const ms = (x: number) => x.toFixed(1);
@@ -60,6 +61,8 @@
         {#each Array(4) as _}<div class="h-10 bg-slate-800/50 rounded animate-pulse"></div>{/each}
       </div>
     </div>
+  {:else if idle}
+    <p class="text-sm text-(--slate-500)">待检测</p>
   {:else}
     <div class="flex flex-col md:flex-row gap-6">
       <!-- 左：核芯 IP -->

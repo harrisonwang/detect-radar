@@ -134,7 +134,7 @@ codesign --force --deep --sign - "$APP_DIR"
 codesign --verify --deep --strict "$APP_DIR"
 
 if [[ "$ARCH" == "universal" ]]; then
-  lipo -verify_arch arm64 x86_64 "$MACOS_DIR/$APP_NAME"
+  lipo "$MACOS_DIR/$APP_NAME" -verify_arch arm64 x86_64
 fi
 
 ZIP_NAME="${ZIP_NAME:-$APP_NAME-v$VERSION-macos-$ARCH.zip}"

@@ -30,9 +30,9 @@ env | grep -iE '^(http|https|all|no)_proxy=' || echo "(未设置代理环境变�
 # 当前终端默认出口（遵循代理环境变量）
 curl -sS https://detectradar.com/api/v1/ip
 
-# 分别核对 IPv4 与 IPv6 双栈出口
-curl -4 -sS https://detectradar.com/api/v1/ip
-curl -6 -sS --max-time 5 https://detectradar.com/api/v1/ip || echo "(无 IPv6 连通)"
+# 分别核对 IPv4 与 IPv6 双栈出口（也可使用 -4 / -6）
+curl -sS https://4.detectradar.com/api/v1/ip
+curl -sS --max-time 4 https://6.detectradar.com/api/v1/ip || echo "(无 IPv6 连通)"
 
 # 如需对照「绕过环境变量直连」的出口，可加 --noproxy '*'
 curl --noproxy '*' -sS https://detectradar.com/api/v1/ip
@@ -75,7 +75,9 @@ curl -sS "https://detectradar.com/api/v1/leaks/dns/${id}"
      - 综合环境检测：https://detectradar.com/
      - DNS 泄露检测：https://detectradar.com/dns-leak-test/
      - WebRTC 泄露检测：https://detectradar.com/webrtc-leak-test/
+     - IPv6 泄露检测：https://detectradar.com/ipv6-leak-test/
    - 不得把「未见明显异常」解读为「绝对安全」或「保证不被某平台风控」。
+   - **IPv6 泄露判断说明**：由于 `ip2region` 会将香港、澳门、台湾标为 `country: "CN"`，对比双栈出口时须结合 `region` 排除港澳台与海外机房分流，仅当 IPv4 位于海外（非中国大陆）且 IPv6 落在国内非机房运营商网段时才属于 IPv6 旁路泄露。
 5. **调用礼仪与隐私脱敏**
    - 禁止在循环或后台轮询中高频请求接口；非明确排障需要，不要批量调用 `/api/v1/ip/reputation`。
    - 输出给用户的公开摘要或工单记录默认隐藏完整 IP（IPv4 写为 `104.194.*.*`，IPv6 写为 `2408:8207:*`），除非用户明确要求查看完整地址。

@@ -6,6 +6,7 @@
 import type { ReportModel, ReadoutRow } from './report';
 import type { DNSExit, DNSVerdict } from './types';
 import type { WebRTCVerdictReason, WebRTCVerdictState } from './webrtcCheck';
+import type { IPv6VerdictReason, IPv6VerdictState, StackExit } from './ipv6Check';
 
 const SITE_ORIGIN = 'https://detectradar.com';
 
@@ -282,7 +283,7 @@ export function formatWebRTCShareText(data: WebRTCShareTextInput): string {
         ? 'mDNS 已隐藏（*.local）'
         : '未暴露内网地址';
   const ipv6Text = !data.apiSupported
-    ? '禁用 WebRTC 时跳过'
+    ? '禁用 WebRTC 时未采集 ICE IPv6'
     : data.ipv6Global
       ? `测得全局 IPv6（${maskIPText(data.ipv6Global)}）`
       : '未测到全局 IPv6';
@@ -293,6 +294,62 @@ export function formatWebRTCShareText(data: WebRTCShareTextInput): string {
   }
 
   lines.push(`- 在线复测：${SITE_ORIGIN}/webrtc-leak-test/`);
+  return maskIPsInPlainText(lines.join('\n'));
+}
+
+// ============================================================================
+// IPv6 泄露专项页文字结果
+// ============================================================================
+
+export interface IPv6ShareTextInput {
+  verdictState: IPv6VerdictState;
+  verdictTitle: string;
+  verdictReason: IPv6VerdictReason;
+  verdictNote: string;
+  v4: StackExit | null;
+  v4NetworkName: string;
+  v4Region: string;
+  v4TypeLabel: string;
+  v6: StackExit | null;
+  v6NetworkName: string;
+  v6Region: string;
+  v6TypeLabel: string;
+  comparisonSummary?: string | null;
+}
+
+export function formatIPv6ShareText(data: IPv6ShareTextInput): string {
+  const lines: string[] = ['DetectRadar IPv6 泄露检测结果'];
+
+  const cleanNote = cleanPeriod(data.verdictNote);
+  lines.push(`- 检测结论：${data.verdictTitle}${cleanNote ? `（${cleanNote}）` : ''}`);
+
+  const v4Parts = data.v4?.ip
+    ? [
+        data.v4Region,
+        data.v4NetworkName !== '网络未知' && data.v4NetworkName !== '未连通' ? data.v4NetworkName : '',
+        data.v4.asn,
+        data.v4TypeLabel,
+      ]
+    : [];
+  lines.push(`- IPv4 出口：${data.v4?.ip ? formatExitLine(data.v4.ip, v4Parts) : '未连通'}`);
+
+  if (data.v6?.ip) {
+    const v6Parts = [
+      data.v6Region,
+      data.v6NetworkName !== '网络未知' && data.v6NetworkName !== '未连通' ? data.v6NetworkName : '',
+      data.v6.asn,
+      data.v6TypeLabel,
+    ];
+    lines.push(`- IPv6 出口：${formatExitLine(data.v6.ip, v6Parts)}`);
+  } else {
+    lines.push('- IPv6 出口：未连通（仅 IPv4 网络）');
+  }
+
+  if (data.comparisonSummary) {
+    lines.push(`- 复测变化：${cleanPeriod(data.comparisonSummary)}`);
+  }
+
+  lines.push(`- 在线复测：${SITE_ORIGIN}/ipv6-leak-test/`);
   return maskIPsInPlainText(lines.join('\n'));
 }
 

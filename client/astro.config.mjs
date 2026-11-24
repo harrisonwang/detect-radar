@@ -9,9 +9,10 @@ import tailwindcss from '@tailwindcss/vite';
 
 /** @type {Record<string, { priority: number; changefreq: 'weekly' | 'yearly'; lastmod: string }>} */
 const SITEMAP_META = {
-  '/': { priority: 1.0, changefreq: 'weekly', lastmod: '2026-11-21' },
+  '/': { priority: 1.0, changefreq: 'weekly', lastmod: '2026-11-24' },
   '/dns-leak-test/': { priority: 0.9, changefreq: 'weekly', lastmod: '2026-11-22' },
-  '/webrtc-leak-test/': { priority: 0.9, changefreq: 'weekly', lastmod: '2026-11-22' },
+  '/webrtc-leak-test/': { priority: 0.9, changefreq: 'weekly', lastmod: '2026-11-24' },
+  '/ipv6-leak-test/': { priority: 0.9, changefreq: 'weekly', lastmod: '2026-11-24' },
   '/about/': { priority: 0.8, changefreq: 'weekly', lastmod: '2026-11-24' },
   '/contact/': { priority: 0.3, changefreq: 'yearly', lastmod: '2026-11-21' },
   '/privacy/': { priority: 0.3, changefreq: 'yearly', lastmod: '2026-11-19' },

@@ -360,7 +360,7 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout): Finding[] {
       title: "IPv6 与出口 IP 不一致",
       fact: `检测到全局 IPv6 地址${pv.ipv6.address ? `（${pv.ipv6.address}）` : ""}`,
       meaning: "IPv6 与当前出口不一致，可能形成另一条公网出口。",
-      fix: "检查 IPv6 路由或使用支持 IPv6 的代理。",
+      fix: "在 IPv6 泄露检测页复测，检查代理是否接管 IPv6 或在路由层关闭 IPv6 直连。",
     });
   }
 
@@ -631,6 +631,7 @@ function leakRows(a: ScanAnalysis, exit: DNSExit | null): ReadoutRow[] {
       label: "IPv6",
       value: ipv6Value,
       state: ipv6State,
+      href: pv.ipv6.status === "danger" ? "/ipv6-leak-test/" : undefined,
     },
   ];
 }

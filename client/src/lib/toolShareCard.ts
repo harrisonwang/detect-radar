@@ -7,6 +7,7 @@
 import { maskIP } from './ipDisplay';
 import type { DNSExit } from './types';
 import type { WebRTCVerdictReason, WebRTCVerdictState } from './webrtcCheck';
+import type { IPv6VerdictReason, IPv6VerdictState, StackExit } from './ipv6Check';
 
 const W = 1200;
 const H = 840;
@@ -276,6 +277,8 @@ interface FlowDiamondSpec {
   upperRightBadge?: string;
   lowerExitLabel: string;
   lowerExitIP: string;
+  lowerExitSubSuffix?: string;
+  lowerHalted?: boolean;
   lowerLeftBadge: string;
   lowerRightBadge?: string;
   rightColor: string;
@@ -342,22 +345,35 @@ function drawFlowDiamondStage(
     ctx.stroke();
   }
 
-  ctx.strokeStyle = C.sig;
-  ctx.beginPath();
-  ctx.moveTo(bx, cy);
-  ctx.lineTo(bx + 100, ey);
-  ctx.lineTo(ax - 100, ey);
-  ctx.lineTo(ax, cy);
-  ctx.stroke();
+  ctx.strokeStyle = spec.lowerHalted ? C.unknown : C.sig;
+  if (spec.lowerHalted) {
+    ctx.setLineDash([5, 4]);
+    ctx.beginPath();
+    ctx.moveTo(bx, cy);
+    ctx.lineTo(bx + 100, ey);
+    ctx.lineTo(mx - 74, ey);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    drawText(ctx, '×', mx - 64, ey, { font: font(15, 700), color: C.unknown, align: 'center' });
+  } else {
+    ctx.beginPath();
+    ctx.moveTo(bx, cy);
+    ctx.lineTo(bx + 100, ey);
+    ctx.lineTo(ax - 100, ey);
+    ctx.lineTo(ax, cy);
+    ctx.stroke();
+  }
   ctx.restore();
 
   drawWireBadge(ctx, bx + 204, ry + 22, spec.upperLeftBadge, C.slate300, spec.upperColor);
   if (spec.upperRightBadge) {
     drawWireBadge(ctx, ax - 204, ry + 22, spec.upperRightBadge, C.slate300, 'rgba(148,163,184,0.3)');
   }
-  drawWireBadge(ctx, bx + 204, ey - 22, spec.lowerLeftBadge, '#86efac', 'rgba(74,222,128,0.42)');
+  const lowerWireColor = spec.lowerHalted ? C.unknown : '#86efac';
+  const lowerBadgeBorder = spec.lowerHalted ? 'rgba(148,163,184,0.35)' : 'rgba(74,222,128,0.42)';
+  drawWireBadge(ctx, bx + 204, ey - 22, spec.lowerLeftBadge, lowerWireColor, lowerBadgeBorder);
   if (spec.lowerRightBadge) {
-    drawWireBadge(ctx, ax - 204, ey - 22, spec.lowerRightBadge, '#86efac', 'rgba(74,222,128,0.32)');
+    drawWireBadge(ctx, ax - 204, ey - 22, spec.lowerRightBadge, lowerWireColor, 'rgba(148,163,184,0.3)');
   }
 
   // 1. 你的浏览器
@@ -419,7 +435,7 @@ function drawFlowDiamondStage(
     color: C.white,
     align: 'center',
   });
-  drawText(ctx, `${spec.lowerExitIP} · 网页出口`, mx, ey + 50, {
+  drawText(ctx, `${spec.lowerExitIP} · ${spec.lowerExitSubSuffix ?? '网页出口'}`, mx, ey + 50, {
     font: font(11, 400, MONO),
     color: C.slate400,
     align: 'center',
@@ -921,5 +937,181 @@ export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise
   }
 
   drawFooter(ctx, 'detectradar.com/webrtc-leak-test/');
+  return toPngBlob(canvas);
+}
+
+// =========================================================================
+// IPv6 双栈分享卡（4 节点 2.5D 菱形路径 + 全量 IP 脱敏）
+// =========================================================================
+
+export interface IPv6ShareCardInput {
+  time: number;
+  verdictState: IPv6VerdictState;
+  verdictTitle: string;
+  verdictReason: IPv6VerdictReason;
+  verdictNote: string;
+  v4: StackExit | null;
+  v4NetworkName: string;
+  v4Region: string;
+  v4TypeLabel: string;
+  v6: StackExit | null;
+  v6NetworkName: string;
+  v6Region: string;
+  v6TypeLabel: string;
+}
+
+const IPV6_VERDICT_PALETTE: Record<IPv6VerdictState, { color: string; soft: string; glow: string }> = {
+  leaked: { color: C.leak, soft: C.leakSoft, glow: 'rgba(248, 113, 113, 0.16)' },
+  clear: { color: C.sig, soft: C.sigSoft, glow: 'rgba(74, 222, 128, 0.14)' },
+  unknown: { color: C.unknown, soft: C.unknownSoft, glow: 'rgba(148, 163, 184, 0.12)' },
+};
+
+function drawStackColumn(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  midY: number,
+  heading: string,
+  exit: StackExit | null,
+  networkName: string,
+  region: string,
+  typeLabel: string,
+  opts: { accent?: string; statusChip?: { label: string; color: string; soft: string; border: string }; emptyText: string },
+) {
+  drawText(ctx, heading, x, midY + 28, { font: font(13, 500), color: C.slate400 });
+  if (exit?.ip) {
+    drawText(ctx, `${networkName}  ${region}`, x, midY + 62, {
+      font: font(16, 600),
+      color: C.slate200,
+    });
+    drawText(ctx, maskIP(exit.ip), x, midY + 104, {
+      font: font(26, 700, MONO),
+      color: opts.accent ?? C.white,
+    });
+    let mx = x;
+    if (opts.statusChip) {
+      mx += chip(ctx, mx, midY + 146, opts.statusChip.label, opts.statusChip.color, opts.statusChip.soft, opts.statusChip.border) + 8;
+    }
+    if (typeLabel) {
+      mx += chip(ctx, mx, midY + 146, typeLabel, C.slate300, 'rgba(148,163,184,0.08)', C.line) + 10;
+    }
+    if (exit.asn) {
+      drawText(ctx, exit.asn, mx, midY + 146, { font: font(12.5, 400, MONO), color: C.slate400 });
+    }
+    if (typeof exit.latencyMs === 'number') {
+      drawText(ctx, `探测耗时 ${exit.latencyMs} ms`, x, midY + 186, {
+        font: font(12.5, 400, MONO),
+        color: C.slate500,
+      });
+    }
+  } else {
+    drawText(ctx, opts.emptyText, x, midY + 72, { font: font(15), color: C.slate400 });
+  }
+}
+
+export async function renderIPv6ShareCard(data: IPv6ShareCardInput): Promise<Blob> {
+  if (document.fonts?.ready) await document.fonts.ready;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = W * SCALE;
+  canvas.height = H * SCALE;
+  const ctx = canvas.getContext('2d')!;
+  ctx.scale(SCALE, SCALE);
+
+  drawBackground(ctx);
+  drawHeader(ctx, 'IPv6 泄露检测报告', data.time);
+
+  const pal = IPV6_VERDICT_PALETTE[data.verdictState];
+  const v6Halted = !data.v6?.ip;
+  const upperColor = data.verdictState === 'leaked' ? C.leak : v6Halted ? C.unknown : C.sig;
+  const upperTopFill =
+    data.verdictState === 'leaked'
+      ? '#5c1922'
+      : !v6Halted
+        ? '#12402b'
+        : '#293548';
+
+  const upperTitle = data.v6?.ip
+    ? `${data.v6NetworkName} · ${data.v6Region}`
+    : 'IPv6 未连通';
+  const upperSub = data.v6?.ip
+    ? `${maskIP(data.v6.ip)}${data.verdictState === 'leaked' ? ' · 旁路直连' : ''}`
+    : '仅连通 IPv4 网络';
+
+  drawFlowDiamondStage(ctx, PAD, 102, W - PAD * 2, 250, {
+    upperColor,
+    upperTopFill,
+    upperGlow: v6Halted ? 'rgba(148, 163, 184, 0.12)' : data.verdictState === 'leaked' ? C.leakSoft : C.sigSoft,
+    upperHalted: v6Halted,
+    upperTitle,
+    upperTitleColor: data.verdictState === 'leaked' ? '#fca5a5' : C.white,
+    upperSub,
+    upperSubColor: data.verdictState === 'leaked' ? C.leak : C.slate400,
+    upperLeftBadge: 'IPv6 探测',
+    upperRightBadge: v6Halted ? '未连通' : '6.detectradar',
+    lowerExitLabel: data.v4?.ip ? `${data.v4NetworkName} · ${data.v4Region}` : 'IPv4 未连通',
+    lowerExitIP: data.v4?.ip ? maskIP(data.v4.ip) : '—',
+    lowerExitSubSuffix: 'IPv4 出口',
+    lowerHalted: !data.v4?.ip,
+    lowerLeftBadge: 'IPv4 探测',
+    lowerRightBadge: data.v4?.ip ? '4.detectradar' : '未连通',
+    rightColor: pal.color,
+    rightTitle: '双栈归属比对',
+    rightSub: data.verdictTitle,
+  });
+
+  const cardY = 368;
+  const cardW = W - PAD * 2;
+  const cardH = H - cardY - PAD - 28;
+  panel(ctx, PAD, cardY, cardW, cardH);
+  drawVerdictBand(ctx, cardY, cardW, pal.color, pal.soft, data.verdictTitle, data.verdictNote);
+
+  const midY = cardY + 102;
+  const splitX = PAD + cardW / 2;
+  ctx.strokeStyle = C.line;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(PAD, midY);
+  ctx.lineTo(PAD + cardW, midY);
+  ctx.moveTo(splitX, midY);
+  ctx.lineTo(splitX, cardY + cardH);
+  ctx.stroke();
+
+  drawStackColumn(
+    ctx,
+    PAD + 28,
+    midY,
+    'IPv4 出口',
+    data.v4,
+    data.v4NetworkName,
+    data.v4Region,
+    data.v4TypeLabel,
+    { emptyText: '未连通 IPv4' },
+  );
+
+  const v6Chip = data.v6?.ip
+    ? data.verdictState === 'leaked'
+      ? { label: '境内直连', color: C.leak, soft: C.leakSoft, border: 'rgba(248,113,113,0.35)' }
+      : data.verdictReason === 'overseas-split'
+        ? { label: '双栈分流', color: C.sig, soft: C.sigSoft, border: 'rgba(74,222,128,0.35)' }
+        : undefined
+    : undefined;
+
+  drawStackColumn(
+    ctx,
+    splitX + 28,
+    midY,
+    'IPv6 出口',
+    data.v6,
+    data.v6NetworkName,
+    data.v6Region,
+    data.v6TypeLabel,
+    {
+      accent: data.verdictState === 'leaked' ? C.leak : C.white,
+      statusChip: v6Chip,
+      emptyText: '未连通 IPv6（仅 IPv4 网络）',
+    },
+  );
+
+  drawFooter(ctx, 'detectradar.com/ipv6-leak-test/');
   return toPngBlob(canvas);
 }

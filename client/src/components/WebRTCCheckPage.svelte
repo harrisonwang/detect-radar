@@ -351,7 +351,7 @@
                   {#if current.ipv6Global}
                     <span class="ip-address">{current.ipv6Global}</span>
                   {:else if !current.apiSupported}
-                    <span class="region">禁用 WebRTC 时跳过</span>
+                    <span class="region">禁用 WebRTC 时未采集</span>
                   {:else}
                     <span class="region">未测到全局 IPv6</span>
                   {/if}
@@ -516,7 +516,7 @@
         <ul class="rule-note">
           <li>结果来自当前浏览器的 WebRTC 检测，仅在本机完成比对。</li>
           <li>测到与当前出口不同的公网 IP（非正常双栈），判为<strong>泄露</strong>。</li>
-          <li>禁用 WebRTC 时，网页 IPv6 探测也会同步跳过。</li>
+          <li>如需独立核对真实 IPv4 / IPv6 双栈出口，请使用 <a href="/ipv6-leak-test/" class="text-(--radar-400) underline underline-offset-4">IPv6 泄露检测</a>（不依赖 WebRTC）。</li>
         </ul>
       </aside>
     </div>

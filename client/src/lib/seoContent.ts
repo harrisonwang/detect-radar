@@ -17,7 +17,7 @@ export const ABOUT_FAQS: FAQItem[] = [
 	{
 		question: '什么是 WebRTC 泄露和 IPv6 泄露？为什么开了代理还会暴露真实地址？',
 		answer:
-			'WebRTC 是浏览器内置的实时通信接口，建立连接时可能绕过常规代理通道，通过 UDP 直接获取本机真实的公网或局域网 IP；而 IPv6 泄露通常发生在本地网络支持双栈、但代理仅接管了 IPv4 流量的情况下。可以通过 DetectRadar 的 WebRTC 泄露检测页（https://detectradar.com/webrtc-leak-test/）对比 STUN 公网候选、mDNS 隐藏状态与当前出口 IP；需要注意网页端 IPv6 检测复用 WebRTC 候选地址，彻底禁用 WebRTC 时该项检测会一并跳过。',
+			'WebRTC 是浏览器内置的实时通信接口，建立连接时可能绕过常规代理通道，通过 UDP 直接获取本机真实的公网或局域网 IP；而 IPv6 泄露通常发生在本地网络支持双栈、但代理仅接管了 IPv4 流量的情况下。可以通过 DetectRadar 的 WebRTC 泄露检测页（https://detectradar.com/webrtc-leak-test/）核对 STUN 公网候选，并通过 IPv6 泄露检测页（https://detectradar.com/ipv6-leak-test/）并发实测 4.detectradar.com 与 6.detectradar.com 的真实双栈出口，两者互不依赖，禁用 WebRTC 仍可完成 IPv6 泄露检查。',
 	},
 	{
 		question: '为什么出口 IP 已经在海外，网站还是能识别出环境异常？',

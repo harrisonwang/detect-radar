@@ -223,5 +223,32 @@ const analyticsId = import.meta.env.PUBLIC_UMAMI_ID;
 	</head>
 	<body class="min-h-screen selection:bg-(--radar-500) selection:text-(--space-950)">
 		<slot />
+		<script is:inline>
+			(() => {
+				const btn = document.querySelector('[data-nav-toggle="static"]');
+				const nav = document.getElementById('site-nav');
+				if (!btn || !nav) return;
+				const header = btn.closest('header');
+				const setOpen = (open) => {
+					nav.classList.toggle('is-open', open);
+					btn.classList.toggle('is-open', open);
+					btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+					const label = open ? '关闭导航菜单' : '打开导航菜单';
+					btn.setAttribute('aria-label', label);
+					btn.setAttribute('title', label);
+				};
+				btn.addEventListener('click', () => setOpen(!nav.classList.contains('is-open')));
+				nav.querySelectorAll('a').forEach((link) => {
+					link.addEventListener('click', () => setOpen(false));
+				});
+				document.addEventListener('pointerdown', (e) => {
+					if (!nav.classList.contains('is-open')) return;
+					if (header && e.target instanceof Node && !header.contains(e.target)) setOpen(false);
+				});
+				document.addEventListener('keydown', (e) => {
+					if (e.key === 'Escape' && nav.classList.contains('is-open')) setOpen(false);
+				});
+			})();
+		</script>
 	</body>
 </html>

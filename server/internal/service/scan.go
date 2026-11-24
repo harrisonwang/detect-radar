@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/netip"
 	"strings"
 	"sync"
 	"time"
@@ -90,6 +91,7 @@ func (s *ScanService) Analyze(ctx context.Context, req *model.ScanRequest, clien
 
 	resp.Analysis.Consistency = s.consistency.Evaluate(browserFrom(req), intel)
 	resp.Analysis.Privacy = buildPrivacy(req, clientIP, intel)
+	s.refineIPv6Privacy(ctx, &resp.Analysis.Privacy, req.Leaks.IPv6, intel)
 	resp.Analysis.Fingerprint = buildFingerprint(req)
 	resp.Analysis.Automation = buildAutomation(req)
 
@@ -395,6 +397,8 @@ func buildPrivacy(req *model.ScanRequest, exitIP string, intel *model.IPIntel) m
 			} else {
 				pa.IPv6 = model.PrivacyIPv6{Status: "safe", Address: v.Data.IPv6Address}
 			}
+		} else if v.Data.IPv6Address != "" {
+			pa.IPv6 = model.PrivacyIPv6{Status: "safe", Address: v.Data.IPv6Address}
 		} else {
 			pa.IPv6 = model.PrivacyIPv6{Status: "safe"}
 		}
@@ -402,6 +406,59 @@ func buildPrivacy(req *model.ScanRequest, exitIP string, intel *model.IPIntel) m
 
 	pa.OverallStatus = privacyOverallStatus(pa)
 	return pa
+}
+
+// isMainlandCN 判断 IPIntel 是否位于中国大陆（排除港澳台：ip2region 将其标为 country=CN）。
+func isMainlandCN(intel *model.IPIntel) bool {
+	if intel == nil || !strings.EqualFold(strings.TrimSpace(intel.Country), "CN") {
+		return false
+	}
+	for _, field := range []string{intel.Region, intel.CountryName, intel.City} {
+		lower := strings.ToLower(field)
+		for _, token := range []string{"香港", "澳门", "澳門", "台湾", "臺灣", "hong kong", "macau", "macao", "taiwan"} {
+			if strings.Contains(lower, token) {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+// refineIPv6Privacy 使用服务端 IPIntel（LocalOnly 优先命中 6.detectradar.com 写入的缓存）
+// 对浏览器上报的真实 IPv6 出口做权威复核，排除海外异地分流与港澳台/机房误报。
+func (s *ScanService) refineIPv6Privacy(
+	ctx context.Context,
+	pa *model.PrivacyAnalysis,
+	v6Req *model.CollectorResult[model.IPv6LeakData],
+	exitIntel *model.IPIntel,
+) {
+	if s == nil || s.ipIntel == nil || v6Req == nil || v6Req.Data == nil {
+		return
+	}
+	addrStr := strings.TrimSpace(v6Req.Data.IPv6Address)
+	if addrStr == "" {
+		return
+	}
+	addr, err := netip.ParseAddr(addrStr)
+	if err != nil || !addr.Is6() || addr.Is4In6() || !addr.IsGlobalUnicast() {
+		return
+	}
+
+	lookupCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	v6Intel, err := s.ipIntel.Lookup(lookupCtx, addr.String(), LookupOptions{LocalOnly: true})
+	if err != nil || v6Intel == nil || v6Intel.Country == "" || v6Intel.Country == "LOCAL" {
+		return
+	}
+
+	exitOverseas := exitIntel != nil && exitIntel.Country != "" && exitIntel.Country != "LOCAL" && !isMainlandCN(exitIntel)
+	v6MainlandAccess := isMainlandCN(v6Intel) && !v6Intel.IsHosting && v6Intel.InferUsageType() != "hosting"
+	if exitOverseas && v6MainlandAccess {
+		pa.IPv6 = model.PrivacyIPv6{Status: "danger", Address: addr.String()}
+	} else {
+		pa.IPv6 = model.PrivacyIPv6{Status: "safe", Address: addr.String()}
+	}
+	pa.OverallStatus = privacyOverallStatus(*pa)
 }
 
 // ---- 浏览器指纹 ----

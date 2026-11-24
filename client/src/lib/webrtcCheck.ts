@@ -110,7 +110,7 @@ export function evaluateWebRTC(exit: DNSExit | null, rtc: RTCGatherResult): WebR
     return {
       state: 'clear',
       reason: 'disabled',
-      note: '浏览器已禁用 WebRTC，未暴露任何地址（同时会跳过网页 IPv6 探测）。',
+      note: '浏览器已禁用 WebRTC，未暴露任何地址。',
       suspectIPs: [],
     };
   }

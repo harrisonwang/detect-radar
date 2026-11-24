@@ -61,14 +61,24 @@ import { ABOUT_FAQS } from '../lib/seoContent';
 				<li><strong>判为“泄露”</strong>：浏览器通过 WebRTC 获取到了与当前出口 IP 不同的公网 IP（排除同连接下的正常 IPv4/IPv6 双栈）。</li>
 				<li><strong>判为“未泄露”</strong>：WebRTC 公网 IP 与当前出口一致、直连双栈网络下的正常 IPv4/IPv6 地址、仅返回 mDNS（<code>*.local</code>）或局域网内网地址（未暴露额外公网 IP），或已禁用 WebRTC 接口。</li>
 				<li><strong>判为“无法判断”</strong>：已获取到 WebRTC 公网 IP，但未能获取当前出口 IP 进行比对。</li>
-				<li><strong>能力边界</strong>：禁用 WebRTC 后，依赖 ICE 候选的网页端 IPv6 探测也会一并跳过；如需在终端独立核对 IPv6 出口，可执行 <code>curl -6 -s https://detectradar.com/api/v1/ip</code>。</li>
+				<li><strong>能力边界</strong>：禁用 WebRTC 后不会收集浏览器 ICE 候选；如需独立排查双栈 IPv6 旁路，请直接使用 <a href="/ipv6-leak-test/">IPv6 泄露检测页</a> 或在终端执行 <code>curl -4 -s https://4.detectradar.com/api/v1/ip</code> 与 <code>curl -6 -s https://6.detectradar.com/api/v1/ip</code>。</li>
+			</ul>
+
+			<h2 id="ipv6">IPv6 泄露怎么判断</h2>
+			<p>
+				<a href="/ipv6-leak-test/">IPv6 泄露检测页</a>与首页综合检测均通过独立并发连接纯 IPv4 节点（<code>4.detectradar.com</code>）与纯 IPv6 节点（<code>6.detectradar.com</code>）测得真实双栈出口，<strong>不依赖 WebRTC 接口</strong>，彻底禁用 WebRTC 时仍可独立判断。
+			</p>
+			<ul>
+				<li><strong>判为“泄露”</strong>：IPv4 出口位于中国大陆以外，同时测得 IPv6 经中国大陆宽带或移动运营商（非机房网段）直连。</li>
+				<li><strong>判为“未泄露”</strong>：仅连通 IPv4（无 IPv6 路由）、IPv4 与 IPv6 均在中国大陆直连、IPv6 为海外跨区双栈（含中国香港/澳门/台湾或 WARP 等双栈分流），或仅连通 IPv6。</li>
+				<li><strong>判为“无法判断”</strong>：IPv4 与 IPv6 探测节点均未能连通。</li>
 			</ul>
 
 			<h2 id="boundaries">哪些情况测不到，以及隐私说明</h2>
 			<ul>
 				<li>只分析当前打开页面的这一条连接，不提供任意 IP 查询，也不会根据单个 IP 去猜测访问用途。</li>
 				<li>检测结果“未见明显异常”只代表当前可检测项目之间没有发现明显矛盾或泄露，不代表目标网站的风控规则，本工具也不负责隐藏身份或修改指纹。</li>
-				<li>网页端的 IPv6 检测复用了 WebRTC 的连接候选信息；如果你在浏览器里彻底关掉了 WebRTC，页面会同步跳过这一步的 IPv6 检测。</li>
+				<li>IPv6 专项页与首页均在前端与服务端严格排除中国香港、澳门、台湾及海外机房双栈分流，仅将中国大陆非机房 IPv6 旁路标为泄露。</li>
 				<li>Canvas、Audio、WebGL 的渲染结果和扩展列表都会先在浏览器本地算成 SHA-256 哈希值再上报，不上传原始画面；报告分享图片在本地生成，复制文字与保存图片都会自动隐藏完整 IP。详情可查看<a href="/privacy/">隐私政策</a>和<a href="/terms/">服务条款</a>。</li>
 			</ul>
 
@@ -78,8 +88,8 @@ import { ABOUT_FAQS } from '../lib/seoContent';
 			</p>
 			<h3>1. 查询终端当前出口（IPv4 / IPv6）</h3>
 			<pre><code>curl -s https://detectradar.com/api/v1/ip
-curl -4 -s https://detectradar.com/api/v1/ip
-curl -6 -s https://detectradar.com/api/v1/ip</code></pre>
+curl -s https://4.detectradar.com/api/v1/ip
+curl -s https://6.detectradar.com/api/v1/ip</code></pre>
 			<p>
 				返回 JSON 包含当前连接的 <code>ip</code>、<code>country</code>、<code>city</code>、<code>asn</code>、<code>org</code>、<code>usage_type</code>（固定为 <code>isp</code>、<code>hosting</code> 或 <code>unknown</code>）以及 <code>tier</code>。默认走本地 <code>L1+L2</code> 并按出口 IP 复用服务端缓存，HTTP 响应头固定 <code>Cache-Control: no-store</code>，切换代理后可立即看到新出口；如需补充第三方深度识别可附加 <code>?deep=true</code>（受全站每日配额保护，超限时自动回退本地结果）。
 			</p>

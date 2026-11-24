@@ -1,0 +1,33 @@
+---
+import Layout from '../layouts/Layout.astro';
+import IPv6CheckPage from '../components/IPv6CheckPage.svelte';
+import ReportBackdrop from '../components/ReportBackdrop.svelte';
+import SiteFooter from '../components/SiteFooter.svelte';
+
+const ipv6Features = [
+  '独立并发探测纯 IPv4（4.detectradar.com）与纯 IPv6（6.detectradar.com）真实双栈出口',
+  '不依赖浏览器 WebRTC 接口，彻底禁用 WebRTC 时仍可独立测出 IPv6 旁路泄露',
+  '区分国内宽带运营商直连泄露、中国大陆正常双栈、港澳台节点与海外跨区双栈分流',
+  '同一浏览器内保留最近两次检测记录，支持调整代理或路由配置后同页复测对比',
+];
+---
+
+<Layout
+  title="IPv6 泄露检测：在线真双栈排查与 IPv6 旁路检测"
+  canonical="/ipv6-leak-test/"
+  ogImage="/og-ipv6.png"
+  description="免费在线 IPv6 泄露检测：独立并发测试 IPv4 与 IPv6 双栈出口，识别仅代理 IPv4 导致的国内运营商 IPv6 旁路泄露，支持复测前后对比。"
+  pageType="tool"
+  appName="DetectRadar IPv6 泄露检测"
+  featureList={ipv6Features}
+  dateModified="2026-11-24"
+>
+  <div class="min-h-screen bg-space-950 scan-grid flex flex-col relative">
+    <ReportBackdrop />
+    <IPv6CheckPage client:load />
+    <noscript>
+      <p class="report-main pt-0 text-sm text-(--slate-300)">请启用 JavaScript 后再检测 IPv6。</p>
+    </noscript>
+    <SiteFooter />
+  </div>
+</Layout>

@@ -48,9 +48,10 @@
 - **诊断总结词**：无异常时统一表述为 `未见明显异常`（避免与代码脱节的自造词）。
 
 ### 2.3 对外 JSON API 契约（`server/cmd/server/main.go`、`server/internal/handler/`）
-- `GET /api/v1/ip`：返回当前连接出口信息；`usage_type` 枚举固定为 `"isp" | "hosting" | "unknown"`（不存在 `"datacenter"`）；默认仅走本地 `L1+L2`（`is_vpn`/`is_proxy` 默认 `false`），附加 `?deep=true` 才触发上游 `L3`。
-- `GET /api/v1/ip/reputation`：返回 DNSBL/PBL（`blacklist_hit`、`blacklist_sources`、`pbl_listed`）、开放代理端口（`open_ports`、`open_proxy_port`、`weak_proxy_port`）、`is_tor_exit`、`exposure_tags`、`recommendation`。
-- 终端免鉴权 3 步 DNS 探测：`POST /api/v1/leaks/dns`（返回 `id` 与 `test_domain`）→ `dig +short "r1.<test_domain>"` → `GET /api/v1/leaks/dns/<id>`（返回 `dns_servers`、`assessment`）。
+- `GET /api/v1/ip`：返回当前连接出口信息；`usage_type` 枚举固定为 `"isp" | "hosting" | "unknown"`（不存在 `"datacenter"`）；HTTP 响应固定 `Cache-Control: no-store`，服务端按真实 `clientIP` 复用 Redis 缓存（非深扫优先复用已有深扫缓存），默认走 `LocalOnly`（本地 `L1+L2`，`is_vpn`/`is_proxy` 默认 `false`，L2 的 Cymru/rDNS 带内存 TTL 缓存与 2s 超时），附加 `?deep=true` 才触发上游 `L3`（全站受 `ipintel.l3_daily_limit` 每日熔断保护，超限自动降级 `L1+L2`）。
+- `GET /api/v1/ip/reputation`：返回 DNSBL/PBL（`blacklist_hit`、`blacklist_sources`、`pbl_listed`）、开放代理端口（`open_ports`、`open_proxy_port`、`weak_proxy_port`）、`is_tor_exit`、`exposure_tags`、`recommendation`（公开文档中不鼓励高频或批量调用以保护上游免费源）。
+- 终端免鉴权 3 步 DNS 探测：`POST /api/v1/leaks/dns`（返回 `id` 与 `test_domain`）→ `dig +short "r1.<test_domain>"` → `GET /api/v1/leaks/dns/<id>`（返回 `dns_servers`、`actual_countries`；未绑定扫描时 `assessment.state` 为 `unknown`，可对照出口国家或调用 `POST /api/v1/leaks/dns/assessment`）。
+- 纯文本 Agent 技能文件发布于 `client/public/SKILL.md`（`https://detectradar.com/SKILL.md`），Nginx 需为 `.md` 下发 `text/markdown; charset=utf-8`。
 
 ---
 

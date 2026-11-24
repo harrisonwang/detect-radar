@@ -12,11 +12,11 @@ import { ABOUT_FAQS } from '../lib/seoContent';
 	description="说明 DetectRadar 的检测范围、DNS 泄露怎么判断、哪些情况测不到，以及数据隐私保护与常见问题解答。"
 	pageType="article"
 	faqs={ABOUT_FAQS}
-	dateModified="2026-11-22"
+	dateModified="2026-11-24"
 >
 	<div class="min-h-screen flex flex-col">
 		<AppHeader page="static" />
-		<main class="flex-1 mx-auto w-full max-w-3xl px-6 py-16 prose prose-invert prose-headings:font-semibold prose-a:text-(--radar-400)">
+		<main class="flex-1 mx-auto w-full max-w-3xl px-6 py-16 prose prose-invert prose-headings:font-semibold prose-headings:scroll-mt-28 prose-a:text-(--radar-400)">
 			<h1>检测说明</h1>
 			<p>
 				DetectRadar 是一个免费、免注册的开源网络环境与代理泄露检测工具。它把你访问网页时的出口 IP 信息（区分住宅 IP 与机房 IP），和浏览器的时区、语言、DNS / WebRTC / IPv6 泄露信号以及浏览器指纹放在一起比对，直接呈现检测到的事实。
@@ -69,7 +69,40 @@ import { ABOUT_FAQS } from '../lib/seoContent';
 				<li>只分析当前打开页面的这一条连接，不提供任意 IP 查询，也不会根据单个 IP 去猜测访问用途。</li>
 				<li>检测结果“未见明显异常”只代表当前可检测项目之间没有发现明显矛盾或泄露，不代表目标网站的风控规则，本工具也不负责隐藏身份或修改指纹。</li>
 				<li>网页端的 IPv6 检测复用了 WebRTC 的连接候选信息；如果你在浏览器里彻底关掉了 WebRTC，页面会同步跳过这一步的 IPv6 检测。</li>
-				<li>Canvas、Audio、WebGL 的渲染结果和扩展列表都会先在浏览器本地算成 SHA-256 哈希值再上报，不上传原始画面；报告分享图也在本地生成并会自动隐藏 IP。详情可查看<a href="/privacy/">隐私政策</a>和<a href="/terms/">服务条款</a>。</li>
+				<li>Canvas、Audio、WebGL 的渲染结果和扩展列表都会先在浏览器本地算成 SHA-256 哈希值再上报，不上传原始画面；报告分享图片在本地生成，复制文字与保存图片都会自动隐藏完整 IP。详情可查看<a href="/privacy/">隐私政策</a>和<a href="/terms/">服务条款</a>。</li>
+			</ul>
+
+			<h2 id="cli">终端查询与 AI Agent 使用</h2>
+			<p>
+				如果你在排查「浏览器出口正常，但终端、Git 或 AI 编程工具（Claude Code、Codex、Cursor 等）走错了代理或直连」，无需安装客户端，直接用系统自带的 <code>curl</code> 和 <code>dig</code> 即可核对当前终端出口与 DNS：
+			</p>
+			<h3>1. 查询终端当前出口（IPv4 / IPv6）</h3>
+			<pre><code>curl -s https://detectradar.com/api/v1/ip
+curl -4 -s https://detectradar.com/api/v1/ip
+curl -6 -s https://detectradar.com/api/v1/ip</code></pre>
+			<p>
+				返回 JSON 包含当前连接的 <code>ip</code>、<code>country</code>、<code>city</code>、<code>asn</code>、<code>org</code>、<code>usage_type</code>（固定为 <code>isp</code>、<code>hosting</code> 或 <code>unknown</code>）以及 <code>tier</code>。默认走本地 <code>L1+L2</code> 并按出口 IP 复用服务端缓存，HTTP 响应头固定 <code>Cache-Control: no-store</code>，切换代理后可立即看到新出口；如需补充第三方深度识别可附加 <code>?deep=true</code>（受全站每日配额保护，超限时自动回退本地结果）。
+			</p>
+			<h3>2. 终端 3 步检测 DNS 解析出口</h3>
+			<pre><code># 1. 创建一次性探测域名
+curl -s -X POST https://detectradar.com/api/v1/leaks/dns \
+  -H "Content-Type: application/json" -d '{}'
+
+# 2. 用上一步返回的 test_domain 触发真实解析
+dig +short "r1.&lt;test_domain&gt;"
+
+# 3. 用返回的 id 取回实际捕获到的 DNS 解析器列表
+curl -s "https://detectradar.com/api/v1/leaks/dns/&lt;id&gt;"</code></pre>
+			<p>
+				将返回的 <code>dns_servers</code> 与上一步查到的出口国家对照，即可判断终端 DNS 是否回落至国内宽带运营商。
+			</p>
+			<h3>3. AI Agent 技能文件（SKILL.md）</h3>
+			<p>
+				如果希望让 Claude Code、Codex、Cursor 等 Agent 按统一口径自动执行上述检查并避免误读字段，可直接让它读取纯文本指令文件：<a href="/SKILL.md"><code>https://detectradar.com/SKILL.md</code></a>。
+			</p>
+			<ul>
+				<li>终端接口仅能观测当前终端进程的出口 IP 与 DNS，<strong>测不到</strong>浏览器 WebRTC、时区/语言一致性与浏览器指纹；排查网页环境请直接在浏览器访问本站工具页。</li>
+				<li>接口免鉴权且按 IP 限流，请勿用于高频循环轮询或批量探测第三方资产。</li>
 			</ul>
 
 			<h2 id="faq">常见问题</h2>

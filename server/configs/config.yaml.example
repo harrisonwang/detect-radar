@@ -44,8 +44,9 @@ ipintel:
   ipregistry_key: "your-api-key"     # 累计免费 100,000 次
   ip2location_key: "your-api-key"    # 每月免费 50,000 次
 
-  # 缓存配置
+  # 缓存与配额保护
   cache_ttl: 24h
+  l3_daily_limit: 800              # 每日全局 L3 远程 API 调用上限（超限自动降级为 L1+L2，0=不限）
 
   # Cloudflare Radar API Token（用于获取 ASN 真实用户占比）
   cloudflare_radar_token: "your-api-key"

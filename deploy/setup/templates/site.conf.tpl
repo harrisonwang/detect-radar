@@ -34,6 +34,7 @@ server {
     gzip_proxied any;
     gzip_types
         text/plain
+        text/markdown
         text/css
         text/xml
         application/json
@@ -88,6 +89,13 @@ server {
         expires 30d;
         add_header Cache-Control "public, immutable";
         access_log off;
+    }
+
+    location ~* \.md$ {
+        default_type text/markdown;
+        charset utf-8;
+        charset_types text/markdown;
+        try_files $uri =404;
     }
 
     location / {

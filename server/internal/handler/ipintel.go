@@ -40,7 +40,8 @@ func privateIPResponse(ip string) *model.IPIntel {
 
 // GetMyIPIntel 获取客户端 IP 信息
 // GET /api/v1/ip
-// 注意：此接口永不缓存，每次都返回最新结果
+// HTTP 响应禁止客户端/代理缓存（避免切换代理后读到旧 IP）；
+// 服务端按真实 clientIP 复用缓存，默认仅跑本地 L1+L2（或复用已有深扫缓存），不主动消耗 L3 额度。
 func (h *IPIntelHandler) GetMyIPIntel(c *fiber.Ctx) error {
 	clientIP := c.IP()
 
@@ -52,21 +53,22 @@ func (h *IPIntelHandler) GetMyIPIntel(c *fiber.Ctx) error {
 		return c.JSON(privateIPResponse(clientIP))
 	}
 
-	// 从 query 参数获取选项
+	// 从 query 参数获取选项：默认 LocalOnly（不触发 L3 远程 API），显式 ?deep=true 才允许深扫
 	deepScan := c.QueryBool("deep", false)
-	preferSource := c.Query("source", "")
+	opts := service.LookupOptions{
+		DeepScan:  deepScan,
+		LocalOnly: !deepScan,
+	}
+	if deepScan {
+		opts.PreferSource = c.Query("source", "")
+	}
 
-	// /me 接口强制禁用缓存
-	intel, err := h.svc.Lookup(c.Context(), clientIP, service.LookupOptions{
-		DeepScan:     deepScan,
-		PreferSource: preferSource,
-		SkipCache:    true, // 永不缓存
-	})
+	intel, err := h.svc.Lookup(c.Context(), clientIP, opts)
 	if err != nil {
 		return util.InternalError(c, err.Error())
 	}
 
-	// 禁止客户端缓存
+	// 禁止客户端与中间代理缓存，切换代理后可立即看到新出口 IP
 	c.Set("Cache-Control", "no-store, no-cache, must-revalidate")
 	c.Set("Pragma", "no-cache")
 	c.Set("Expires", "0")

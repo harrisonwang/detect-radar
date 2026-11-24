@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"detect-radar/internal/adapter"
@@ -11,41 +12,93 @@ import (
 	"detect-radar/internal/model"
 )
 
+// ipIntelCache 抽象 IPIntel 缓存与每日配额计数能力（生产为 *cache.RedisCache，单测可注入内存桩）
+type ipIntelCache interface {
+	GetBasic(ctx context.Context, ip string) (*model.IPIntel, error)
+	GetDeep(ctx context.Context, ip string) (*model.IPIntel, error)
+	SetBasic(ctx context.Context, ip string, intel *model.IPIntel) error
+	SetDeep(ctx context.Context, ip string, intel *model.IPIntel) error
+	Delete(ctx context.Context, ip string) error
+	Clear(ctx context.Context) error
+	IncrDailyCounter(ctx context.Context, name, day string, ttl time.Duration) (int64, error)
+}
+
+type inflightLookup struct {
+	done  chan struct{}
+	intel *model.IPIntel
+	err   error
+}
+
 // IPIntelService IP 信息服务
 //
 // 三层数据源，按需组合，intel.Tier 如实记录本次查询实际命中了哪些层：
 //
 //	L1 本地 mmdb（MaxMind/IP2Location/dbip/ipinfo，离线快照，免费，网段易主时会过期）
 //	L2 实时免费信号（HostingDetector，见 hosting.go：云厂商 CIDR / ASN 黑名单 /
-//	   Team Cymru 实时 BGP 校准 / rDNS 洗白；每次查询都会跑，不受额度限制，不算 L1 也不算 L3）
+//	   Team Cymru 实时 BGP 校准 / rDNS 洗白；带内存 TTL 缓存，不算 L1 也不算 L3）
 //	L3 远程付费 API（ipapi.is / BigDataCloud / IPRegistry / IP2Location，按优先级遍历+回退，
-//	   仅在灰区或本地库过期时触发，受免费额度限制）
+//	   仅在显式深扫或允许自动深扫的灰区/过期网段触发，受每日全局熔断上限保护）
 //
 // 另有 Cloudflare Radar 提供 HumanRatio 作为补充信号，不参与分层、不计入 Tier。
 type IPIntelService struct {
 	registry        *adapter.Registry
-	cache           *cache.RedisCache // Redis 缓存
+	cache           ipIntelCache // Redis 缓存（可为 nil）
 	cacheTTL        time.Duration
 	hostingDetector *HostingDetector     // Hosting 检测器
 	radarService    *RadarService        // Cloudflare Radar 服务
 	cnGeo           *adapter.IP2RegionCN // CN 权威地理层（ip2region xdb，可选；nil=关闭）
+
+	// L3 远程 API 每日全局熔断保护（<= 0 表示不限制）
+	l3DailyLimit   int
+	l3QuotaMu      sync.Mutex
+	l3QuotaDay     string
+	l3QuotaUsed    int
+	l3QuotaWarnDay string
+
+	// 同 IP 并发查冷缓存时的请求合并（防并发击穿上游）
+	inflightMu sync.Mutex
+	inflight   map[string]*inflightLookup
+
+	nowFunc func() time.Time
 }
 
 // NewIPIntelService 创建 IP 信息服务
 func NewIPIntelService(registry *adapter.Registry, redisCache *cache.RedisCache, hostingDetector *HostingDetector, radarService *RadarService, cnGeo *adapter.IP2RegionCN) *IPIntelService {
+	var intelCache ipIntelCache
+	if redisCache != nil {
+		intelCache = redisCache
+	}
 	return &IPIntelService{
 		registry:        registry,
-		cache:           redisCache,
+		cache:           intelCache,
 		cacheTTL:        24 * time.Hour,
 		hostingDetector: hostingDetector,
 		radarService:    radarService,
 		cnGeo:           cnGeo,
+		inflight:        make(map[string]*inflightLookup),
+		nowFunc:         time.Now,
 	}
+}
+
+// SetL3DailyLimit 设置全站每日 L3 远程 API 调用上限（<= 0 表示不限制）。
+// 超限后自动降级返回 L1+L2 本地结果，避免打爆免费额度或中断检测。
+func (s *IPIntelService) SetL3DailyLimit(limit int) {
+	s.l3QuotaMu.Lock()
+	s.l3DailyLimit = limit
+	s.l3QuotaMu.Unlock()
+}
+
+func (s *IPIntelService) now() time.Time {
+	if s.nowFunc != nil {
+		return s.nowFunc()
+	}
+	return time.Now()
 }
 
 // LookupOptions 查询选项
 type LookupOptions struct {
 	DeepScan     bool   // 是否深度扫描（调用 L3 远程 API）
+	LocalOnly    bool   // 仅使用本地 L1+L2（禁止自动/二次 L3 远程调用；查缓存时优先复用已有深扫结果）
 	PreferSource string // 指定优先数据源
 	SkipCache    bool   // 跳过缓存
 }
@@ -54,12 +107,80 @@ type LookupOptions struct {
 func (s *IPIntelService) Lookup(ctx context.Context, ip string, opts LookupOptions) (*model.IPIntel, error) {
 	// 1. 查缓存（如果启用）
 	if !opts.SkipCache && s.cache != nil {
-		cached := s.getCache(ctx, ip, opts.DeepScan)
-		if cached != nil {
-			return cached, nil
+		if cached := s.getCache(ctx, ip, opts); cached != nil {
+			return cloneIntel(cached), nil
 		}
 	}
 
+	// 2. 冷缓存并发合并：同一 IP 同时到达多次请求时合并为一次底层查询
+	if !opts.SkipCache && opts.PreferSource == "" {
+		return s.lookupCoalesced(ctx, ip, opts)
+	}
+
+	return s.lookupUncached(ctx, ip, opts)
+}
+
+func (s *IPIntelService) lookupCoalesced(ctx context.Context, ip string, opts LookupOptions) (*model.IPIntel, error) {
+	key := "basic:" + ip
+	if opts.DeepScan {
+		key = "deep:" + ip
+	} else if opts.LocalOnly {
+		key = "local:" + ip
+	}
+
+	s.inflightMu.Lock()
+	if s.inflight == nil {
+		s.inflight = make(map[string]*inflightLookup)
+	}
+	if call, ok := s.inflight[key]; ok {
+		s.inflightMu.Unlock()
+		select {
+		case <-call.done:
+			if call.err != nil {
+				return nil, call.err
+			}
+			return cloneIntel(call.intel), nil
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+
+	call := &inflightLookup{done: make(chan struct{})}
+	s.inflight[key] = call
+	s.inflightMu.Unlock()
+
+	// 领导者使用与单个调用解耦的超时上下文，避免首个请求取消拖累同 IP 并发等待者
+	leaderCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 15*time.Second)
+	defer cancel()
+
+	intel, err := s.lookupUncached(leaderCtx, ip, opts)
+	call.intel = intel
+	call.err = err
+	close(call.done)
+
+	s.inflightMu.Lock()
+	delete(s.inflight, key)
+	s.inflightMu.Unlock()
+
+	if err != nil {
+		return nil, err
+	}
+	return cloneIntel(intel), nil
+}
+
+func cloneIntel(src *model.IPIntel) *model.IPIntel {
+	if src == nil {
+		return nil
+	}
+	cp := *src
+	if src.HumanRatio != nil {
+		v := *src.HumanRatio
+		cp.HumanRatio = &v
+	}
+	return &cp
+}
+
+func (s *IPIntelService) lookupUncached(ctx context.Context, ip string, opts LookupOptions) (*model.IPIntel, error) {
 	var intel *model.IPIntel
 	var err error
 
@@ -106,9 +227,10 @@ func (s *IPIntelService) Lookup(ctx context.Context, ip string, opts LookupOptio
 	}
 
 	// 3. 判断是否需要 L3 深度扫描
+	allowL3 := !opts.LocalOnly && s.registry.RemoteCount() > 0
 	shouldDeepScan := opts.DeepScan // 用户显式请求
 
-	// 自动深度扫描：
+	// 自动深度扫描（仅非 LocalOnly 时启用）：
 	// - 灰区：无法确定是 ISP 还是 Hosting（NeedsDeepScan=true 且无明确结论），调用远程 API 确认类型
 	// - 本地库过期（asnStale）：MMDB 对该网段的 geo/org 同样不可信，
 	//   即使已确认是机房也要用远程 API 修正展示字段（geo/org）
@@ -116,13 +238,17 @@ func (s *IPIntelService) Lookup(ctx context.Context, ip string, opts LookupOptio
 	// CN 消费级 ISP（家宽/移动）已由 ip2region 权威定案为住宅：既不需 L3 修正 geo
 	// （ip2region 更准），也不需 L3 确认身份（家宽即住宅），直接抑制深扫，省 2 次 L3 额度、
 	// 且避免错误的 western 答案回灌。western MMDB 判出的 asnStale 对这些段恰是要忽略的假信号。
-	if !shouldDeepScan && !cnConsumerISP && (asnStale || (intel.NeedsDeepScan && !intel.IsHosting && intel.UsageTypeRaw == "")) {
+	if allowL3 && !shouldDeepScan && !cnConsumerISP && (asnStale || (intel.NeedsDeepScan && !intel.IsHosting && intel.UsageTypeRaw == "")) {
 		log.Printf("[IPIntel] Auto deep scan triggered for %s (method=%s, asn_stale=%v)", ip, intel.DetectMethod, asnStale)
 		shouldDeepScan = true
 	}
 
-	if shouldDeepScan && s.registry.RemoteCount() > 0 {
-		remoteIntel := s.lookupRemote(ctx, ip, opts.PreferSource)
+	l3QuotaBlocked := false
+	if allowL3 && shouldDeepScan {
+		remoteIntel, blocked := s.lookupRemote(ctx, ip, opts.PreferSource)
+		if blocked {
+			l3QuotaBlocked = true
+		}
 		if remoteIntel != nil {
 			intel = s.merge(intel, remoteIntel)
 			// CN 地理是权威层：merge 以 L3 为主会用 western geo 覆盖正确的中国省市，
@@ -134,13 +260,16 @@ func (s *IPIntelService) Lookup(ctx context.Context, ip string, opts LookupOptio
 	}
 
 	// 4. 后处理
-	intel.FetchedAt = time.Now()
+	intel.FetchedAt = s.now()
 	// 强制归一化 UsageType（因为 merge 后 IsHosting 可能变化）
 	intel.UsageType = intel.InferUsageType()
 
-	// 4.1 如果仍是 unknown，尝试用第二个 API 确认
-	if intel.UsageType == "unknown" && s.registry.RemoteCount() > 1 {
-		secondIntel := s.lookupRemoteExcluding(ctx, ip, intel.Source)
+	// 4.1 如果仍是 unknown，尝试用第二个 API 确认（仅非 LocalOnly 且未触发每日熔断时）
+	if allowL3 && !l3QuotaBlocked && intel.UsageType == "unknown" && s.registry.RemoteCount() > 1 {
+		secondIntel, blocked := s.lookupRemoteExcluding(ctx, ip, intel.Source)
+		if blocked {
+			l3QuotaBlocked = true
+		}
 		if secondIntel != nil {
 			// 合并第二个 API 的结果
 			if secondIntel.IsHosting {
@@ -176,9 +305,9 @@ func (s *IPIntelService) Lookup(ctx context.Context, ip string, opts LookupOptio
 	// 4.3 生成提示文案
 	intel.Tip = generateTip(intel)
 
-	// 5. 写缓存（如果启用且未跳过）
+	// 5. 写缓存（如果启用且未跳过；因每日 L3 熔断降级时写入 basic，避免污染 deep 缓存）
 	if !opts.SkipCache && s.cache != nil {
-		s.setCache(ctx, ip, intel, opts.DeepScan)
+		s.setCache(ctx, ip, intel, opts.DeepScan && !l3QuotaBlocked)
 	}
 
 	return intel, nil
@@ -194,17 +323,70 @@ func (s *IPIntelService) LookupDeep(ctx context.Context, ip string) (*model.IPIn
 	return s.Lookup(ctx, ip, LookupOptions{DeepScan: true})
 }
 
-// lookupRemote 遍历远程适配器（带回退）
-func (s *IPIntelService) lookupRemote(ctx context.Context, ip, preferSource string) *model.IPIntel {
+// tryConsumeL3Quota 消耗一次每日全局 L3 额度；超限时返回 false 并每天仅告警一次。
+func (s *IPIntelService) tryConsumeL3Quota(ctx context.Context) bool {
+	s.l3QuotaMu.Lock()
+	limit := s.l3DailyLimit
+	s.l3QuotaMu.Unlock()
+	if limit <= 0 {
+		return true
+	}
+
+	day := s.now().UTC().Format("2006-01-02")
+
+	// 优先使用 Redis 原子计数（重启不丢失）；Redis 异常时降级到本地内存计数，防止额度失控
+	if s.cache != nil {
+		n, err := s.cache.IncrDailyCounter(ctx, "l3:daily", day, 48*time.Hour)
+		if err == nil {
+			if n > int64(limit) {
+				s.warnL3QuotaOnce(day, int(n), limit)
+				return false
+			}
+			return true
+		}
+		log.Printf("[IPIntel] L3 quota redis error, falling back to local counter: %v", err)
+	}
+
+	s.l3QuotaMu.Lock()
+	defer s.l3QuotaMu.Unlock()
+	if s.l3QuotaDay != day {
+		s.l3QuotaDay = day
+		s.l3QuotaUsed = 0
+	}
+	if s.l3QuotaUsed >= limit {
+		if s.l3QuotaWarnDay != day {
+			s.l3QuotaWarnDay = day
+			log.Printf("[IPIntel] L3 daily quota reached (%d/%d) on %s, degrading to L1+L2", s.l3QuotaUsed, limit, day)
+		}
+		return false
+	}
+	s.l3QuotaUsed++
+	return true
+}
+
+func (s *IPIntelService) warnL3QuotaOnce(day string, current, limit int) {
+	s.l3QuotaMu.Lock()
+	defer s.l3QuotaMu.Unlock()
+	if s.l3QuotaWarnDay != day {
+		s.l3QuotaWarnDay = day
+		log.Printf("[IPIntel] L3 daily quota reached (%d/%d) on %s, degrading to L1+L2", current, limit, day)
+	}
+}
+
+// lookupRemote 遍历远程适配器（带回退与每日全局熔断）
+func (s *IPIntelService) lookupRemote(ctx context.Context, ip, preferSource string) (*model.IPIntel, bool) {
 	remotes := s.registry.Remotes()
 
 	// 如果指定了优先数据源，先尝试
 	if preferSource != "" {
 		for _, r := range remotes {
 			if r.Name() == preferSource {
+				if !s.tryConsumeL3Quota(ctx) {
+					return nil, true
+				}
 				intel, err := r.Lookup(ctx, ip)
 				if err == nil {
-					return intel
+					return intel, false
 				}
 				log.Printf("[IPIntel] Preferred source %s failed for %s: %v", preferSource, ip, err)
 				break
@@ -219,19 +401,23 @@ func (s *IPIntelService) lookupRemote(ctx context.Context, ip, preferSource stri
 			continue
 		}
 
+		if !s.tryConsumeL3Quota(ctx) {
+			return nil, true
+		}
+
 		intel, err := r.Lookup(ctx, ip)
 		if err == nil {
-			return intel
+			return intel, false
 		}
 		log.Printf("[IPIntel] %s lookup failed for %s: %v", r.Name(), ip, err)
 		// 继续尝试下一个
 	}
 
-	return nil
+	return nil, false
 }
 
-// lookupRemoteExcluding 调用除指定源外的其他远程 API
-func (s *IPIntelService) lookupRemoteExcluding(ctx context.Context, ip, excludeSource string) *model.IPIntel {
+// lookupRemoteExcluding 调用除指定源外的其他远程 API（带每日全局熔断）
+func (s *IPIntelService) lookupRemoteExcluding(ctx context.Context, ip, excludeSource string) (*model.IPIntel, bool) {
 	remotes := s.registry.Remotes()
 
 	for _, r := range remotes {
@@ -240,14 +426,18 @@ func (s *IPIntelService) lookupRemoteExcluding(ctx context.Context, ip, excludeS
 			continue
 		}
 
+		if !s.tryConsumeL3Quota(ctx) {
+			return nil, true
+		}
+
 		intel, err := r.Lookup(ctx, ip)
 		if err == nil {
-			return intel
+			return intel, false
 		}
 		log.Printf("[IPIntel] %s lookup failed for %s: %v", r.Name(), ip, err)
 	}
 
-	return nil
+	return nil, false
 }
 
 // applyHostingResult 将 HostingDetector 的检测结果回填到 intel
@@ -399,22 +589,29 @@ func appendTier(existing, layer string) string {
 	return existing + "+" + layer
 }
 
-// getCache 获取缓存
-func (s *IPIntelService) getCache(ctx context.Context, ip string, deep bool) *model.IPIntel {
-	var intel *model.IPIntel
-	var err error
-
-	if deep {
-		intel, err = s.cache.GetDeep(ctx, ip)
-	} else {
-		intel, err = s.cache.GetBasic(ctx, ip)
+// getCache 获取缓存；非深扫查询优先复用已存在的 deep 缓存（确保首页深扫与专项页/curl 结果一致）
+func (s *IPIntelService) getCache(ctx context.Context, ip string, opts LookupOptions) *model.IPIntel {
+	if opts.DeepScan {
+		intel, err := s.cache.GetDeep(ctx, ip)
+		if err != nil {
+			log.Printf("[IPIntel] Cache get deep error for %s: %v", ip, err)
+			return nil
+		}
+		return intel
 	}
 
+	// 优先复用深扫缓存，零额外成本且保证同 IP 在首页与专项页/终端结果一致
+	if intel, err := s.cache.GetDeep(ctx, ip); err != nil {
+		log.Printf("[IPIntel] Cache get deep error for %s: %v", ip, err)
+	} else if intel != nil {
+		return intel
+	}
+
+	intel, err := s.cache.GetBasic(ctx, ip)
 	if err != nil {
-		log.Printf("[IPIntel] Cache get error for %s: %v", ip, err)
+		log.Printf("[IPIntel] Cache get basic error for %s: %v", ip, err)
 		return nil
 	}
-
 	return intel
 }
 

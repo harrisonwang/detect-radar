@@ -294,7 +294,7 @@ func (s *DNSService) getGeoInfo(ip string) geoInfo {
 
 	geo := geoInfo{Country: "Unknown", ISP: "Unknown"}
 	if s.ipIntel != nil {
-		intel, err := s.ipIntel.Lookup(context.Background(), ip, LookupOptions{DeepScan: false})
+		intel, err := s.ipIntel.Lookup(context.Background(), ip, LookupOptions{LocalOnly: true})
 		if err == nil && intel != nil {
 			if intel.Country != "" {
 				geo.Country = intel.Country

@@ -219,7 +219,7 @@ func setupRoutes(app *fiber.App, services *Services) {
 	// /ip 与 /ip/reputation 是两个独立静态路径（无 :param 冲突），相邻注册。
 	ipIntelHandler := handler.NewIPIntelHandler(services.IPIntel)
 	reputationHandler := handler.NewReputationHandler(services.Reputation)
-	api.Get("/ip", ipIntelHandler.GetMyIPIntel) // 获取客户端 IP 信息（永不缓存）
+	api.Get("/ip", ipIntelHandler.GetMyIPIntel) // 获取客户端 IP 信息（HTTP 禁缓存，服务端按 IP 复用缓存）
 	api.Get("/ip/reputation", reputationHandler.GetCurrentReputation)
 
 	// 综合扫描（P0）
@@ -367,5 +367,10 @@ func initIPIntelService(cfg *config.Config, infra *Infrastructure) *service.IPIn
 		}
 	}
 
-	return service.NewIPIntelService(registry, infra.RedisCache, hostingDetector, radarService, cnGeo)
+	svc := service.NewIPIntelService(registry, infra.RedisCache, hostingDetector, radarService, cnGeo)
+	svc.SetL3DailyLimit(cfg.IPIntel.L3DailyLimit)
+	if cfg.IPIntel.L3DailyLimit > 0 {
+		log.Printf("已启用 L3 远程 API 每日熔断保护：上限 %d 次/天", cfg.IPIntel.L3DailyLimit)
+	}
+	return svc
 }

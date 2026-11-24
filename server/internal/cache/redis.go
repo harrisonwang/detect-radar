@@ -101,6 +101,19 @@ func (c *RedisCache) Clear(ctx context.Context) error {
 	return nil
 }
 
+// IncrDailyCounter 原子递增按日计数的全局配额键（首次写入时设置过期时间）
+func (c *RedisCache) IncrDailyCounter(ctx context.Context, name, day string, ttl time.Duration) (int64, error) {
+	key := keyPrefix + name + ":" + day
+	n, err := c.client.Incr(ctx, key).Result()
+	if err != nil {
+		return 0, err
+	}
+	if n == 1 && ttl > 0 {
+		_ = c.client.Expire(ctx, key, ttl).Err()
+	}
+	return n, nil
+}
+
 // Close 关闭连接
 func (c *RedisCache) Close() error {
 	return c.client.Close()

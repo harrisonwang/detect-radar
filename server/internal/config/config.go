@@ -113,6 +113,9 @@ type IPIntelConfig struct {
 
 	// 缓存配置
 	CacheTTL time.Duration `mapstructure:"cache_ttl"`
+
+	// L3 远程 API 每日全局调用上限（<= 0 表示不限制；超限后自动降级为 L1+L2 本地结果）
+	L3DailyLimit int `mapstructure:"l3_daily_limit"`
 }
 
 type ServerConfig struct {
@@ -209,6 +212,7 @@ func setDefaults() {
 	viper.SetDefault("ipintel.cn_v4_db_path", "./data/ip2region-cn/ip2region_v4.xdb")
 	viper.SetDefault("ipintel.cn_v6_db_path", "./data/ip2region-cn/ip2region_v6.xdb")
 	viper.SetDefault("ipintel.cache_ttl", 24*time.Hour)
+	viper.SetDefault("ipintel.l3_daily_limit", 800)
 
 	// Redis 默认值
 	viper.SetDefault("redis.addr", "localhost:6379")

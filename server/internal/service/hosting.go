@@ -1,16 +1,39 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/oschwald/maxminddb-golang"
 
 	"detect-radar/internal/repository"
 )
+
+const (
+	hostingDNSTimeout  = 2 * time.Second
+	cymruCacheTTL      = 6 * time.Hour
+	cymruErrCacheTTL   = 5 * time.Minute
+	rdnsCacheTTL       = 6 * time.Hour
+	rdnsEmptyCacheTTL  = 1 * time.Hour
+	hostingDNSCacheMax = 10000
+)
+
+type cymruCacheEntry struct {
+	asns      []CymruASNInfo
+	err       error
+	expiresAt time.Time
+}
+
+type rdnsCacheEntry struct {
+	rdns          string
+	isResidential bool
+	expiresAt     time.Time
+}
 
 // 家宽 rDNS 特征关键词（用于洗白）
 // 注意：只保留明确的家宽特征词，避免与 VPS rDNS 重叠
@@ -87,6 +110,12 @@ type HostingDetector struct {
 	lookupASNRecord func(ip net.IP) (ASNRecord, error)
 	lookupCymru     func(ipStr string) ([]CymruASNInfo, error)
 	lookupRDNS      func(ipStr string) (string, bool)
+
+	// Cymru / rDNS 有界内存 TTL 缓存（减少重复外部 DNS 往返并保护 Team Cymru 不被高频刷爆）
+	dnsCacheMu sync.RWMutex
+	cymruCache map[string]cymruCacheEntry
+	rdnsCache  map[string]rdnsCacheEntry
+	nowFunc    func() time.Time
 }
 
 // NewHostingDetector 创建 Hosting 检测器
@@ -110,12 +139,96 @@ func NewHostingDetector(asnDBPath string, cloudIPRepo *repository.CloudIPRangeRe
 		cloudIPRepo:  cloudIPRepo,
 		providerRepo: providerRepo,
 		keywordRepo:  keywordRepo,
+		cymruCache:   make(map[string]cymruCacheEntry),
+		rdnsCache:    make(map[string]rdnsCacheEntry),
+		nowFunc:      time.Now,
 	}
 	d.lookupASNRecord = d.lookupASNFromMMDB
 	d.lookupCymru = d.lookupCymruASNs
 	d.lookupRDNS = d.checkResidentialByRDNS
 
 	return d, nil
+}
+
+func (d *HostingDetector) now() time.Time {
+	if d.nowFunc != nil {
+		return d.nowFunc()
+	}
+	return time.Now()
+}
+
+func (d *HostingDetector) cachedLookupCymru(ipStr string) ([]CymruASNInfo, error) {
+	if d.cymruCache == nil {
+		return d.lookupCymru(ipStr)
+	}
+	now := d.now()
+	d.dnsCacheMu.RLock()
+	entry, ok := d.cymruCache[ipStr]
+	d.dnsCacheMu.RUnlock()
+	if ok && now.Before(entry.expiresAt) {
+		if len(entry.asns) == 0 {
+			return nil, entry.err
+		}
+		cp := make([]CymruASNInfo, len(entry.asns))
+		copy(cp, entry.asns)
+		return cp, entry.err
+	}
+
+	asns, err := d.lookupCymru(ipStr)
+	ttl := cymruCacheTTL
+	if err != nil {
+		ttl = cymruErrCacheTTL
+	}
+	var stored []CymruASNInfo
+	if len(asns) > 0 {
+		stored = make([]CymruASNInfo, len(asns))
+		copy(stored, asns)
+	}
+
+	d.dnsCacheMu.Lock()
+	if len(d.cymruCache) >= hostingDNSCacheMax {
+		d.cymruCache = make(map[string]cymruCacheEntry)
+	}
+	d.cymruCache[ipStr] = cymruCacheEntry{
+		asns:      stored,
+		err:       err,
+		expiresAt: now.Add(ttl),
+	}
+	d.dnsCacheMu.Unlock()
+
+	return asns, err
+}
+
+func (d *HostingDetector) cachedLookupRDNS(ipStr string) (string, bool) {
+	if d.rdnsCache == nil {
+		return d.lookupRDNS(ipStr)
+	}
+	now := d.now()
+	d.dnsCacheMu.RLock()
+	entry, ok := d.rdnsCache[ipStr]
+	d.dnsCacheMu.RUnlock()
+	if ok && now.Before(entry.expiresAt) {
+		return entry.rdns, entry.isResidential
+	}
+
+	rdns, isResidential := d.lookupRDNS(ipStr)
+	ttl := rdnsCacheTTL
+	if rdns == "" {
+		ttl = rdnsEmptyCacheTTL
+	}
+
+	d.dnsCacheMu.Lock()
+	if len(d.rdnsCache) >= hostingDNSCacheMax {
+		d.rdnsCache = make(map[string]rdnsCacheEntry)
+	}
+	d.rdnsCache[ipStr] = rdnsCacheEntry{
+		rdns:          rdns,
+		isResidential: isResidential,
+		expiresAt:     now.Add(ttl),
+	}
+	d.dnsCacheMu.Unlock()
+
+	return rdns, isResidential
 }
 
 // Close 关闭数据库连接
@@ -172,7 +285,7 @@ func (d *HostingDetector) Detect(ipStr string) (*HostingResult, error) {
 	// === Step 3: Team Cymru 实时 BGP 查询（以当前宣告为准） ===
 	// MMDB 是离线快照，网段易主/租赁后重新宣告时会过期（例如家宽段租给机房商），
 	// 因此 ASN 黑名单以实时宣告为准，MMDB 仅在 Cymru 不可用时兜底
-	cymruASNs, cymruErr := d.lookupCymru(ipStr)
+	cymruASNs, cymruErr := d.cachedLookupCymru(ipStr)
 	if cymruErr == nil && len(cymruASNs) > 0 {
 		// 保存所有 ASN 到结果（调试用）
 		for _, ca := range cymruASNs {
@@ -238,7 +351,7 @@ func (d *HostingDetector) Detect(ipStr string) (*HostingResult, error) {
 	}
 
 	// === Step 4: rDNS 洗白检测（识别动态家宽，实时数据不受本地库过期影响） ===
-	rdns, isResidential := d.lookupRDNS(ipStr)
+	rdns, isResidential := d.cachedLookupRDNS(ipStr)
 	result.RDNS = rdns
 
 	if isResidential {
@@ -319,7 +432,9 @@ func (d *HostingDetector) lookupASNFromMMDB(ip net.IP) (ASNRecord, error) {
 // 返回 rDNS 记录和是否为家宽
 // 注意：只依赖明确的家宽关键词，不使用 IP 编码检测（因为 VPS 也可能有类似 rDNS）
 func (d *HostingDetector) checkResidentialByRDNS(ip string) (string, bool) {
-	names, err := net.LookupAddr(ip)
+	ctx, cancel := context.WithTimeout(context.Background(), hostingDNSTimeout)
+	defer cancel()
+	names, err := net.DefaultResolver.LookupAddr(ctx, ip)
 	if err != nil || len(names) == 0 {
 		return "", false
 	}
@@ -441,8 +556,10 @@ func (d *HostingDetector) lookupCymruASNs(ipStr string) ([]CymruASNInfo, error) 
 	reversedIP := fmt.Sprintf("%d.%d.%d.%d", ip4[3], ip4[2], ip4[1], ip4[0])
 	query := fmt.Sprintf("%s.origin.asn.cymru.com", reversedIP)
 
-	// 执行 DNS TXT 查询
-	txtRecords, err := net.LookupTXT(query)
+	// 执行 DNS TXT 查询（带超时，避免上游 DNS 抖动拖垮请求）
+	ctx, cancel := context.WithTimeout(context.Background(), hostingDNSTimeout)
+	defer cancel()
+	txtRecords, err := net.DefaultResolver.LookupTXT(ctx, query)
 	if err != nil {
 		return nil, fmt.Errorf("Cymru DNS 查询失败: %w", err)
 	}

@@ -48,20 +48,30 @@
 
 ---
 
-## 3. 能力边界与隐私保护
+## 3. 终端查询与 AI Agent 集成（SKILL.md）
 
-- 只分析发起检测的当前连接，不提供任意 IP 查询，也不根据单个 IP 猜测连接用途。
-- “未见明显异常”只代表本次检测没有命中已知矛盾或暴露项，不代表在任何第三方平台上一定安全或不会被风控拦截。
-- Canvas、Audio、WebGL 的渲染特征与扩展列表均在浏览器本地计算为 SHA-256 哈希值后再提交，不上传原始画面。
-- 分享图片在浏览器本地生成，不上传服务器，图中的 IP 会自动隐藏。
+- **查终端当前出口**：`curl -s https://detectradar.com/api/v1/ip`（可配合 `-4` / `-6` 分别核对 IPv4 与 IPv6 双栈出口）。返回当前连接的 `ip`、`country`、`city`、`asn`、`org`、`usage_type`（枚举固定为 `isp` / `hosting` / `unknown`）和 `tier`。默认仅走本地 `L1+L2` 或复用服务端同 IP 的深扫缓存，HTTP 响应头固定 `Cache-Control: no-store`；附加 `?deep=true` 才请求第三方 L3 深度识别（受全站每日配额上限保护，超限时自动回退 `L1+L2`）。
+- **终端 3 步 DNS 探测**：`POST https://detectradar.com/api/v1/leaks/dns` 获取 `id` 与 `test_domain` → `dig +short "r1.<test_domain>"` 触发真实解析 → `GET https://detectradar.com/api/v1/leaks/dns/<id>` 获取实际捕获到的 `dns_servers`（对照当前出口国家判断，或提交至 `POST /api/v1/leaks/dns/assessment`）。
+- **Agent 技能文件**：https://detectradar.com/SKILL.md （纯文本 Markdown，供 Claude Code、Codex、Cursor 等直接读取，约定观测路径声明、字段口径与脱敏规范）。
 
 ---
 
-## 4. 相关链接
+## 4. 能力边界与隐私保护
+
+- 只分析发起检测的当前连接，不提供任意 IP 查询，也不根据单个 IP 猜测连接用途。
+- 终端命令仅能观测终端进程的出口 IP 与 DNS，无法检测浏览器 WebRTC、时区/语言一致性及浏览器指纹。
+- “未见明显异常”只代表本次检测没有命中已知矛盾或暴露项，不代表在任何第三方平台上一定安全或不会被风控拦截。
+- Canvas、Audio、WebGL 的渲染特征与扩展列表均在浏览器本地计算为 SHA-256 哈希值后再提交，不上传原始画面。
+- 右上角「分享」支持「复制文字」与「保存图片」，均在浏览器本地完成且自动隐藏完整 IP。
+
+---
+
+## 5. 相关链接
 
 - 在线检测：https://detectradar.com/
 - DNS 泄露检测：https://detectradar.com/dns-leak-test/
 - WebRTC 泄露检测：https://detectradar.com/webrtc-leak-test/
-- 检测说明：https://detectradar.com/about/
+- 检测说明与终端查询：https://detectradar.com/about/
+- AI Agent 技能文件：https://detectradar.com/SKILL.md
 - 站点地图：https://detectradar.com/sitemap.xml
 - 源码仓库：https://github.com/harrisonwang/detect-radar

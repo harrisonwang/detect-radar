@@ -6,13 +6,13 @@ import SiteFooter from '../components/SiteFooter.svelte';
 
 const MACOS_VERSION = '0.1.0';
 const MACOS_RELEASE_TAG = `macos-v${MACOS_VERSION}`;
-const MACOS_ZIP_FILENAME = `DetectRadarBar-v${MACOS_VERSION}-macos-universal.zip`;
+const MACOS_DMG_FILENAME = `DetectRadarBar-v${MACOS_VERSION}-macos-universal.dmg`;
 
 const GITHUB_RELEASES_URL = 'https://github.com/harrisonwang/detect-radar/releases';
-const R2_DIRECT_DOWNLOAD_URL = `https://dl.detectradar.com/macos/releases/${MACOS_RELEASE_TAG}/${MACOS_ZIP_FILENAME}`;
+const R2_DIRECT_DOWNLOAD_URL = `https://dl.detectradar.com/macos/releases/${MACOS_RELEASE_TAG}/${MACOS_DMG_FILENAME}`;
 
-// R2 镜像就绪并核验 200 后，将此处改为 'r2' 即可一键切换直链下载与结构化数据
-const ACTIVE_DOWNLOAD_CHANNEL = 'github' as 'github' | 'r2';
+// 已完成 R2 不可变镜像与 dl.detectradar.com 公网 SHA-256 核验，启用直链下载
+const ACTIVE_DOWNLOAD_CHANNEL = 'r2' as 'github' | 'r2';
 
 const DOWNLOAD_CHANNELS = {
 	github: {
@@ -26,12 +26,12 @@ const DOWNLOAD_CHANNELS = {
 	},
 	r2: {
 		href: R2_DIRECT_DOWNLOAD_URL,
-		label: '直接下载',
-		ext: '.zip',
-		ariaLabel: '直接下载 DetectRadar for macOS 安装包 (.zip)',
+		label: '下载 macOS 版',
+		ext: '.dmg',
+		ariaLabel: '直接下载 DetectRadar for macOS 安装包 (.dmg)',
 		isDirectFile: true,
 		external: false,
-		downloadAttr: MACOS_ZIP_FILENAME,
+		downloadAttr: MACOS_DMG_FILENAME,
 	},
 } as const;
 
@@ -46,7 +46,7 @@ const PREVIEWS = [
 	{
 		id: 'clean-dark',
 		label: '深色',
-		src: '/images/macos-bar-clean-dark.png',
+		src: '/images/macos-bar-preview-dark-v2.png',
 		width: 672,
 		height: 502,
 		alt: 'DetectRadar for macOS 深色预览：菜单栏显示美国机房，面板内展示出口 IP、运营商与快捷操作',
@@ -55,7 +55,7 @@ const PREVIEWS = [
 	{
 		id: 'clean-light',
 		label: '浅色',
-		src: '/images/macos-bar-clean-light.png',
+		src: '/images/macos-bar-preview-light-v2.png',
 		width: 672,
 		height: 502,
 		alt: 'DetectRadar for macOS 浅色预览：跟随系统浅色外观显示出口地区、IP 与机房标签',
@@ -64,7 +64,7 @@ const PREVIEWS = [
 	{
 		id: 'alert-dark',
 		label: 'IPv6 泄露',
-		src: '/images/macos-bar-alert-dark.png',
+		src: '/images/macos-bar-preview-alert-v2.png',
 		width: 672,
 		height: 502,
 		alt: 'DetectRadar for macOS IPv6 泄露提醒预览：菜单栏出现感叹号，面板内提示 IPv6 经中国电信直连',

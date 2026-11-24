@@ -90,19 +90,19 @@ private enum PopoverPreviewRenderer {
             snapshot: cleanSnap,
             dark: true,
             minCanvasHeight: unifiedCanvasH,
-            url: outDir.appendingPathComponent("macos-bar-clean-dark.png")
+            url: outDir.appendingPathComponent("macos-bar-preview-dark-v2.png")
         )
         renderPopoverShot(
             snapshot: alertSnap,
             dark: true,
             minCanvasHeight: unifiedCanvasH,
-            url: outDir.appendingPathComponent("macos-bar-alert-dark.png")
+            url: outDir.appendingPathComponent("macos-bar-preview-alert-v2.png")
         )
         renderPopoverShot(
             snapshot: cleanSnap,
             dark: false,
             minCanvasHeight: unifiedCanvasH,
-            url: outDir.appendingPathComponent("macos-bar-clean-light.png")
+            url: outDir.appendingPathComponent("macos-bar-preview-light-v2.png")
         )
     }
 

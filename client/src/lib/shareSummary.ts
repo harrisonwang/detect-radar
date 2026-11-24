@@ -17,7 +17,7 @@ const IPV4_TEXT_RE = /\b(\d{1,3}\.\d{1,3})\.\d{1,3}\.\d{1,3}\b/g;
 const IPV6_COMPRESSED_RE = /\b([0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})?)::[0-9a-fA-F:]*\b/g;
 const IPV6_FULL_RE = /\b([0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}):(?:[0-9a-fA-F]{1,4}:){2,}[0-9a-fA-F]{1,4}\b/g;
 
-/** 文本场景使用的 IP 脱敏：IPv4 → 104.194.*.*，IPv6 → 2408:8207:* */
+/** 文本场景使用的 IP 脱敏：IPv4 → 203.0.*.*，IPv6 → 2001:db8:* */
 export function maskIPText(ip: string): string {
   const raw = ip.trim();
   if (!raw) return '—';

@@ -1,0 +1,274 @@
+---
+import Layout from '../layouts/Layout.astro';
+import AppHeader from '../components/report/AppHeader.svelte';
+import SiteFooter from '../components/SiteFooter.svelte';
+
+const BREW_CMD = 'brew install --cask harrisonwang/tap/detectradar-bar';
+const XATTR_CMD = 'xattr -cr /Applications/DetectRadarBar.app';
+const SELF_HOST_CMD = 'defaults write com.detectradar.bar baseDomain example.com';
+---
+
+<Layout
+	title="DetectRadar for macOS — Mac 菜单栏查代理出口 IP 与机房宽带"
+	canonical="/macos/"
+	description="DetectRadar for macOS（DetectRadarBar）是开源免费的 Mac 菜单栏小工具：一眼查看当前出口国家、机房/宽带属性与 IP，点开复制 IP；仅在海外出口但 IPv6 走国内运营商时提醒，无设置页、不后台轮询。"
+	pageType="article"
+	dateModified="2026-11-24"
+>
+	<div class="min-h-screen flex flex-col">
+		<AppHeader page="static" />
+
+		<main class="flex-1 mx-auto w-full max-w-3xl px-4 sm:px-6 py-10 sm:py-16 min-w-0">
+			<!-- 顶部标题与一句话定位 -->
+			<header class="mb-8">
+				<h1 class="text-3xl sm:text-4xl font-bold text-white tracking-tight">
+					DetectRadar for macOS
+				</h1>
+				<p class="mt-3 text-[15px] leading-7 text-(--slate-300)">
+					常驻 Mac 菜单栏，一眼看到出口国家、机房/宽带与 IP，点开即可复制 IP；仅在出口在海外、IPv6 走国内运营商时提醒。无设置页，不后台轮询。
+				</p>
+			</header>
+
+			<!-- 先看实机效果：顶对齐、去多余双层框 -->
+			<section aria-label="界面预览" class="grid grid-cols-1 sm:grid-cols-2 items-start gap-6">
+				<figure class="min-w-0">
+					<div class="flex items-center justify-between gap-2 mb-2.5 min-h-7">
+						<span class="text-xs font-medium text-(--slate-300)">日常视图</span>
+						<div class="inline-flex rounded-md border border-slate-800 bg-space-950/70 p-0.5 text-[11px]" role="group" aria-label="切换预览外观">
+							<button
+								type="button"
+								data-preview-theme="dark"
+								aria-pressed="true"
+								class="preview-tab is-active rounded px-2 py-0.5 transition-colors cursor-pointer"
+							>
+								深色
+							</button>
+							<button
+								type="button"
+								data-preview-theme="light"
+								aria-pressed="false"
+								class="preview-tab rounded px-2 py-0.5 transition-colors cursor-pointer"
+							>
+								浅色
+							</button>
+						</div>
+					</div>
+					<div class="overflow-hidden rounded-xl border border-slate-800/80 bg-[#0e1420]">
+						<img
+							id="macos-clean-preview"
+							src="/images/macos-bar-clean-dark.png"
+							alt="DetectRadar for macOS 日常视图截图：菜单栏显示美国机房，点开查看 IP 与运营商并一键复制"
+							width="672"
+							height="450"
+							loading="eager"
+							decoding="async"
+							class="block w-full h-auto"
+						/>
+					</div>
+					<figcaption class="mt-2.5 text-xs leading-5 text-(--slate-400)">
+						菜单栏一眼看国旗与机房/宽带，点开复制 IP。
+					</figcaption>
+				</figure>
+
+				<figure class="min-w-0">
+					<div class="flex items-center justify-between gap-2 mb-2.5 min-h-7">
+						<span class="text-xs font-medium text-(--slate-300)">IPv6 泄露提醒</span>
+						<span class="text-[11px] font-mono text-(--slate-500)">仅异常时出现</span>
+					</div>
+					<div class="overflow-hidden rounded-xl border border-slate-800/80 bg-[#0e1420]">
+						<img
+							src="/images/macos-bar-alert-dark.png"
+							alt="DetectRadar for macOS IPv6 泄露提醒截图：面板内提示 IPv6 经中国电信直连，点击可去网页排查"
+							width="672"
+							height="502"
+							loading="eager"
+							decoding="async"
+							class="block w-full h-auto"
+						/>
+					</div>
+					<figcaption class="mt-2.5 text-xs leading-5 text-(--slate-400)">
+						仅海外出口且 IPv6 走大陆宽带时出现，港澳台与海外分流不误报。
+					</figcaption>
+				</figure>
+			</section>
+
+			<!-- 安装区 -->
+			<section aria-label="安装方式" class="glass-card rounded-xl p-5 sm:p-6 mt-8">
+				<div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 mb-2.5">
+					<p class="text-xs font-mono tracking-wide text-(--slate-300)">
+						Homebrew 安装
+					</p>
+					<span class="text-xs font-mono text-(--slate-500) whitespace-nowrap">macOS 13+ · Apple Silicon / Intel</span>
+				</div>
+
+				<div class="cmd-box flex items-center gap-2 rounded-lg border border-slate-700/70 bg-space-950/80 px-3.5 py-2.5">
+					<code class="flex-1 min-w-0 overflow-x-auto whitespace-nowrap font-mono text-[13px] text-(--slate-200) select-all">
+						{BREW_CMD}
+					</code>
+					<button
+						type="button"
+						data-copy-cmd={BREW_CMD}
+						class="copy-btn shrink-0 inline-flex items-center gap-1.5 rounded-md border border-slate-700/80 bg-slate-800/70 px-2.5 py-1 text-xs font-medium text-(--slate-300) hover:text-white hover:border-slate-600 transition-colors cursor-pointer"
+						aria-label="复制 Homebrew 安装命令"
+					>
+						<i class="fa-regular fa-copy text-[11px]" aria-hidden="true"></i>
+						<span data-copy-label>复制</span>
+					</button>
+				</div>
+
+				<div class="mt-3.5 flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-(--slate-400)">
+					<a
+						href="https://github.com/harrisonwang/detect-radar/releases"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="inline-flex items-center gap-1.5 text-(--radar-400) hover:text-white transition-colors"
+					>
+						<i class="fa-solid fa-download text-[11px]" aria-hidden="true"></i>
+						<span>GitHub Releases 下载 (.zip)</span>
+					</a>
+					<a
+						href="https://github.com/harrisonwang/detect-radar/tree/main/macos"
+						target="_blank"
+						rel="noopener noreferrer"
+						class="inline-flex items-center gap-1.5 hover:text-white transition-colors"
+					>
+						<i class="fa-brands fa-github text-[12px]" aria-hidden="true"></i>
+						<span>查看源码</span>
+					</a>
+					<a href="/about/#cli" class="hover:text-white transition-colors">
+						终端 curl / SKILL.md
+					</a>
+				</div>
+
+				<details class="group mt-4 pt-3.5 border-t border-slate-800/80">
+					<summary class="cursor-pointer list-none flex items-center justify-between gap-3 text-xs text-(--slate-400) hover:text-(--slate-200) transition-colors select-none">
+						<span>首次打开提示「无法验证」或「已损坏」？</span>
+						<span aria-hidden="true" class="text-(--slate-500) transition-transform duration-150 group-open:rotate-45">+</span>
+					</summary>
+					<div class="mt-2.5">
+						<p class="text-xs leading-6 text-(--slate-400) mb-2">
+							开源版本暂未经过 Apple 公证，首次打不开时在终端运行一次即可：
+						</p>
+						<div class="cmd-box flex items-center gap-2 rounded-lg border border-slate-800 bg-space-950/65 px-3.5 py-2">
+							<code class="flex-1 min-w-0 overflow-x-auto whitespace-nowrap font-mono text-[12.5px] text-(--slate-300) select-all">
+								{XATTR_CMD}
+							</code>
+							<button
+								type="button"
+								data-copy-cmd={XATTR_CMD}
+								class="copy-btn shrink-0 inline-flex items-center gap-1.5 rounded-md border border-slate-800 bg-slate-900/80 px-2.5 py-1 text-xs font-medium text-(--slate-400) hover:text-white hover:border-slate-700 transition-colors cursor-pointer"
+								aria-label="复制解除隔离命令"
+							>
+								<i class="fa-regular fa-copy text-[11px]" aria-hidden="true"></i>
+								<span data-copy-label>复制</span>
+							</button>
+						</div>
+					</div>
+				</details>
+			</section>
+
+			<!-- 简明功能与边界 -->
+			<div class="mt-10 prose prose-invert max-w-none prose-headings:font-semibold prose-headings:scroll-mt-24 prose-a:text-(--radar-400)">
+				<h2 id="features">功能与边界</h2>
+				<ul>
+					<li>
+						<strong>极简面板</strong>：菜单栏只看国旗和机房/宽带；点开上方看国家、运营商并点击复制 IP，下方只有网页完整检测、开机自启和退出（<code>⌘Q</code>）。
+					</li>
+					<li>
+						<strong>随变随测，不轮询</strong>：切网、改代理、休眠唤醒，或点开面板（距上次 ≥ 2 秒）时自动更新；在代理软件里切完节点，直接点一下图标或展开时按 <code>⌘R</code> 就能同步。
+					</li>
+					<li>
+						<strong>无 IPv6 不多发请求</strong>：只有本机存在公网 IPv6 时才测 IPv6 出口，纯 IPv4 网络不发多余请求；港澳台与海外分流不误报。
+					</li>
+					<li>
+						<strong>只做系统层靠谱的事</strong>：WebRTC 取决于各浏览器设置，系统代理下测本机 DNS 又容易误报，所以这两项留在网页端，需要全检时点「网页完整检测」或访问 <a href="/">首页检测</a> 即可。
+					</li>
+				</ul>
+
+				<h2 id="self-host">自建服务端</h2>
+				<p>
+					自建 DetectRadar 服务端无需重新编译，终端执行一条命令即可切换域名（需已配好 <code>4.</code> 和 <code>6.</code> 子域）：
+				</p>
+				<div class="not-prose cmd-box flex items-center gap-2 rounded-lg border border-slate-800 bg-space-950/80 px-3.5 py-2.5 my-4">
+					<code class="flex-1 min-w-0 overflow-x-auto whitespace-nowrap font-mono text-[12.5px] text-(--slate-200) select-all">
+						{SELF_HOST_CMD}
+					</code>
+					<button
+						type="button"
+						data-copy-cmd={SELF_HOST_CMD}
+						class="copy-btn shrink-0 inline-flex items-center gap-1.5 rounded-md border border-slate-800 bg-slate-900/80 px-2.5 py-1 text-xs font-medium text-(--slate-400) hover:text-white hover:border-slate-700 transition-colors cursor-pointer"
+						aria-label="复制自建域名配置命令"
+					>
+						<i class="fa-regular fa-copy text-[11px]" aria-hidden="true"></i>
+						<span data-copy-label>复制</span>
+					</button>
+				</div>
+				<p class="text-sm text-(--slate-400)">
+					恢复官方默认：<code>defaults delete com.detectradar.bar baseDomain</code>。如需本地编译，可在仓库 <code>macos/</code> 目录运行 <code>./scripts/build-app.sh</code>。
+				</p>
+			</div>
+		</main>
+
+		<SiteFooter />
+	</div>
+
+	<style>
+		.preview-tab {
+			color: var(--slate-400);
+		}
+		.preview-tab:hover {
+			color: #fff;
+		}
+		.preview-tab.is-active {
+			background: rgba(51, 65, 85, 0.85);
+			color: #fff;
+		}
+	</style>
+
+	<script is:inline>
+		(() => {
+			document.querySelectorAll('[data-copy-cmd]').forEach((btn) => {
+				let timer;
+				btn.addEventListener('click', async () => {
+					const cmd = btn.getAttribute('data-copy-cmd') || '';
+					const label = btn.querySelector('[data-copy-label]');
+					if (!cmd) return;
+					try {
+						if (!navigator.clipboard?.writeText) return;
+						await navigator.clipboard.writeText(cmd);
+						if (label) {
+							label.textContent = '已复制';
+							btn.classList.add('text-(--radar-400)');
+							clearTimeout(timer);
+							timer = setTimeout(() => {
+								label.textContent = '复制';
+								btn.classList.remove('text-(--radar-400)');
+							}, 1500);
+						}
+					} catch {
+						/* 剪贴板不可用时静默忽略 */
+					}
+				});
+			});
+
+			const img = document.getElementById('macos-clean-preview');
+			const tabs = document.querySelectorAll('[data-preview-theme]');
+			if (img && tabs.length) {
+				tabs.forEach((tab) => {
+					tab.addEventListener('click', () => {
+						const theme = tab.getAttribute('data-preview-theme');
+						img.setAttribute(
+							'src',
+							theme === 'light' ? '/images/macos-bar-clean-light.png' : '/images/macos-bar-clean-dark.png'
+						);
+						tabs.forEach((t) => {
+							const active = t === tab;
+							t.classList.toggle('is-active', active);
+							t.setAttribute('aria-pressed', active ? 'true' : 'false');
+						});
+					});
+				});
+			}
+		})();
+	</script>
+</Layout>

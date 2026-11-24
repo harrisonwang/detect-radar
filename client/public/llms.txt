@@ -13,6 +13,7 @@
 ## 检测说明、终端查询与常见问题
 
 - [检测说明](https://detectradar.com/about/): 说明检测范围、DNS / WebRTC / IPv6 泄露怎么判断、终端 curl/dig 查询方法、哪些情况测不到、数据隐私保护与常见问题解答。
+- [DetectRadar for macOS](https://detectradar.com/macos/): 开源免费的 Mac 菜单栏小工具，一眼看当前出口国家、机房/宽带属性与可复制 IP，仅在海外出口且 IPv6 走大陆运营商时提醒（不轮询、无设置页）。
 - [终端查询与 Agent 说明](https://detectradar.com/about/#cli): 免安装使用 `curl` / `dig` 核对终端 IPv4/IPv6 出口与 DNS 解析器的方法与能力边界。
 - [AI Agent 技能文件（SKILL.md）](https://detectradar.com/SKILL.md): 供 Claude Code、Codex、Cursor 等 Agent 直接读取的终端网络自检指令与字段解读红线。
 - [完整说明文档](https://detectradar.com/llms-full.txt): 包含各项检测原理、DNS 泄露判断标准、终端接口口径、能力边界与结果含义。

@@ -137,7 +137,8 @@ codesign --force --deep --sign - "$APP_DIR"
 codesign --verify --deep --strict "$APP_DIR"
 
 if [[ "$ARCH" == "universal" ]]; then
-  lipo "$MACOS_DIR/$APP_NAME" -verify_arch arm64 x86_64
+  lipo "$MACOS_DIR/$APP_NAME" -verify_arch arm64
+  lipo "$MACOS_DIR/$APP_NAME" -verify_arch x86_64
 fi
 
 DMG_NAME="${DMG_NAME:-$APP_NAME-v$VERSION-macos-$ARCH.dmg}"

@@ -1,0 +1,7 @@
+/cloud-ip-crawler
+/cloud-ip.db
+/cloud-ip.db-shm
+/cloud-ip.db-wal
+/cloud-ip.csv
+*.gz
+/dist/

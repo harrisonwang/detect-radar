@@ -79,4 +79,5 @@ docs/
 testdata/
 
 *_test.go
+!cloud-ip-crawler/**/*_test.go
 server/scripts/

@@ -1,0 +1,77 @@
+name: Daily cloud-ip dataset
+
+# 每天重抓一次各云厂商 / 机房 / 托管商的 IP 段，把成品数据库发到 dataset-latest 这个滚动 Release，
+# 让不想自己跑的人可以直接 curl 下载。
+on:
+  schedule:
+    - cron: '17 2 * * *' # 每天 UTC 02:17（错开整点，减小上游被同时打的概率）
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  dataset:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloud-ip-crawler
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+          cache-dependency-path: cloud-ip-crawler/go.sum
+
+      - name: 构建
+        run: |
+          CGO_ENABLED=0 go build -trimpath \
+            -ldflags "-s -w -X github.com/harrisonwang/detect-radar/cloud-ip-crawler/internal/crawler.Version=$(date -u +%Y.%m.%d)" \
+            -o cloud-ip-crawler ./cmd/cloud-ip-crawler
+
+      # 任一上游数据源失败，crawler 就以非零码退出，这一步随之失败，
+      # 于是残缺的数据集永远不会被发布出去（宁可今天没有更新，也不要一份缺了 Azure 的库）
+      - name: 抓取
+        run: ./cloud-ip-crawler --db cloud-ip.db
+
+      - name: 导出与校验
+        run: |
+          sqlite3 -header -csv cloud-ip.db \
+            "SELECT provider, cidr, region, service FROM cloud_ip_ranges ORDER BY provider, cidr;" \
+            > cloud-ip.csv
+
+          echo "### 本次数据集" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          sqlite3 -header -column cloud-ip.db \
+            "SELECT provider, COUNT(*) AS ranges FROM cloud_ip_ranges GROUP BY provider ORDER BY 2 DESC;" \
+            >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+          # 空库或明显缩水都视为上游异常，不发布
+          rows=$(sqlite3 cloud-ip.db "SELECT COUNT(*) FROM cloud_ip_ranges;")
+          echo "总计 $rows 条"
+          if [ "$rows" -lt 130000 ]; then
+            echo "::error::只有 $rows 条，远低于常态（约 18 万），疑似上游数据异常，中止发布"
+            exit 1
+          fi
+
+          ./cloud-ip-crawler export --db cloud-ip.db --out cloud-ip.mmdb
+
+          gzip -9 -f cloud-ip.csv
+          gzip -9 -f cloud-ip.mmdb
+          gzip -9 -kf cloud-ip.db
+          sha256sum cloud-ip.db.gz cloud-ip.csv.gz cloud-ip.mmdb.gz > SHA256SUMS
+
+      - name: 发布到滚动 Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          notes="主流云厂商、大机房和两千多家托管商的 IP 段（IPv4 + IPv6），构建于 $(date -u '+%Y-%m-%d %H:%M UTC')。"
+          if gh release view dataset-latest >/dev/null 2>&1; then
+            gh release edit dataset-latest --notes "$notes"
+            gh release upload dataset-latest cloud-ip.db.gz cloud-ip.csv.gz cloud-ip.mmdb.gz SHA256SUMS --clobber
+          else
+            gh release create dataset-latest cloud-ip.db.gz cloud-ip.csv.gz cloud-ip.mmdb.gz SHA256SUMS \
+              --title "云厂商 IP 段数据集（每日更新）" --notes "$notes"
+          fi

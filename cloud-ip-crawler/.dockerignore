@@ -1,0 +1,4 @@
+.git
+/cloud-ip-crawler
+*.db
+*.csv*

@@ -1,0 +1,40 @@
+name: cloud-ip-crawler CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'cloud-ip-crawler/**'
+      - '.github/workflows/crawler-ci.yml'
+  pull_request:
+    paths:
+      - 'cloud-ip-crawler/**'
+      - '.github/workflows/crawler-ci.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: cloud-ip-crawler
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.24'
+          cache: true
+          cache-dependency-path: cloud-ip-crawler/go.sum
+
+      - name: gofmt
+        run: test -z "$(gofmt -l .)" || { gofmt -l .; echo '::error::请先运行 gofmt -w .'; exit 1; }
+
+      - run: go vet ./...
+      - run: go test ./... -v
+
+      # modernc.org/sqlite 纯 Go 实现，无需 CGO 即可交叉编译到各平台
+      - name: 交叉编译（CGO_ENABLED=0）
+        run: |
+          for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
+            CGO_ENABLED=0 GOOS=${target%/*} GOARCH=${target#*/} go build -o /dev/null ./cmd/cloud-ip-crawler \
+              && echo "  ok  $target" || { echo "  FAIL $target"; exit 1; }
+          done

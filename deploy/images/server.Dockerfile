@@ -8,7 +8,7 @@ COPY server/ ./
 RUN CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /out/detectradar-server ./cmd/server
 
 # 地理库播种层：DB-IP Lite（免 key、月更、CC BY 4.0）+ ip2region（CN 权威层）。
-# 烤进镜像而非运行时下载：国内环境从 ACR 拉镜像远快于装机时直连 db-ip/GitHub。
+# 烤进镜像而非运行时下载，避免首次装机时因上游波动拉取失败。
 FROM alpine:3.20 AS geodata
 ARG DBIP_MONTH=2026-07
 ARG DBIP_MONTH_PREV=2026-06

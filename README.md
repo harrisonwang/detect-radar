@@ -38,8 +38,9 @@ DNS 检测结果会稍后返回。无法完成的检测会标为“未检测”�
 | --- | --- |
 | `client/` | Astro + Svelte 5 前端，负责采集信息和展示报告 |
 | `server/` | Go + Fiber 后端，负责出口 IP 信息查询、一致性判断、泄露复核和评分 |
+| `cloud-ip-crawler/` | 云厂商与机房 IP 段抓取工具，负责生成和更新 `hosting.db` 所需的云网段数据 |
 
-机房识别所需的云厂商 IP 段由独立项目 [cloud-ip-crawler](https://github.com/harrisonwang/cloud-ip-crawler) 生成。
+机房识别所需的云厂商 IP 段由本仓库 [cloud-ip-crawler/](cloud-ip-crawler/) 生成，详见 [cloud-ip-crawler/README.md](cloud-ip-crawler/README.md)。
 
 ## 快速开始
 
@@ -59,7 +60,7 @@ vi .env    # 填写 DOMAIN、CF_Token 和 ACME_EMAIL
 docker compose up -d
 ```
 
-首次启动会自动创建 DNS 记录、生成配置，并由 acme 服务申请 HTTPS 证书，通常需要几分钟。国内服务器可按 `.env.example` 中的注释配置镜像源。完整的检查和维护方法见 [deploy/README.md](deploy/README.md)。
+首次启动会自动创建 DNS 记录、生成配置，并由 acme 服务申请 HTTPS 证书，通常需要几分钟。完整的检查和维护方法见 [deploy/README.md](deploy/README.md)。
 
 ### 本地开发
 

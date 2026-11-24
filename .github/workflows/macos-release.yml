@@ -21,15 +21,42 @@ jobs:
       - name: Run unit tests
         run: swift test
 
-      - name: Build Universal .app & zip
+      - name: Build Universal .app, zip, and checksums
         env:
           ARCH: universal
-          VERSION: ${{ startsWith(github.ref, 'refs/tags/macos-v') && github.ref_name || '0.1.0' }}
+          RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/macos-v') && github.ref_name || 'macos-v0.1.0' }}
         run: |
-          VERSION="${VERSION#macos-v}" ./scripts/build-app.sh
+          set -euo pipefail
+          raw_version="${RELEASE_TAG#macos-v}"
+          bundle_version="${raw_version%%-*}"
+          zip_name="DetectRadarBar-v${raw_version}-macos-universal.zip"
 
-      - name: Publish Release
+          VERSION="$bundle_version" ZIP_NAME="$zip_name" ./scripts/build-app.sh
+
+          rm -rf dist/release
+          mkdir -p dist/release
+          cp "dist/$zip_name" "dist/release/$zip_name"
+          cp ../LICENSE dist/release/LICENSE
+          (
+            cd dist/release
+            shasum -a 256 "$zip_name" LICENSE > SHA256SUMS.txt
+            shasum -a 256 -c SHA256SUMS.txt
+          )
+
+      - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/macos-v')
         uses: softprops/action-gh-release@v2
         with:
-          files: macos/dist/DetectRadarBar-macos-universal.zip
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          files: |
+            macos/dist/release/DetectRadarBar-v*-macos-universal.zip
+            macos/dist/release/LICENSE
+            macos/dist/release/SHA256SUMS.txt
+
+  mirror-to-r2:
+    if: startsWith(github.ref, 'refs/tags/macos-v')
+    needs: build-and-release
+    uses: ./.github/workflows/mirror-macos-to-r2.yml
+    with:
+      tag: ${{ github.ref_name }}
+    secrets: inherit

@@ -4,10 +4,14 @@ import AppHeader from '../components/report/AppHeader.svelte';
 import ReportBackdrop from '../components/ReportBackdrop.svelte';
 import SiteFooter from '../components/SiteFooter.svelte';
 
-const GITHUB_RELEASES_URL = 'https://github.com/harrisonwang/detect-radar/releases';
-const R2_DIRECT_DOWNLOAD_URL = 'https://dl.detectradar.com/macos/DetectRadarBar-macos-universal.zip';
+const MACOS_VERSION = '0.1.0';
+const MACOS_RELEASE_TAG = `macos-v${MACOS_VERSION}`;
+const MACOS_ZIP_FILENAME = `DetectRadarBar-v${MACOS_VERSION}-macos-universal.zip`;
 
-// 上传安装包到 Cloudflare R2 后，将此处改为 'r2' 即可一键切换直链下载与结构化数据
+const GITHUB_RELEASES_URL = 'https://github.com/harrisonwang/detect-radar/releases';
+const R2_DIRECT_DOWNLOAD_URL = `https://dl.detectradar.com/macos/releases/${MACOS_RELEASE_TAG}/${MACOS_ZIP_FILENAME}`;
+
+// R2 镜像就绪并核验 200 后，将此处改为 'r2' 即可一键切换直链下载与结构化数据
 const ACTIVE_DOWNLOAD_CHANNEL = 'github' as 'github' | 'r2';
 
 const DOWNLOAD_CHANNELS = {
@@ -27,7 +31,7 @@ const DOWNLOAD_CHANNELS = {
 		ariaLabel: '直接下载 DetectRadar for macOS 安装包 (.zip)',
 		isDirectFile: true,
 		external: false,
-		downloadAttr: 'DetectRadarBar-macos-universal.zip',
+		downloadAttr: MACOS_ZIP_FILENAME,
 	},
 } as const;
 
@@ -153,11 +157,11 @@ const PREVIEWS = [
 								type="button"
 								data-copy-cmd={BREW_CMD}
 								data-copy-announce="已复制 Homebrew 安装命令"
-								class="copy-btn shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 py-1.5 text-xs font-medium text-(--slate-300) hover:text-white hover:border-slate-600 transition-colors cursor-pointer"
+								class="copy-btn shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg border border-slate-800 bg-slate-900/90 text-(--slate-300) hover:text-white hover:border-slate-600 transition-colors cursor-pointer"
+								title="复制 Homebrew 安装命令"
 								aria-label="复制 Homebrew 安装命令"
 							>
-								<i class="fa-regular fa-copy text-[11px]" aria-hidden="true"></i>
-								<span data-copy-label>复制</span>
+								<i data-copy-icon class="fa-regular fa-copy text-[13px]" aria-hidden="true"></i>
 							</button>
 						</div>
 					</div>
@@ -181,11 +185,11 @@ const PREVIEWS = [
 									type="button"
 									data-copy-cmd={XATTR_CMD}
 									data-copy-announce="已复制终端命令"
-									class="copy-btn shrink-0 inline-flex items-center gap-1.5 rounded-md border border-slate-800 bg-slate-900/90 px-2 py-1 text-[11px] font-medium text-(--slate-400) hover:text-white hover:border-slate-600 transition-colors cursor-pointer"
+									class="copy-btn shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-md border border-slate-800 bg-slate-900/90 text-(--slate-400) hover:text-white hover:border-slate-600 transition-colors cursor-pointer"
+									title="复制解除系统拦截命令"
 									aria-label="复制解除系统拦截命令"
 								>
-									<i class="fa-regular fa-copy text-[10px]" aria-hidden="true"></i>
-									<span data-copy-label>复制</span>
+									<i data-copy-icon class="fa-regular fa-copy text-[12px]" aria-hidden="true"></i>
 								</button>
 							</div>
 						</div>
@@ -248,7 +252,7 @@ const PREVIEWS = [
 			<!-- 下半区：让 AI 助手帮你查终端网络 -->
 			<section
 				aria-labelledby="agent"
-				class="mt-12 sm:mt-16 pt-8 sm:pt-10 border-t border-white/[0.08] grid grid-cols-1 lg:grid-cols-[minmax(0,300px)_minmax(0,1fr)] gap-5 lg:gap-12 items-center"
+				class="mt-12 sm:mt-16 pt-8 sm:pt-10 border-t border-white/[0.08] grid grid-cols-1 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] gap-5 lg:gap-12 items-center"
 			>
 				<div class="min-w-0">
 					<p class="inline-flex items-center gap-2 text-xs text-(--slate-400)">
@@ -261,7 +265,7 @@ const PREVIEWS = [
 						让 AI 助手帮你查终端网络
 					</h2>
 					<p class="mt-1.5 text-[13.5px] leading-6 text-(--slate-400)">
-						不用装插件，把这句话发给 Antigravity、Claude Code 或 Codex 就能查。
+						发给 Antigravity、Claude Code 或 Codex 直接查。
 					</p>
 				</div>
 
@@ -277,11 +281,11 @@ const PREVIEWS = [
 							type="button"
 							data-copy-cmd={AGENT_PROMPT}
 							data-copy-announce="已复制 AI 助手指令"
-							class="copy-btn self-end sm:self-center shrink-0 inline-flex items-center gap-1.5 rounded-lg border border-slate-800 bg-slate-900/90 px-2.5 py-1.5 text-xs font-medium text-(--slate-300) hover:text-white hover:border-slate-600 transition-colors cursor-pointer"
+							class="copy-btn self-end sm:self-center shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg border border-slate-800 bg-slate-900/90 text-(--slate-300) hover:text-white hover:border-slate-600 transition-colors cursor-pointer"
+							title="复制 AI 助手自检指令"
 							aria-label="复制 AI 助手自检指令"
 						>
-							<i class="fa-regular fa-copy text-[11px]" aria-hidden="true"></i>
-							<span data-copy-label>复制</span>
+							<i data-copy-icon class="fa-regular fa-copy text-[13px]" aria-hidden="true"></i>
 						</button>
 					</div>
 				</div>
@@ -395,21 +399,25 @@ const PREVIEWS = [
 				btn.addEventListener('click', async () => {
 					const cmd = btn.getAttribute('data-copy-cmd') || '';
 					const announce = btn.getAttribute('data-copy-announce') || '已复制';
-					const label = btn.querySelector('[data-copy-label]');
+					const icon = btn.querySelector('[data-copy-icon]');
 					if (!cmd) return;
 					try {
 						if (!navigator.clipboard?.writeText) return;
 						await navigator.clipboard.writeText(cmd);
-						if (label) {
-							label.textContent = '已复制';
-							btn.classList.add('is-copied');
-							if (statusRegion) statusRegion.textContent = announce;
-							clearTimeout(timer);
-							timer = setTimeout(() => {
-								label.textContent = '复制';
-								btn.classList.remove('is-copied');
-							}, 1600);
+						btn.classList.add('is-copied');
+						if (icon) {
+							icon.classList.remove('fa-regular', 'fa-copy');
+							icon.classList.add('fa-solid', 'fa-check');
 						}
+						if (statusRegion) statusRegion.textContent = announce;
+						clearTimeout(timer);
+						timer = setTimeout(() => {
+							btn.classList.remove('is-copied');
+							if (icon) {
+								icon.classList.remove('fa-solid', 'fa-check');
+								icon.classList.add('fa-regular', 'fa-copy');
+							}
+						}, 1600);
 					} catch {
 						/* 剪贴板不可用时静默忽略 */
 					}

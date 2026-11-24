@@ -133,7 +133,11 @@ echo "==> Ad-hoc signing $APP_DIR..."
 codesign --force --deep --sign - "$APP_DIR"
 codesign --verify --deep --strict "$APP_DIR"
 
-ZIP_NAME="$APP_NAME-macos-$ARCH.zip"
+if [[ "$ARCH" == "universal" ]]; then
+  lipo -verify_arch arm64 x86_64 "$MACOS_DIR/$APP_NAME"
+fi
+
+ZIP_NAME="${ZIP_NAME:-$APP_NAME-v$VERSION-macos-$ARCH.zip}"
 rm -f "$DIST_DIR/$ZIP_NAME"
 ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$DIST_DIR/$ZIP_NAME"
 

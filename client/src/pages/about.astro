@@ -55,12 +55,12 @@ import { ABOUT_FAQS } from '../lib/seoContent';
 
 			<h2 id="webrtc">WebRTC 泄露怎么判断</h2>
 			<p>
-				<a href="/webrtc-leak-test/">WebRTC 泄露检测页</a>会在浏览器本地发起 STUN ICE 候选收集，并对照当前出口 IP 核查是否存在绕过代理的公网地址、内网地址暴露与全局 IPv6 候选。
+				<a href="/webrtc-leak-test/">WebRTC 泄露检测页</a>会在浏览器本地发起 STUN ICE 候选收集，并按规范化 IPv6 与本地归属库核查公网地址、内网地址暴露与全局 IPv6 候选；首页与专项页共用同一套纯本地归属判定口径（不留存候选记录）。
 			</p>
 			<ul>
-				<li><strong>判为“泄露”</strong>：浏览器通过 WebRTC 获取到了与当前出口 IP 不同的公网 IP（排除同连接下的正常 IPv4/IPv6 双栈）。</li>
-				<li><strong>判为“未泄露”</strong>：WebRTC 公网 IP 与当前出口一致、直连双栈网络下的正常 IPv4/IPv6 地址、仅返回 mDNS（<code>*.local</code>）或局域网内网地址（未暴露额外公网 IP），或已禁用 WebRTC 接口。</li>
-				<li><strong>判为“无法判断”</strong>：已获取到 WebRTC 公网 IP，但未能获取当前出口 IP 进行比对。</li>
+				<li><strong>判为“泄露”</strong>：WebRTC 公网 IP 与当前出口属于不同国家/地区（严格区分中国大陆与中国香港/澳门/台湾）、不同运营商/ASN，或在机房/代理出口下旁路暴露了非同网公网地址（含纯 IPv4 代理漏出原生 IPv6）。</li>
+				<li><strong>判为“未泄露”</strong>：WebRTC 公网 IP 与当前出口一致、同属同一 IPv6 <code>/64</code> 前缀（RFC 4941 临时隐私地址）、同归属网络下的正常 IPv4/IPv6 双栈、直连非机房网络下的同运营商 ASN CGNAT 多出口、仅返回 mDNS（<code>*.local</code>）或局域网内网地址，或已禁用 WebRTC 接口。</li>
+				<li><strong>判为“无法判断”</strong>：已获取到 WebRTC 公网 IP，但未能获取当前出口 IP 或归属信息进行比对。</li>
 				<li><strong>能力边界</strong>：禁用 WebRTC 后不会收集浏览器 ICE 候选；如需独立排查双栈 IPv6 旁路，请直接使用 <a href="/ipv6-leak-test/">IPv6 泄露检测页</a> 或在终端执行 <code>curl -4 -s https://4.detectradar.com/api/v1/ip</code> 与 <code>curl -6 -s https://6.detectradar.com/api/v1/ip</code>。</li>
 			</ul>
 
@@ -113,6 +113,7 @@ curl -s "https://detectradar.com/api/v1/leaks/dns/&lt;id&gt;"</code></pre>
 			<ul>
 				<li>终端接口仅能观测当前终端进程的出口 IP 与 DNS，<strong>测不到</strong>浏览器 WebRTC、时区/语言一致性与浏览器指纹；排查网页环境请直接在浏览器访问本站工具页。</li>
 				<li>接口免鉴权且按 IP 限流，请勿用于高频循环轮询或批量探测第三方资产。</li>
+				<li>如果希望在 Mac 菜单栏随时查看出口与 IPv6 泄露提醒，可使用开源的 <a href="/macos/">DetectRadar for macOS</a>。</li>
 			</ul>
 
 			<h2 id="faq">常见问题</h2>

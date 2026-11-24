@@ -20,6 +20,7 @@ import type {
 } from "./types";
 
 import { browserExit, DNS_POLICY_VERSION, dnsVerdictNote, dnsStatus } from "./dnsPresentation";
+import { isIPv6Address, sameIP } from "./ip";
 import { maskIP } from "./ipDisplay";
 
 // 四态语义（对应 global.css 的 --sig / --warn / --leak / --unknown）
@@ -543,13 +544,8 @@ function consistencyRows(a: ScanAnalysis): ReadoutRow[] {
   ];
 }
 
-function isIPv6Address(ip: string): boolean {
-  return ip.includes(":");
-}
-
 function allSameAddress(addrs: string[], target: string): boolean {
-  const t = target.toLowerCase();
-  return addrs.length > 0 && addrs.every((ip) => ip.toLowerCase() === t);
+  return addrs.length > 0 && addrs.every((ip) => sameIP(ip, target));
 }
 
 export function isExpectedDualStackWebRTC(
@@ -557,15 +553,16 @@ export function isExpectedDualStackWebRTC(
   exitIP = "",
 ): boolean {
   const extra = pv.webrtc.leaked_ips ?? [];
-  if (extra.length === 0 || pv.ipv6.status === "danger") return false;
+  if (extra.length === 0 || pv.webrtc.status === "danger" || pv.ipv6.status === "danger") {
+    return false;
+  }
   if (pv.ipv6.address && allSameAddress(extra, pv.ipv6.address)) return true;
-  if (exitIP && !isIPv6Address(exitIP) && extra.every(isIPv6Address))
+  if (exitIP && !isIPv6Address(exitIP) && extra.every((ip) => isIPv6Address(ip)))
     return true;
   // 本机以 IPv6 出口访问且未触发代理/机房风险（非 danger）时，STUN 返回 IPv4 属正常双栈
   if (
     exitIP &&
     isIPv6Address(exitIP) &&
-    pv.webrtc.status !== "danger" &&
     extra.every((ip) => !isIPv6Address(ip))
   ) {
     return true;
@@ -608,7 +605,7 @@ function leakRows(a: ScanAnalysis, exit: DNSExit | null): ReadoutRow[] {
     if (
       exitIP &&
       isIPv6Address(exitIP) &&
-      pv.ipv6.address.toLowerCase() === exitIP.toLowerCase()
+      sameIP(pv.ipv6.address, exitIP)
     )
       return "与出口 IP 一致";
     return "检测到 IPv6 双栈";

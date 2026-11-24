@@ -10,6 +10,7 @@
     dnsRegion,
     exitTypeLabel,
   } from '../lib/dnsPresentation';
+  import { canonicalIP, isIPv6Address, sameIP, sameIPv6Prefix64 } from '../lib/ip';
   import {
     compareWebRTC,
     localScopeLabel,
@@ -24,7 +25,7 @@
   import { isAutomatedCrawler } from '../lib/crawler';
   import { renderWebRTCShareCard, saveShareImage } from '../lib/toolShareCard';
   import { copyShareText, formatWebRTCShareText } from '../lib/shareSummary';
-  import type { DNSExit } from '../lib/types';
+  import type { DNSExit, WebRTCNetworkInfo } from '../lib/types';
 
   let history = $state.raw<WebRTCHistory>(emptyHistory<WebRTCCheck>());
   let ready = $state(false);
@@ -41,7 +42,28 @@
   );
   let verdict = $derived(current?.verdict);
   let status = $derived(verdict ? webrtcStatus[verdict.state] : webrtcStatus.unknown);
-  let suspectSet = $derived(new Set(verdict?.suspectIPs ?? []));
+  let suspectSet = $derived(new Set((verdict?.suspectIPs ?? []).map((ip) => canonicalIP(ip))));
+  let publicInfoByIP = $derived.by(() => {
+    const map = new Map<string, WebRTCNetworkInfo>();
+    for (const info of current?.publicCandidates ?? []) {
+      const key = canonicalIP(info.ip);
+      if (key && !map.has(key)) map.set(key, info);
+    }
+    return map;
+  });
+
+  function formatCandidateMeta(info: WebRTCNetworkInfo | undefined): string {
+    if (!info) return '';
+    const parts: string[] = [];
+    if (info.country) {
+      const region = dnsRegion(info.country);
+      if (region && region !== '地区未知') parts.push(region);
+    }
+    const provider = dnsProviderName(info.network ?? '');
+    if (provider) parts.push(provider);
+    if (info.asn) parts.push(info.asn);
+    return parts.join(' · ');
+  }
   let localScopeByIP = $derived.by(() => {
     const map = new Map<string, (typeof current extends infer C ? C extends WebRTCCheck ? C['candidates'][number]['localScope'] : never : never)>();
     if (!current) return map;
@@ -286,17 +308,34 @@
                 {#if current.publicIPs.length > 0}
                   <ul class="candidate-list" aria-label="WebRTC 公网 IP">
                     {#each current.publicIPs as ip (ip)}
-                      {@const isSuspect = suspectSet.has(ip)}
+                      {@const canonIP = canonicalIP(ip)}
+                      {@const candInfo = publicInfoByIP.get(canonIP)}
+                      {@const candMeta = formatCandidateMeta(candInfo)}
+                      {@const isSuspect = suspectSet.has(canonIP)}
                       {@const matchesExit =
-                        !!current.exit?.ip && ip.toLowerCase() === current.exit.ip.toLowerCase()}
-                      {@const isV6 = ip.includes(':')}
+                        candInfo?.relation === 'matches-exit' || sameIP(ip, current.exit?.ip)}
+                      {@const samePrefix =
+                        candInfo?.relation === 'same-prefix' ||
+                        (!matchesExit && sameIPv6Prefix64(ip, current.exit?.ip))}
+                      {@const isDualStack =
+                        candInfo?.relation === 'dual-stack' ||
+                        (!isSuspect && !matchesExit && !samePrefix && verdict?.reason === 'dual-stack')}
+                      {@const isSameNetwork =
+                        candInfo?.relation === 'same-network' ||
+                        (!isSuspect && !matchesExit && !samePrefix && verdict?.reason === 'same-network')}
+                      {@const isV6 = isIPv6Address(ip)}
                       <li class="candidate-item" class:suspect-network={isSuspect}>
-                        <div class="network-identity">
-                          {#if isSuspect}
-                            <span class="suspect-dot" aria-hidden="true"></span>
-                            <span class="sr-only">泄露</span>
+                        <div class="candidate-main">
+                          <div class="network-identity">
+                            {#if isSuspect}
+                              <span class="suspect-dot" aria-hidden="true"></span>
+                              <span class="sr-only">泄露</span>
+                            {/if}
+                            <span class="ip-address">{canonIP}</span>
+                          </div>
+                          {#if candMeta}
+                            <span class="candidate-meta">{candMeta}</span>
                           {/if}
-                          <span class="ip-address">{ip}</span>
                         </div>
                         <div class="network-tags">
                           {#if isV6}<span class="badge">IPv6</span>{/if}
@@ -304,10 +343,14 @@
                             <span class="badge danger">与出口不同</span>
                           {:else if matchesExit}
                             <span class="badge">与出口一致</span>
-                          {:else if verdict?.reason === 'dual-stack'}
-                            <span class="badge">双栈 IP</span>
+                          {:else if samePrefix}
+                            <span class="badge">同 /64 前缀</span>
+                          {:else if isDualStack}
+                            <span class="badge">同网双栈</span>
+                          {:else if isSameNetwork}
+                            <span class="badge">同运营商 NAT</span>
                           {/if}
-                          {#if comparison?.addedPublicIPs.has(ip)}
+                          {#if comparison?.addedPublicIPs.has(canonIP)}
                             <span class="badge new">新增</span>
                           {/if}
                         </div>
@@ -386,7 +429,7 @@
                           <span class="badge">mDNS</span>
                         {:else if cand.kind === 'local'}
                           <span class="badge">{localScopeLabel(cand.localScope)}</span>
-                        {:else if suspectSet.has(cand.address)}
+                        {:else if suspectSet.has(canonicalIP(cand.address))}
                           <span class="badge danger">与出口不同</span>
                         {:else}
                           <span class="badge">公网</span>
@@ -514,8 +557,8 @@
           <i class="fa-solid fa-circle-info" aria-hidden="true"></i>检测说明
         </p>
         <ul class="rule-note">
-          <li>结果来自当前浏览器的 WebRTC 检测，仅在本机完成比对。</li>
-          <li>测到与当前出口不同的公网 IP（非正常双栈），判为<strong>泄露</strong>。</li>
+          <li>在浏览器本地收集 WebRTC 地址；出现与出口不同的公网 IP 时，通过服务端本地库核对地区与运营商归属（不留存）。</li>
+          <li>跨地区、跨运营商或代理旁路暴露的公网 IP 判为<strong>泄露</strong>；同归属双栈、同 IPv6 /64 前缀与同运营商 CGNAT 出口判为<strong>未泄露</strong>。</li>
           <li>如需独立核对真实 IPv4 / IPv6 双栈出口，请使用 <a href="/ipv6-leak-test/" class="text-(--radar-400) underline underline-offset-4">IPv6 泄露检测</a>（不依赖 WebRTC）。</li>
         </ul>
       </aside>
@@ -786,6 +829,18 @@
     justify-content: space-between;
     gap: 0.25rem 0.5rem;
     min-width: 0;
+  }
+  .candidate-main {
+    display: flex;
+    flex-direction: column;
+    gap: 0.125rem;
+    min-width: 0;
+  }
+  .candidate-meta {
+    color: var(--slate-400);
+    font-size: 0.75rem;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
   }
   .suspect-network .ip-address {
     color: var(--leak);

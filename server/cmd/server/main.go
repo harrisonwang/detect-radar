@@ -229,11 +229,14 @@ func setupRoutes(app *fiber.App, services *Services) {
 	api.Post("/scans/:id/dns", scanHandler.UpdateDNS)           // 异步 DNS 结果回传，后端重算
 	api.Post("/scans/:id/feedback", scanHandler.SubmitFeedback) // 结果反馈通道（误报/漏检标注）
 
-	// DNS 泄露（P2）
+	// DNS / WebRTC 泄露（P2）
 	dnsHandler := handler.NewDNSHandler(services.DNS)
 	api.Post("/leaks/dns", dnsHandler.CreateLeakTest)
 	api.Post("/leaks/dns/assessment", dnsHandler.Assess)
 	api.Get("/leaks/dns/:id", dnsHandler.GetLeakResult)
+
+	webrtcHandler := handler.NewWebRTCHandler(services.IPIntel)
+	api.Post("/leaks/webrtc/assessment", webrtcHandler.Assess)
 }
 
 // initInfrastructure 初始化基础设施（Redis、SQLite）

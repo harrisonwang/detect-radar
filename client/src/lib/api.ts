@@ -21,6 +21,7 @@ import type {
   DNSLeakResult,
   DNSAssessmentInput,
   DNSAssessmentResult,
+  WebRTCAssessmentResponse,
   IPIntel,
 } from './types';
 
@@ -143,3 +144,10 @@ export const getBrowserExit = () => request<IPIntel>('/ip', { cache: 'no-store' 
 
 export const assessDNSObservation = (observation: DNSAssessmentInput) =>
   request<DNSAssessmentResult>('/leaks/dns/assessment', { method: 'POST', body: JSON.stringify(observation) }, 6000);
+
+export const assessWebRTCCandidates = (publicIPs: string[]) =>
+  request<WebRTCAssessmentResponse>(
+    '/leaks/webrtc/assessment',
+    { method: 'POST', body: JSON.stringify({ public_ips: publicIPs }) },
+    6000,
+  );

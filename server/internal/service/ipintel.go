@@ -10,6 +10,7 @@ import (
 	"detect-radar/internal/adapter"
 	"detect-radar/internal/cache"
 	"detect-radar/internal/model"
+	"detect-radar/internal/util"
 )
 
 // ipIntelCache 抽象 IPIntel 缓存与每日配额计数能力（生产为 *cache.RedisCache，单测可注入内存桩）
@@ -105,10 +106,18 @@ type LookupOptions struct {
 
 // Lookup 查询 IP 信息
 func (s *IPIntelService) Lookup(ctx context.Context, ip string, opts LookupOptions) (*model.IPIntel, error) {
-	// 1. 查缓存（如果启用）
+	ip = util.CanonicalIP(ip)
+
+	// 1. 查缓存（如果启用）；读出时同步规范化 IP 字段，自动自愈历史补零 IPv6 缓存。
 	if !opts.SkipCache && s.cache != nil {
 		if cached := s.getCache(ctx, ip, opts); cached != nil {
-			return cloneIntel(cached), nil
+			cp := cloneIntel(cached)
+			if normalized := util.CanonicalIP(cp.IP); normalized != "" {
+				cp.IP = normalized
+			} else {
+				cp.IP = ip
+			}
+			return cp, nil
 		}
 	}
 
@@ -302,7 +311,12 @@ func (s *IPIntelService) lookupUncached(ctx context.Context, ip string, opts Loo
 		}
 	}
 
-	// 4.3 生成提示文案
+	// 4.3 规范化 IP 格式（防止上游 L3 返回补零全写 IPv6 污染接口与缓存）并生成提示文案
+	if normalized := util.CanonicalIP(intel.IP); normalized != "" {
+		intel.IP = normalized
+	} else {
+		intel.IP = ip
+	}
 	intel.Tip = generateTip(intel)
 
 	// 5. 写缓存（如果启用且未跳过；因每日 L3 熔断降级时写入 basic，避免污染 deep 缓存）
@@ -543,6 +557,11 @@ func applyCNGeo(intel *model.IPIntel, cn *adapter.CNGeoResult) {
 // merge 合并 L1 和 L3 数据
 func (s *IPIntelService) merge(local, remote *model.IPIntel) *model.IPIntel {
 	// 以 L3 (remote) 数据为主，用 L1 (local) 数据补充
+	if normalized := util.CanonicalIP(remote.IP); normalized != "" {
+		remote.IP = normalized
+	} else if normalized := util.CanonicalIP(local.IP); normalized != "" {
+		remote.IP = normalized
+	}
 
 	// 基础信息：L3 缺失时用 L1 补充
 	if remote.City == "" && local.City != "" {

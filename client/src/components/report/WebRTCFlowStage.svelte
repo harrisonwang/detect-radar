@@ -480,11 +480,16 @@
         return 'WebRTC 内网地址';
       case 'dual-stack':
         return 'WebRTC 双栈 IP';
+      case 'same-prefix':
+        return 'WebRTC IPv6 地址';
+      case 'same-network':
+        return 'WebRTC 同网出口';
       case 'public-leak':
       case 'proxy-bypass':
       case 'public-mismatch':
       case 'matches-exit':
       case 'missing-exit':
+      case 'assessment-unavailable':
       default:
         return 'WebRTC 公网 IP';
     }
@@ -524,7 +529,19 @@
       }
       case 'dual-stack': {
         const ip = activePublicIPs[0];
-        return ip ? `${formatCandidateIP(ip)} · 正常双栈` : '正常 IPv4/IPv6 双栈';
+        return ip ? `${formatCandidateIP(ip)} · 同网双栈` : '同网 IPv4/IPv6 双栈';
+      }
+      case 'same-prefix': {
+        const ip = activePublicIPs[0];
+        return ip ? `${formatCandidateIP(ip)} · 同 /64 前缀` : '同 /64 前缀 IPv6';
+      }
+      case 'same-network': {
+        const ip = activePublicIPs[0];
+        return ip ? `${formatCandidateIP(ip)} · 同运营商 NAT` : '同运营商 CGNAT 出口';
+      }
+      case 'assessment-unavailable': {
+        const ip = activePublicIPs[0];
+        return ip ? `${formatCandidateIP(ip)} · 归属待核对` : '暂未完成归属核对';
       }
       case 'missing-exit': {
         const ip = activePublicIPs[0];
@@ -553,6 +570,9 @@
         return ip ? formatCandidateIP(ip) : '与出口不同';
       }
       case 'dual-stack':
+      case 'same-prefix':
+      case 'same-network':
+      case 'assessment-unavailable':
       case 'missing-exit':
       case 'matches-exit':
       default: {
@@ -631,7 +651,7 @@
         return `网页出口：${exitName}（${exitDisplayIP}${activeExit?.asn ? ` · ${activeExit.asn}` : ''}）`;
       case 'judge': {
         const cleanNote = verdictNote ? verdictNote.replace(/。$/, '') : '';
-        return `浏览器本地比对：${verdictTitleText}${cleanNote && !busy ? ` — ${cleanNote}` : ''}（仅在浏览器本地比对，不上传服务端）`;
+        return `出口归属比对：${verdictTitleText}${cleanNote && !busy ? ` — ${cleanNote}` : ''}（同 IP 与同 /64 前缀在本地直接比对，不同公网 IP 通过本地库核对归属且不留存）`;
       }
     }
   });
@@ -649,7 +669,7 @@
       ? '待检测'
       : busy
         ? liveProgress?.phase === 'comparing'
-          ? '本地比对中…'
+          ? '归属比对中…'
           : '并发检测中…'
         : verdictTitleWord,
   );
@@ -662,7 +682,7 @@
     if (liveProgress.phase === 'collected') {
       return `已收到 ${liveProgress.candidateCount} 个地址`;
     }
-    return '本地比对中…';
+    return '归属比对中…';
   });
 
   let ariaSummary = $derived(
@@ -670,7 +690,7 @@
       ? 'WebRTC 流量路径图：等待开始检测当前浏览器的 WebRTC 地址与 HTTPS 网页出口'
       : busy && !hasResult
         ? 'WebRTC 流量路径图：正在并发检测当前浏览器的 WebRTC 地址与 HTTPS 网页出口'
-        : `WebRTC 实测流量路径图：${stunTitle}为 ${stunSub}；网页出口为 ${exitName}（${exitDisplayIP}）；浏览器本地比对：${verdictTitleText}`,
+        : `WebRTC 实测流量路径图：${stunTitle}为 ${stunSub}；网页出口为 ${exitName}（${exitDisplayIP}）；出口归属比对：${verdictTitleText}`,
   );
 </script>
 
@@ -834,20 +854,20 @@
     <circle cx="0" cy="0" r="30" fill="transparent" />
     {#if compact}
       <text x="0" y="36" text-anchor="middle" fill="#f8fafc" font-size="11.5" font-weight="600">{truncateText(exitName, 14)}</text>
-      <text x="0" y="51" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeExit?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{activeExit?.ip ? exitDisplayIP : isIdle ? '待检测' : '等待响应'}</text>
+      <text x="0" y="51" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeExit?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{activeExit?.ip ? truncateText(exitDisplayIP, 16) : isIdle ? '待检测' : '等待响应'}</text>
     {:else}
       <text x="0" y="38" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="600">{truncateText(exitName, 22)}</text>
-      <text x="0" y="53" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeExit?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{activeExit?.ip ? `${exitDisplayIP} · 网页出口` : isIdle ? '待检测' : '网页出口'}</text>
+      <text x="0" y="53" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeExit?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{activeExit?.ip ? `${truncateText(exitDisplayIP, 28)} · 网页出口` : isIdle ? '待检测' : '网页出口'}</text>
     {/if}
   </g>
 
-  <!-- 4. 浏览器本地比对 -->
+  <!-- 4. 出口归属比对 -->
   {@const jg = pos.judge}
   <g
     class="dfs-node-hit"
     role="button"
     tabindex="0"
-    aria-label="查看节点：浏览器本地比对"
+    aria-label="查看节点：出口归属比对"
     onclick={() => toggleNode('judge')}
     onkeydown={(e) => handleNodeKey(e, 'judge')}
     transform={`translate(${jg[0]}, ${jg[1]})`}
@@ -878,7 +898,7 @@
     <circle cx="0" cy="-8" r="4.5" fill={judgeAccent} opacity="0.95" />
     <path d="M 0 -22 V -16 M 0 0 V 6 M -14 -8 H -8 M 8 -8 H 14" stroke={judgeAccent} stroke-width="1.5" stroke-linecap="round" />
     <circle cx="0" cy="0" r="32" fill="transparent" />
-    <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#f8fafc" font-size={compact ? 11.5 : 12} font-weight="600">浏览器本地比对</text>
+    <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#f8fafc" font-size={compact ? 11.5 : 12} font-weight="600">出口归属比对</text>
     <text x="0" y={compact ? 48 : 53} text-anchor="middle" fill={judgeAccent} font-size="10.5" font-weight="600">
       {verdictTitleText}
     </text>

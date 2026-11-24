@@ -43,7 +43,7 @@ func privateIPResponse(ip string) *model.IPIntel {
 // HTTP 响应禁止客户端/代理缓存（避免切换代理后读到旧 IP）；
 // 服务端按真实 clientIP 复用缓存，默认仅跑本地 L1+L2（或复用已有深扫缓存），不主动消耗 L3 额度。
 func (h *IPIntelHandler) GetMyIPIntel(c *fiber.Ctx) error {
-	clientIP := c.IP()
+	clientIP := util.CanonicalIP(c.IP())
 
 	// 私有 IP 无需查询后端服务（本地开发环境常见）
 	if util.IsPrivateIP(clientIP) {

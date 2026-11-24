@@ -1,3 +1,4 @@
+import { canonicalIP } from './ip';
 import { countryName } from './region';
 import type { DNSExit, DNSVerdict, IPIntel } from './types';
 
@@ -93,6 +94,13 @@ export function dnsVerdictNote(verdict: DNSVerdict | undefined): string {
   }
 }
 
+function formatASN(raw: string | undefined): string | undefined {
+  const s = (raw ?? '').trim().toUpperCase();
+  if (!s) return undefined;
+  const num = s.startsWith('AS') ? s.slice(2) : s;
+  return /^\d+$/.test(num) ? `AS${num}` : s;
+}
+
 export function browserExit(info: IPIntel): DNSExit {
   let type: DNSExit['type'];
   if (info.is_vpn || info.is_proxy || info.is_tor) type = 'proxy';
@@ -100,8 +108,8 @@ export function browserExit(info: IPIntel): DNSExit {
   else if (info.is_hosting || ['hosting', 'datacenter'].includes(info.usage_type_raw || info.usage_type)) type = 'hosting';
   else if (info.usage_type_raw === 'residential' || info.usage_type_raw === 'mobile') type = 'access';
   return {
-    ip: info.ip, country: (info.country ?? '').trim().toUpperCase(),
+    ip: canonicalIP(info.ip), country: (info.country ?? '').trim().toUpperCase(),
     network: dnsProvider(info.isp ?? '') || dnsProvider(info.org ?? ''),
-    asn: info.asn || undefined, type,
+    asn: formatASN(info.asn), type,
   };
 }

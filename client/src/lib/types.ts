@@ -356,6 +356,34 @@ export interface DNSAssessmentResult {
   resolvers: DNSResolver[];
 }
 
+export type WebRTCCandidateRelation =
+  | 'matches-exit'
+  | 'same-prefix'
+  | 'dual-stack'
+  | 'same-network'
+  | 'leak';
+
+export interface WebRTCNetworkInfo {
+  ip: string;
+  country?: string;
+  network?: string;
+  asn?: string;
+  type?: 'proxy' | 'hosting' | 'access';
+  relation?: WebRTCCandidateRelation;
+}
+
+export interface WebRTCAssessmentResponse {
+  policy_version: number;
+  verdict: {
+    policy_version: number;
+    state: 'clear' | 'leaked' | 'unknown';
+    reason: string;
+    suspect_ips: string[];
+  };
+  exit?: WebRTCNetworkInfo;
+  candidates: WebRTCNetworkInfo[];
+}
+
 // ============ 场景专属卡片类型 ============
 
 // 网络隐私泄露检测（重构版）

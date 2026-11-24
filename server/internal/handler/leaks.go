@@ -72,3 +72,32 @@ func (h *DNSHandler) GetLeakResult(c *fiber.Ctx) error {
 	}
 	return c.JSON(result)
 }
+
+// ============================================================================
+// WebRTC 泄露归属评估
+// ============================================================================
+
+const maxWebRTCAssessInputIPs = 16
+
+type WebRTCHandler struct {
+	ipIntel *service.IPIntelService
+}
+
+func NewWebRTCHandler(ipIntel *service.IPIntelService) *WebRTCHandler {
+	return &WebRTCHandler{ipIntel: ipIntel}
+}
+
+// Assess 使用与首页一致的纯本地归属逻辑评估 WebRTC 公网候选（POST /leaks/webrtc/assessment）。
+// 出口 IP 严格取自当前连接 c.IP()，不接受客户端伪造出口，也不消耗 L3 远程额度。
+func (h *WebRTCHandler) Assess(c *fiber.Ctx) error {
+	var req service.WebRTCAssessmentRequest
+	if err := c.BodyParser(&req); err != nil || len(req.PublicIPs) > maxWebRTCAssessInputIPs {
+		return util.InvalidParameter(c, "WebRTC 检测样本无效")
+	}
+	clientIP := util.CanonicalIP(c.IP())
+	result := service.AssessWebRTC(c.Context(), h.ipIntel, clientIP, nil, req.PublicIPs)
+	c.Set("Cache-Control", "no-store, no-cache, must-revalidate")
+	c.Set("Pragma", "no-cache")
+	c.Set("Expires", "0")
+	return c.JSON(result)
+}

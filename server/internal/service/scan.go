@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"detect-radar/internal/model"
+	"detect-radar/internal/util"
 	"github.com/google/uuid"
 )
 
@@ -56,6 +57,7 @@ func NewScanService(ipIntel *IPIntelService, consistency *ConsistencyService, re
 // 描述「出口 IP↔服务器」这一腿；本地开发无 nginx 时为空，优雅降级）。
 func (s *ScanService) Analyze(ctx context.Context, req *model.ScanRequest, clientIP, httpVersion, tcpRTT, tcpRTTVar, ua string) (*model.ScanResponse, error) {
 	start := time.Now()
+	clientIP = util.CanonicalIP(clientIP)
 
 	// 1. 出口 IP 信息（深度查询）
 	intel, err := s.ipIntel.Lookup(ctx, clientIP, LookupOptions{DeepScan: true})
@@ -91,6 +93,7 @@ func (s *ScanService) Analyze(ctx context.Context, req *model.ScanRequest, clien
 
 	resp.Analysis.Consistency = s.consistency.Evaluate(browserFrom(req), intel)
 	resp.Analysis.Privacy = buildPrivacy(req, clientIP, intel)
+	s.refineWebRTCPrivacy(ctx, &resp.Analysis.Privacy, req.Leaks.WebRTC, clientIP, intel)
 	s.refineIPv6Privacy(ctx, &resp.Analysis.Privacy, req.Leaks.IPv6, intel)
 	resp.Analysis.Fingerprint = buildFingerprint(req)
 	resp.Analysis.Automation = buildAutomation(req)
@@ -360,13 +363,17 @@ func buildPrivacy(req *model.ScanRequest, exitIP string, intel *model.IPIntel) m
 
 	exitHasProxyRisk := intel != nil && (intel.HasProxy() || intel.IsHosting || intel.InferUsageType() == "hosting")
 
-	// WebRTC：普通双栈公网地址只提示；明确代理/机房出口出现额外公网地址才判高风险。
+	// WebRTC：同 IP 与同 IPv6 /64 前缀直接折合；无归属库时普通双栈公网地址只提示，明确代理/机房出口出现额外公网地址判高风险。
+	// 当 ScanService 具备 ipIntel 时，后续 refineWebRTCPrivacy 会做本地归属权威复核。
 	if w := req.Leaks.WebRTC; w != nil && w.Data != nil {
+		canonicalExit := util.CanonicalIP(exitIP)
 		var extra []string
-		for _, ip := range w.Data.PublicIPs {
-			if ip != exitIP {
-				extra = append(extra, ip)
+		for _, rawIP := range w.Data.PublicIPs {
+			ip := util.CanonicalIP(rawIP)
+			if ip == "" || sameIPOrV6Prefix64(ip, canonicalExit) {
+				continue
 			}
+			extra = append(extra, ip)
 		}
 		switch {
 		case len(extra) > 0 && exitHasProxyRisk:
@@ -422,6 +429,31 @@ func isMainlandCN(intel *model.IPIntel) bool {
 		}
 	}
 	return true
+}
+
+// refineWebRTCPrivacy 使用与专项页共用的纯本地 AssessWebRTC 逻辑复核首页 WebRTC 公网候选：
+// 同归属双栈 / 同运营商 CGNAT 出口池升格为 safe（消除直连手机双栈 warning 噪音），
+// 跨地区 / 跨运营商 / 代理旁路（含纯 IPv4 代理漏出原生 IPv6、住宅代理跨国泄露）明确判为 danger。
+func (s *ScanService) refineWebRTCPrivacy(
+	ctx context.Context,
+	pa *model.PrivacyAnalysis,
+	wReq *model.CollectorResult[model.WebRTCLeakData],
+	exitIP string,
+	exitIntel *model.IPIntel,
+) {
+	if s == nil || s.ipIntel == nil || wReq == nil || wReq.Data == nil || len(wReq.Data.PublicIPs) == 0 {
+		return
+	}
+	res := AssessWebRTC(ctx, s.ipIntel, exitIP, exitIntel, wReq.Data.PublicIPs)
+	switch res.Verdict.State {
+	case "clear":
+		pa.WebRTC = model.PrivacyWebRTC{Status: "safe", LeakedIPs: []string{}, MatchesExitIP: true}
+	case "leaked":
+		pa.WebRTC = model.PrivacyWebRTC{Status: "danger", LeakedIPs: res.Verdict.SuspectIPs, MatchesExitIP: false}
+	default:
+		return
+	}
+	pa.OverallStatus = privacyOverallStatus(*pa)
 }
 
 // refineIPv6Privacy 使用服务端 IPIntel（LocalOnly 优先命中 6.detectradar.com 写入的缓存）

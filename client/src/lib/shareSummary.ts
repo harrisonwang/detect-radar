@@ -3,6 +3,7 @@
  * 适合直接粘贴到论坛、群聊或 GitHub Issue 的简洁文本，并自动隐藏完整 IP。
  */
 
+import { canonicalIP, sameIP, sameIPv6Prefix64 } from './ip';
 import type { ReportModel, ReadoutRow } from './report';
 import type { DNSExit, DNSVerdict } from './types';
 import type { WebRTCVerdictReason, WebRTCVerdictState } from './webrtcCheck';
@@ -261,14 +262,17 @@ export function formatWebRTCShareText(data: WebRTCShareTextInput): string {
   } else if (data.publicIPs.length === 0) {
     lines.push('- 公网候选：未暴露公网地址');
   } else {
-    const suspectSet = new Set(data.suspectIPs);
-    const exitIP = data.exit?.ip?.trim().toLowerCase() ?? '';
+    const suspectSet = new Set(data.suspectIPs.map((ip) => canonicalIP(ip)));
+    const exitIP = data.exit?.ip ?? '';
     const pubText = data.publicIPs
       .map((ip) => {
-        const masked = maskIPText(ip);
-        if (suspectSet.has(ip)) return `${masked}（与出口不同）`;
-        if (exitIP && ip.toLowerCase() === exitIP) return `${masked}（与出口一致）`;
-        if (data.verdictReason === 'dual-stack') return `${masked}（双栈 IP）`;
+        const canon = canonicalIP(ip);
+        const masked = maskIPText(canon);
+        if (suspectSet.has(canon)) return `${masked}（与出口不同）`;
+        if (sameIP(canon, exitIP)) return `${masked}（与出口一致）`;
+        if (sameIPv6Prefix64(canon, exitIP)) return `${masked}（同 /64 前缀）`;
+        if (data.verdictReason === 'dual-stack') return `${masked}（同网双栈）`;
+        if (data.verdictReason === 'same-network') return `${masked}（同运营商 NAT）`;
         return masked;
       })
       .join('、');

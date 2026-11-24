@@ -4,6 +4,7 @@
  * 所有 IP 均经 maskIP / maskIPsInText 自动脱敏后绘制，与首页 shareCard.ts 保持同源视觉语言与隐私边界。
  */
 
+import { canonicalIP, sameIP, sameIPv6Prefix64 } from './ip';
 import { maskIP } from './ipDisplay';
 import type { DNSExit } from './types';
 import type { WebRTCVerdictReason, WebRTCVerdictState } from './webrtcCheck';
@@ -739,7 +740,22 @@ function webrtcUpperCopy(data: WebRTCShareCardInput): { title: string; sub: stri
     case 'dual-stack':
       return {
         title: 'WebRTC 双栈 IP',
-        sub: data.publicIPs[0] ? `${maskIP(data.publicIPs[0])} · 正常双栈` : '正常 IPv4/IPv6 双栈',
+        sub: data.publicIPs[0] ? `${maskIP(data.publicIPs[0])} · 同网双栈` : '同网 IPv4/IPv6 双栈',
+      };
+    case 'same-prefix':
+      return {
+        title: 'WebRTC IPv6 地址',
+        sub: data.publicIPs[0] ? `${maskIP(data.publicIPs[0])} · 同 /64 前缀` : '同 /64 前缀 IPv6',
+      };
+    case 'same-network':
+      return {
+        title: 'WebRTC 同网出口',
+        sub: data.publicIPs[0] ? `${maskIP(data.publicIPs[0])} · 同运营商 NAT` : '同运营商 CGNAT 出口',
+      };
+    case 'assessment-unavailable':
+      return {
+        title: 'WebRTC 公网 IP',
+        sub: data.publicIPs[0] ? `${maskIP(data.publicIPs[0])} · 归属待核对` : '暂未完成归属核对',
       };
     case 'missing-exit':
       return {
@@ -794,7 +810,7 @@ export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise
     lowerLeftBadge: 'HTTPS',
     lowerRightBadge: 'API',
     rightColor: pal.color,
-    rightTitle: '浏览器本地比对',
+    rightTitle: '出口归属比对',
     rightSub: data.verdictTitle,
   });
 
@@ -837,7 +853,7 @@ export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise
 
   const rx = splitX + 28;
   const rightW = PAD + cardW - 28 - rx;
-  const suspectSet = new Set(data.suspectIPs);
+  const suspectSet = new Set(data.suspectIPs.map((ip) => canonicalIP(ip)));
   drawText(ctx, 'WebRTC', rx, midY + 28, { font: font(13, 500), color: C.slate400 });
 
   const pubShown = data.apiSupported ? Math.min(2, data.publicIPs.length) : 0;
@@ -849,15 +865,17 @@ export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise
     drawText(ctx, '未测到公网 IP', rx + rightW, r1Y, { font: font(13), color: C.slate400, align: 'right' });
   } else {
     data.publicIPs.slice(0, 2).forEach((ip, idx) => {
+      const canon = canonicalIP(ip);
       const iy = r1Y + 28 + idx * 26;
-      const isSuspect = suspectSet.has(ip);
-      const matchesExit = Boolean(data.exit?.ip && ip.toLowerCase() === data.exit.ip.toLowerCase());
+      const isSuspect = suspectSet.has(canon);
+      const matchesExit = sameIP(canon, data.exit?.ip);
+      const samePrefix = !matchesExit && sameIPv6Prefix64(canon, data.exit?.ip);
       let tx = rx;
       if (isSuspect) {
         dot(ctx, tx + 4, iy, C.leak, 'transparent', 3);
         tx += 14;
       }
-      drawText(ctx, maskIP(ip), tx, iy, {
+      drawText(ctx, maskIP(canon), tx, iy, {
         font: font(14, 500, MONO),
         color: isSuspect ? C.leak : C.slate200,
       });
@@ -865,9 +883,13 @@ export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise
         ? '与出口不同'
         : matchesExit
           ? '与出口一致'
-          : data.verdictReason === 'dual-stack'
-            ? '双栈 IP'
-            : '';
+          : samePrefix
+            ? '同 /64 前缀'
+            : data.verdictReason === 'dual-stack'
+              ? '同网双栈'
+              : data.verdictReason === 'same-network'
+                ? '同运营商 NAT'
+                : '';
       if (tag) {
         ctx.font = font(11.5, 500, MONO);
         const tw = ctx.measureText(tag).width + 16;

@@ -10,6 +10,7 @@
 - **DNS 泄露检测（https://detectradar.com/dns-leak-test/）**：每次使用独立的随机子域名，通过自建权威 DNS 服务识别实际使用的 DNS 服务器及归属地，并在当前浏览器保留最近两次结果，方便换节点或改完 DNS 后对比差别。
 - **WebRTC 泄露检测（https://detectradar.com/webrtc-leak-test/）**：通过浏览器本地 STUN ICE 收集公网与内网候选地址，并与当前出口 IP 比对；展示 mDNS（`*.local`）隐藏状态与 ICE 捕获到的全局 IPv6，支持在同一浏览器保留最近两次检测并对比变化。
 - **IPv6 泄露检测（https://detectradar.com/ipv6-leak-test/）**：独立并发请求纯 IPv4 节点（`4.detectradar.com`）与纯 IPv6 节点（`6.detectradar.com`）实测真实双栈出口，不依赖浏览器 WebRTC，支持在同一浏览器保留最近两次检测并对比变化。
+- **DetectRadar for macOS（https://detectradar.com/macos/）**：开源免费的 Mac 菜单栏小工具（DetectRadarBar），一眼看当前出口国家与机房/宽带属性，点开复制完整 IP；仅在出口位于海外、IPv6 走中国大陆运营商时提醒，无设置页、不后台轮询，支持 Homebrew（`harrisonwang/tap/detectradar-bar`）与 GitHub Releases 安装。
 - **检测说明（https://detectradar.com/about/）**：说明检测范围、DNS、WebRTC 与 IPv6 泄露怎么判断、哪些情况测不到、数据隐私保护以及常见问题解答。
 - **隐私政策（https://detectradar.com/privacy/）**、**服务条款（https://detectradar.com/terms/）**、**联系我们（https://detectradar.com/contact/）**。
 
@@ -32,7 +33,7 @@
 
 ### 3. WebRTC、DNS 与 IPv6 泄露
 
-- **WebRTC**：在浏览器本地比较 WebRTC 获取到的公网 IP 与当前出口 IP 是否一致，页面状态词固定为 `泄露`、`未泄露`、`无法判断`。测到与当前出口 IP 不同的公网 IP（排除同连接的正常 IPv4/IPv6 双栈）判为 `泄露`；公网 IP 与出口一致、直连正常 IPv4/IPv6 双栈、仅返回 mDNS（`*.local`）或局域网内网地址（无额外公网 IP）、以及已禁用 WebRTC 均判为 `未泄露`；缺少出口 IP 无法比对时判为 `无法判断`。
+- **WebRTC**：在浏览器本地收集 STUN ICE 候选，同 IP 与同 IPv6 `/64` 前缀在本地直接比对，出现不同公网 IP 时通过服务端纯本地库（`POST /api/v1/leaks/webrtc/assessment`，不留存）核对国家/地区与 ASN/运营商归属（首页与专项页共用同一套口径），页面状态词固定为 `泄露`、`未泄露`、`无法判断`。跨国家/地区（区分大陆与港澳台）、跨运营商/ASN 或代理/机房出口下暴露的非同网公网 IP（含纯 IPv4 代理漏出原生 IPv6）判为 `泄露`；同 IP、同 IPv6 `/64` 临时隐私地址、同归属 IPv4/IPv6 双栈、直连非机房同运营商 ASN 的 CGNAT 多出口、仅返回 mDNS（`*.local`）或内网地址，以及已禁用 WebRTC 均判为 `未泄露`；缺少出口或归属信息无法比对时判为 `无法判断`。
 - **IPv6**：首页与 `/ipv6-leak-test/` 均并发探测纯 IPv4 节点（`4.detectradar.com`）与纯 IPv6 节点（`6.detectradar.com`），不依赖 WebRTC 接口，即使彻底禁用 WebRTC 也能独立检测。页面状态词固定为 `泄露`、`未泄露`、`无法判断`；当 IPv4 位于中国大陆以外而 IPv6 经中国大陆宽带运营商非机房网段直连时判为 `泄露`；仅连通 IPv4、中国大陆正常双栈、中国香港/澳门/台湾节点及海外跨区双栈分流均判为 `未泄露`。
 - **DNS 泄露判断标准**：
   - 每次测试均生成独立随机子域名，不受历史 DNS 缓存影响。
@@ -73,6 +74,7 @@
 - DNS 泄露检测：https://detectradar.com/dns-leak-test/
 - WebRTC 泄露检测：https://detectradar.com/webrtc-leak-test/
 - 检测说明与终端查询：https://detectradar.com/about/
+- DetectRadar for macOS：https://detectradar.com/macos/
 - AI Agent 技能文件：https://detectradar.com/SKILL.md
 - 站点地图：https://detectradar.com/sitemap.xml
 - 源码仓库：https://github.com/harrisonwang/detect-radar

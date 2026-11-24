@@ -42,7 +42,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ (github.event_name == 'release' || github.event_name == 'workflow_call') && github.event.repository.default_branch || github.ref }}
+          ref: ${{ (inputs.tag != '' || github.event_name == 'release') && github.event.repository.default_branch || github.ref }}
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
@@ -53,8 +53,7 @@ jobs:
 
   mirror:
     if: >-
-      github.event_name == 'workflow_call' ||
-      github.event_name == 'workflow_dispatch' ||
+      inputs.tag != '' ||
       (github.event_name == 'release' && startsWith(github.event.release.tag_name, 'macos-v'))
     needs: test
     runs-on: ubuntu-latest

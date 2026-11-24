@@ -137,10 +137,20 @@ if [[ "$ARCH" == "universal" ]]; then
   lipo "$MACOS_DIR/$APP_NAME" -verify_arch arm64 x86_64
 fi
 
-ZIP_NAME="${ZIP_NAME:-$APP_NAME-v$VERSION-macos-$ARCH.zip}"
-rm -f "$DIST_DIR/$ZIP_NAME"
-ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$DIST_DIR/$ZIP_NAME"
+DMG_NAME="${DMG_NAME:-$APP_NAME-v$VERSION-macos-$ARCH.dmg}"
+DMG_STAGE="$(mktemp -d /tmp/detectradar-dmg-XXXX)"
+trap 'rm -rf "$DMG_STAGE"' EXIT
+cp -R "$APP_DIR" "$DMG_STAGE/$APP_NAME.app"
+ln -s /Applications "$DMG_STAGE/Applications"
+
+rm -f "$DIST_DIR/$DMG_NAME"
+hdiutil create \
+  -volname "$APP_NAME" \
+  -srcfolder "$DMG_STAGE" \
+  -ov \
+  -format UDZO \
+  "$DIST_DIR/$DMG_NAME" >/dev/null
 
 echo "==> Done:"
 echo "  App: $APP_DIR"
-echo "  Zip: $DIST_DIR/$ZIP_NAME"
+echo "  DMG: $DIST_DIR/$DMG_NAME"

@@ -21,7 +21,8 @@ jobs:
       - name: Run unit tests
         run: swift test
 
-      - name: Build Universal .app, zip, and checksums
+      - name: Build Universal .app, DMG, and checksums
+        id: build
         env:
           ARCH: universal
           RELEASE_TAG: ${{ startsWith(github.ref, 'refs/tags/macos-v') && github.ref_name || 'macos-v0.1.0' }}
@@ -29,17 +30,22 @@ jobs:
           set -euo pipefail
           raw_version="${RELEASE_TAG#macos-v}"
           bundle_version="${raw_version%%-*}"
-          zip_name="DetectRadarBar-v${raw_version}-macos-universal.zip"
+          dmg_name="DetectRadarBar-v${raw_version}-macos-universal.dmg"
+          if [[ "$raw_version" == *-* ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
 
-          VERSION="$bundle_version" ZIP_NAME="$zip_name" ./scripts/build-app.sh
+          VERSION="$bundle_version" DMG_NAME="$dmg_name" ./scripts/build-app.sh
 
           rm -rf dist/release
           mkdir -p dist/release
-          cp "dist/$zip_name" "dist/release/$zip_name"
+          cp "dist/$dmg_name" "dist/release/$dmg_name"
           cp ../LICENSE dist/release/LICENSE
           (
             cd dist/release
-            shasum -a 256 "$zip_name" LICENSE > SHA256SUMS.txt
+            shasum -a 256 "$dmg_name" LICENSE > SHA256SUMS.txt
             shasum -a 256 -c SHA256SUMS.txt
           )
 
@@ -47,9 +53,9 @@ jobs:
         if: startsWith(github.ref, 'refs/tags/macos-v')
         uses: softprops/action-gh-release@v2
         with:
-          prerelease: ${{ contains(github.ref_name, '-') }}
+          prerelease: ${{ steps.build.outputs.prerelease == 'true' }}
           files: |
-            macos/dist/release/DetectRadarBar-v*-macos-universal.zip
+            macos/dist/release/DetectRadarBar-v*-macos-universal.dmg
             macos/dist/release/LICENSE
             macos/dist/release/SHA256SUMS.txt
 

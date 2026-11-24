@@ -39,7 +39,7 @@ xattr -cr /Applications/DetectRadarBar.app
 
 推送 `macos-v<版本号>` 标签（如 `macos-v0.1.0`）时，`.github/workflows/macos-release.yml` 会自动测试、构建 Universal 安装包、生成 `SHA256SUMS.txt` 并发布 GitHub Release，随后调用 `.github/workflows/mirror-macos-to-r2.yml` 将产物不可变镜像到 Cloudflare R2（存储桶 `detectradar-releases`，公开域名 `https://dl.detectradar.com`）。
 
-- **对象路径规则**：`macos/releases/<tag>/`（包含 `DetectRadarBar-v<ver>-macos-universal.zip`、`LICENSE`、`SHA256SUMS.txt`），不设可变的 `latest` 别名；写入使用原子 `If-None-Match: *`、MD5 校验、`max-age=31536000, immutable` 缓存策略，并在最后上传 `SHA256SUMS.txt` 后经公开域名回读全量核验 SHA-256。
+- **对象路径规则**：`macos/releases/<tag>/`（包含 `DetectRadarBar-v<ver>-macos-universal.dmg`、`LICENSE`、`SHA256SUMS.txt`），不设可变的 `latest` 别名；写入使用原子 `If-None-Match: *`、MD5 校验、`max-age=31536000, immutable` 缓存策略，并在最后上传 `SHA256SUMS.txt` 后经公开域名回读全量核验 SHA-256。
 - **仓库变量（Variables）**：`R2_PUBLIC_BASE_URL=https://dl.detectradar.com`、`R2_BUCKET=detectradar-releases`。
 - **仓库密钥（Secrets）**：`R2_ACCOUNT_ID`、`R2_ACCESS_KEY_ID`、`R2_SECRET_ACCESS_KEY`（R2 Token 仅授予 `detectradar-releases` 桶的 Object Read & Write 权限）。
 - **补传 / 恢复**：补齐 Secrets 或偶发网络中断后，可在 GitHub Actions 手动触发 `Mirror macOS Release to R2`（或 `gh workflow run mirror-macos-to-r2.yml -f tag=macos-v0.1.0`）安全重跑。

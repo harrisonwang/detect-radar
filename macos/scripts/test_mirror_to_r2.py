@@ -33,7 +33,7 @@ class MirrorTests(unittest.TestCase):
         self.directory = Path(self.temp.name)
         self.tag = "macos-v0.1.0"
         self.prefix = f"macos/releases/{self.tag}/"
-        self.zip_name = "DetectRadarBar-v0.1.0-macos-universal.zip"
+        self.dmg_name = "DetectRadarBar-v0.1.0-macos-universal.dmg"
         self.write_release()
 
     def write_release(self):
@@ -70,7 +70,7 @@ class MirrorTests(unittest.TestCase):
 
     def test_conflicting_remote_object_blocks_all_new_writes(self):
         store = FakeStore()
-        store.objects[self.prefix + self.zip_name] = b"another build of the same version"
+        store.objects[self.prefix + self.dmg_name] = b"another build of the same version"
         with self.assertRaisesRegex(ValueError, "Refusing to replace"):
             mirror.mirror(self.directory, self.tag, store)
         self.assertEqual(store.writes, [])
@@ -174,14 +174,14 @@ class MirrorTests(unittest.TestCase):
     def test_r2_put_is_conditional_and_supplies_content_md5(self):
         client = Mock()
         store = mirror.R2Store(client, "detectradar-releases")
-        zip_path = self.directory / self.zip_name
-        store.put_if_absent(f"{self.prefix}{self.zip_name}", zip_path)
+        dmg_path = self.directory / self.dmg_name
+        store.put_if_absent(f"{self.prefix}{self.dmg_name}", dmg_path)
         args = client.put_object.call_args.kwargs
         self.assertEqual(args["IfNoneMatch"], "*")
-        self.assertEqual(args["ContentMD5"], base64.b64encode(hashlib.md5(zip_path.read_bytes()).digest()).decode())
-        self.assertEqual(args["ContentType"], "application/zip")
+        self.assertEqual(args["ContentMD5"], base64.b64encode(hashlib.md5(dmg_path.read_bytes()).digest()).decode())
+        self.assertEqual(args["ContentType"], "application/octet-stream")
         self.assertEqual(args["CacheControl"], mirror.CACHE_CONTROL)
-        self.assertEqual(args["ContentDisposition"], f'attachment; filename="{self.zip_name}"')
+        self.assertEqual(args["ContentDisposition"], f'attachment; filename="{self.dmg_name}"')
 
     def test_r2_precondition_race_is_rechecked_but_permission_errors_fail(self):
         client = Mock()

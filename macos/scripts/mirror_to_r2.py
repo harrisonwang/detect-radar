@@ -45,7 +45,7 @@ def version_from_tag(tag):
 def expected_assets(tag):
     version = version_from_tag(tag)
     return {
-        f"{APP_NAME}-v{version}-macos-universal.zip",
+        f"{APP_NAME}-v{version}-macos-universal.dmg",
         "LICENSE",
         CHECKSUMS,
     }
@@ -130,8 +130,6 @@ class R2Store:
             stream.seek(0)
             if path.suffix == ".txt" or path.name == "LICENSE":
                 content_type = "text/plain; charset=utf-8"
-            elif path.suffix == ".zip":
-                content_type = "application/zip"
             else:
                 content_type = "application/octet-stream"
             try:

@@ -81,3 +81,7 @@ testdata/
 *_test.go
 !cloud-ip-crawler/**/*_test.go
 server/scripts/
+
+# Swift / macOS
+.build/
+.swiftpm/

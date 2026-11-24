@@ -1,0 +1,35 @@
+name: Release macOS App
+
+on:
+  push:
+    tags:
+      - 'macos-v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: macos-15
+    defaults:
+      run:
+        working-directory: macos
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run unit tests
+        run: swift test
+
+      - name: Build Universal .app & zip
+        env:
+          ARCH: universal
+          VERSION: ${{ startsWith(github.ref, 'refs/tags/macos-v') && github.ref_name || '0.1.0' }}
+        run: |
+          VERSION="${VERSION#macos-v}" ./scripts/build-app.sh
+
+      - name: Publish Release
+        if: startsWith(github.ref, 'refs/tags/macos-v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: macos/dist/DetectRadarBar-macos-universal.zip

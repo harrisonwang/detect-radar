@@ -44,7 +44,7 @@
 - **一致性维度**：仅比对浏览器 `Intl` 时区（按 UTC 偏移归一）与出口 IP 时区、以及 `navigator.languages` 与出口国家常用语；**硬件参数行仅作展示，不计入冲突扣分**。
 - **WebGL 与指纹隐私**：WebGL 仅比对 `unmasked_renderer` 与 `navigator.platform`（操作系统一致性，**不与出口国家交叉比对**）；Canvas / Audio / WebGL 绘制结果与扩展列表在本地计算 SHA-256 哈希上传，仅 `unmasked_vendor` 与 `unmasked_renderer` 原文上传。
 - **WebRTC 专项页判定（`client/src/lib/webrtcCheck.ts`）**：页面状态词固定为 `泄露`、`未泄露`、`无法判断`（严禁自造“存在差异”等状态词）；测到与出口 IP 不同的公网 IP（排除同连接正常 IPv4/IPv6 双栈）判为 `泄露`；与出口一致、正常双栈、仅返回 mDNS（`*.local`）或本机内网地址（无额外公网 IP）、已禁用 WebRTC 均判为 `未泄露`；缺少出口 IP 时判为 `无法判断`。
-- **IPv6 探针边界**：浏览器端 `ipv6.ts` 复用 WebRTC ICE 候选——若浏览器禁用 WebRTC，页面侧 IPv6 探测将同步跳过（可能漏报）；文档与排障说明须提示配合 `curl -6 -s https://detectradar.com/api/v1/ip` 复核双栈。
+- **IPv6 独立双栈探针边界（`client/src/lib/collectors/leaks/ipv6.ts`、`client/src/lib/ipv6Check.ts`、`server/internal/service/scan.go`）**：首页与 `/ipv6-leak-test/` 均直接并发探测纯 IPv4（`4.detectradar.com`）与纯 IPv6（`6.detectradar.com`）接入点，**不依赖 WebRTC**；状态词固定为 `泄露`、`未泄露`、`无法判断`；后端 `refineIPv6Privacy` 会利用本地 L1+L2/Redis 缓存复核真实 IPv6 归属，并在前后端统一以 `isMainlandChina` 排除 `ip2region-cn` 标为 `CN` 的香港/澳门/台湾及海外机房双栈分流，仅在 IPv4 在中国大陆以外且 IPv6 为中国大陆非机房运营商接入网时判为 `泄露`。
 - **诊断总结词**：无异常时统一表述为 `未见明显异常`（避免与代码脱节的自造词）。
 
 ### 2.3 对外 JSON API 契约（`server/cmd/server/main.go`、`server/internal/handler/`）
@@ -59,7 +59,7 @@
 
 - **技术栈**：Astro 5（`trailingSlash: 'always'`，SSG）+ Svelte 5 + Tailwind CSS v4；后端为 Go + Fiber（`CGO_ENABLED=0` 纯 Go 构建）。
 - **页面分工与 `<h*>` 大纲**：
-  - 核心检测工具页（`/`、`/dns-leak-test/`、`/webrtc-leak-test/`）保持工具本体纯粹聚焦，不在首屏工具流下堆砌长篇百科文字；深度判据、能力边界与 FAQ 集中维护在 `/about/`（`pageType="article"`，`TechArticle` + `FAQPage`）。
+  - 核心检测工具页（`/`、`/dns-leak-test/`、`/webrtc-leak-test/`、`/ipv6-leak-test/`）保持工具本体纯粹聚焦，不在首屏工具流下堆砌长篇百科文字；深度判据、能力边界与 FAQ 集中维护在 `/about/`（`pageType="article"`，`TechArticle` + `FAQPage`）。
   - 实时诊断卡片、骨架屏、侧边说明框内部严禁使用 `<h2>`/`<h3>`，统一使用 `<p>`，保证全页仅有 1 个 `<h1>`，信息/文章页静态 HTML 为严格的 `H1 -> H2 -> H3` 树。
   - 工具页前后对比记录复用 `client/src/lib/recentHistory.ts`（IndexedDB 单事务保留相邻两次结果）。
 - **结构化数据与机器资产**：
@@ -94,4 +94,8 @@ cd client && npx astro check && npm run build
 # 后端单测与 Linux amd64 纯 Go 交叉编译
 cd server && go test ./...
 cd server && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /tmp/detectradar-server ./cmd/server
+
+# macOS 菜单栏客户端单测与打包（Command Line Tools 环境）
+cd macos && swift test --disable-xctest -Xswiftc -plugin-path -Xswiftc /Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing
+cd macos && ./scripts/build-app.sh && codesign --verify --deep --strict dist/DetectRadarBar.app
 ```

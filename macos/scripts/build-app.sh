@@ -13,7 +13,10 @@ cd "$ROOT_DIR"
 echo "==> Building $APP_NAME ($ARCH)..."
 if [[ "$ARCH" == "universal" ]]; then
   swift build -c release --arch arm64 --arch x86_64
-  BIN_PATH="$ROOT_DIR/.build/apple/Products/Release/$APP_NAME"
+  BIN_PATH="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/$APP_NAME"
+  if [[ ! -x "$BIN_PATH" && -x "$ROOT_DIR/.build/apple/Products/Release/$APP_NAME" ]]; then
+    BIN_PATH="$ROOT_DIR/.build/apple/Products/Release/$APP_NAME"
+  fi
 else
   swift build -c release
   BIN_PATH="$(swift build -c release --show-bin-path)/$APP_NAME"

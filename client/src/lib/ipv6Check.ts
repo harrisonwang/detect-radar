@@ -174,7 +174,7 @@ export function evaluateIPv6(v4: StackExit | null, v6: StackExit | null): IPv6Ve
     return {
       state: 'clear',
       reason: 'v4-only',
-      note: '当前网络仅连通 IPv4，不存在 IPv6 旁路泄露。',
+      note: '当前网络仅连通 IPv4，不存在 IPv6 泄露。',
     };
   }
 
@@ -201,7 +201,7 @@ export function evaluateIPv6(v4: StackExit | null, v6: StackExit | null): IPv6Ve
     return {
       state: 'leaked',
       reason: 'mainland-bypass',
-      note: `IPv4 出口在海外（${stackRegionLabel(ipv4)}），但 IPv6 经${leakedCarrier || '国内运营商'}直连，存在 IPv6 旁路泄露。`,
+      note: `IPv4 出口在海外（${stackRegionLabel(ipv4)}），但 IPv6 经${leakedCarrier || '国内运营商'}直连，存在 IPv6 泄露。`,
       ...(leakedCarrier ? { leakedCarrier } : {}),
     };
   }
@@ -210,7 +210,7 @@ export function evaluateIPv6(v4: StackExit | null, v6: StackExit | null): IPv6Ve
     return {
       state: 'clear',
       reason: 'domestic-dual',
-      note: 'IPv4 与 IPv6 均在中国大陆直连，属正常双栈网络。',
+      note: 'IPv4 与 IPv6 均在中国大陆直连，未见异常。',
     };
   }
 
@@ -220,14 +220,14 @@ export function evaluateIPv6(v4: StackExit | null, v6: StackExit | null): IPv6Ve
     return {
       state: 'clear',
       reason: 'matched-dual',
-      note: `IPv4 与 IPv6 出口均位于${r4}，未见旁路泄露。`,
+      note: `IPv4 与 IPv6 出口均位于${r4}，未见泄露。`,
     };
   }
 
   return {
     state: 'clear',
     reason: 'overseas-split',
-    note: `未测到国内宽带 IPv6 旁路（IPv4 位于${r4}，IPv6 位于${r6}，多见于双栈分流或 WARP）。`,
+    note: `未测到国内运营商 IPv6 直连（IPv4 位于${r4}，IPv6 位于${r6}，常见于分流节点或 WARP）。`,
   };
 }
 
@@ -323,6 +323,6 @@ export function compareIPv6(previous: IPv6Check, current: IPv6Check): IPv6Compar
     previousVerdict,
     v4Change,
     v6Change,
-    summary: unchanged ? 'IPv4 与 IPv6 出口均和上次一致。' : null,
+    summary: unchanged ? 'IPv4 与 IPv6 出口均与上次一致' : null,
   };
 }

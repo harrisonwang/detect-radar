@@ -6,10 +6,10 @@ import { ABOUT_FAQS } from '../lib/seoContent';
 ---
 
 <Layout
-	title="检测说明：DNS 泄露判断、住宅与机房 IP 识别及浏览器指纹说明"
+	title="检测说明：DNS、WebRTC 与 IPv6 泄露判断及隐私说明"
 	canonical="/about/"
 	ogImage="/og-about.png"
-	description="说明 DetectRadar 的检测范围、DNS 泄露怎么判断、哪些情况测不到，以及数据隐私保护与常见问题解答。"
+	description="说明 DetectRadar 检测哪些内容，DNS、WebRTC 和 IPv6 泄露怎么判断，终端与 AI 助手用法，以及数据隐私保护与常见问题。"
 	pageType="article"
 	faqs={ABOUT_FAQS}
 	dateModified="2026-11-24"
@@ -19,102 +19,93 @@ import { ABOUT_FAQS } from '../lib/seoContent';
 		<main class="flex-1 mx-auto w-full max-w-3xl px-6 py-16 prose prose-invert prose-headings:font-semibold prose-headings:scroll-mt-28 prose-a:text-(--radar-400)">
 			<h1>检测说明</h1>
 			<p>
-				DetectRadar 是一个免费、免注册的开源网络环境与代理泄露检测工具。它把你访问网页时的出口 IP 信息（区分住宅 IP 与机房 IP），和浏览器的时区、语言、DNS / WebRTC / IPv6 泄露信号以及浏览器指纹放在一起比对，直接呈现检测到的事实。
+				打开 DetectRadar 就能查看你当前的出口 IP（普通宽带还是机房）、时区和语言对不对得上、有没有 DNS / WebRTC / IPv6 泄露，以及浏览器指纹是否正常。下面说明各项结果是怎么判断的。
 			</p>
 
-			<h2>检测范围</h2>
+			<h2>检测哪些内容</h2>
 			<ul>
 				<li>
-					<strong>出口网络身份</strong>：识别当前出口 IP 的归属地、ASN 与运营商，结合云厂商网段、BGP 宣告与反向解析区分普通家庭或办公宽带（常称住宅 IP）与云服务器、托管机房 IP，并检查公开黑名单（DNSBL / PBL）、常见开放代理端口与 Tor 出口列表。物理延迟仅按实测毫秒数展示，不主观打分。
+					<strong>出口 IP 与线路类型</strong>：查看出口地区和运营商，区分普通家庭或办公宽带（住宅 IP）与云服务器/机房 IP；同时核对是否列入公开黑名单、有没有开放常见代理端口，以及是不是 Tor 匿名出口节点。
 				</li>
 				<li>
-					<strong>环境一致性</strong>：核对浏览器时区与出口 IP 所在地区的时区偏移是否匹配，以及浏览器首选语言是否符合出口国家或地区的常用语言。页面上显示的 CPU 核心数、内存和触控点只作展示，不会当作异常扣分。
+					<strong>时区与语言</strong>：核对浏览器时区、常用语言是否与出口地区一致。页面显示的 CPU、内存等设备参数仅作参考，不计入异常。
 				</li>
 				<li>
-					<strong>网络泄露</strong>：比对 WebRTC 获取到的公网候选地址、DNS 解析出口以及全局 IPv6 地址，查看是否存在和当前主出口不同的网络路径。
+					<strong>网络泄露</strong>：检查 DNS、WebRTC 和 IPv6 有没有绕开当前出口，走回本地宽带或其他线路。
 				</li>
 				<li>
-					<strong>浏览器指纹与自动化</strong>：检查 Canvas、Audio、WebGL 等原生绘制接口是否被外部插件改写，检查浏览器自动化控制标记，并核对 WebGL 显卡信息与浏览器声明的操作系统是否相符（只对照操作系统，不对照出口国家）。
+					<strong>浏览器指纹</strong>：检查网页绘图与音频接口（Canvas / Audio）有没有被插件改写、是否存在自动化脚本标记，以及 WebGL 显卡型号与操作系统是否相符（只核对系统，不对照出口地区）。
 				</li>
 			</ul>
 
 			<h2 id="dns">DNS 泄露怎么判断</h2>
 			<p>
-				<a href="/dns-leak-test/">DNS 泄露检测页</a>每次测试都会生成独立的随机探测域名，不会受到历史缓存影响，由自建权威 DNS 服务记录实际向本站发起解析请求的 DNS 服务器。
-			</p>
-			<p>
-				<strong>只有当你的出口 IP 位于海外，同时检测到了中国大陆宽带运营商的本地 DNS 服务器时，才会判定为“泄露”。</strong>
+				<a href="/dns-leak-test/">DNS 泄露检测</a>每次都会使用全新随机域名，避开浏览器和系统缓存，直接看是哪台 DNS 服务器在替你解析。
 			</p>
 			<ul>
-				<li>如果当前出口本来就在中国大陆，使用本地或公共 DNS 属于正常直连路径，判为“未泄露”。</li>
-				<li>
-					阿里 DNS（223.5.5.5 / 223.6.6.6）、腾讯 DNSPod（119.29.29.29）、AdGuard DNS、Cloudflare（1.1.1.1）、Google（8.8.8.8）、Quad9、OpenDNS、NextDNS 等常见公共 DNS，以及常规海外机房 DNS 会跳过运营商泄露判定，避免误报成国内运营商直连泄露。
-				</li>
-				<li>如果测试请求被插件或网络拦截导致没有收到解析记录，页面会显示“无 DNS 结果”；缺少归属地信息时显示“无法判断”。</li>
+				<li><strong>泄露</strong>：出口 IP 在海外，同时测到了中国大陆运营商的本地 DNS。</li>
+				<li><strong>未泄露</strong>：本身在中国大陆直连；或测到阿里 DNS、腾讯 DNSPod、Cloudflare、Google、AdGuard、Quad9、OpenDNS、NextDNS 等公共 DNS 与常规机房 DNS。</li>
+				<li><strong>无 DNS 结果 / 无法判断</strong>：请求被插件或网络拦截导致没有记录时显示「无 DNS 结果」；缺少归属信息或采样不完整时显示「无法判断」。</li>
 			</ul>
 
 			<h2 id="webrtc">WebRTC 泄露怎么判断</h2>
 			<p>
-				<a href="/webrtc-leak-test/">WebRTC 泄露检测页</a>会在浏览器本地发起 STUN ICE 候选收集，并按规范化 IPv6 与本地归属库核查公网地址、内网地址暴露与全局 IPv6 候选；首页与专项页共用同一套纯本地归属判定口径（不留存候选记录）。
+				WebRTC 是浏览器自带的音视频直连功能，有时会绕开代理透出本机 IP。<a href="/webrtc-leak-test/">WebRTC 泄露检测</a>会核对暴露出的公网与内网地址是否与当前出口同地区、同运营商（不留存记录）。
 			</p>
 			<ul>
-				<li><strong>判为“泄露”</strong>：WebRTC 公网 IP 与当前出口属于不同国家/地区（严格区分中国大陆与中国香港/澳门/台湾）、不同运营商/ASN，或在机房/代理出口下旁路暴露了非同网公网地址（含纯 IPv4 代理漏出原生 IPv6）。</li>
-				<li><strong>判为“未泄露”</strong>：WebRTC 公网 IP 与当前出口一致、同属同一 IPv6 <code>/64</code> 前缀（RFC 4941 临时隐私地址）、同归属网络下的正常 IPv4/IPv6 双栈、直连非机房网络下的同运营商 ASN CGNAT 多出口、仅返回 mDNS（<code>*.local</code>）或局域网内网地址，或已禁用 WebRTC 接口。</li>
-				<li><strong>判为“无法判断”</strong>：已获取到 WebRTC 公网 IP，但未能获取当前出口 IP 或归属信息进行比对。</li>
-				<li><strong>能力边界</strong>：禁用 WebRTC 后不会收集浏览器 ICE 候选；如需独立排查双栈 IPv6 旁路，请直接使用 <a href="/ipv6-leak-test/">IPv6 泄露检测页</a> 或在终端执行 <code>curl -4 -s https://4.detectradar.com/api/v1/ip</code> 与 <code>curl -6 -s https://6.detectradar.com/api/v1/ip</code>。</li>
+				<li><strong>泄露</strong>：暴露出跨地区（中国大陆与港澳台分开算）或跨运营商的公网 IP，或绕过代理漏出本机地址（包括代理只管了 IPv4 却漏出原生 IPv6）。</li>
+				<li><strong>未泄露</strong>：公网 IP 与出口一致；同运营商直连下的 IPv4/IPv6、共享出口或同网段临时 IPv6；仅看到局域网内网地址或浏览器隐藏真实 IP 后生成的 *.local 地址；或已关闭 WebRTC。</li>
+				<li><strong>无法判断</strong>：测到了公网 IP，但未能获取当前出口或归属信息进行比对。</li>
 			</ul>
 
 			<h2 id="ipv6">IPv6 泄露怎么判断</h2>
 			<p>
-				<a href="/ipv6-leak-test/">IPv6 泄露检测页</a>与首页综合检测均通过独立并发连接纯 IPv4 节点（<code>4.detectradar.com</code>）与纯 IPv6 节点（<code>6.detectradar.com</code>）测得真实双栈出口，<strong>不依赖 WebRTC 接口</strong>，彻底禁用 WebRTC 时仍可独立判断。
+				<a href="/ipv6-leak-test/">IPv6 泄露检测</a>与首页综合检测都会同时测试纯 IPv4 与纯 IPv6 两条线路，分别查看实际出口。
 			</p>
 			<ul>
-				<li><strong>判为“泄露”</strong>：IPv4 出口位于中国大陆以外，同时测得 IPv6 经中国大陆宽带或移动运营商（非机房网段）直连。</li>
-				<li><strong>判为“未泄露”</strong>：仅连通 IPv4（无 IPv6 路由）、IPv4 与 IPv6 均在中国大陆直连、IPv6 为海外跨区双栈（含中国香港/澳门/台湾或 WARP 等双栈分流），或仅连通 IPv6。</li>
-				<li><strong>判为“无法判断”</strong>：IPv4 与 IPv6 探测节点均未能连通。</li>
+				<li><strong>泄露</strong>：IPv4 出口在中国大陆以外，而 IPv6 经中国大陆运营商直连。</li>
+				<li><strong>未泄露</strong>：只通 IPv4 或只通 IPv6；两条线都在国内直连；或 IPv6 走海外及中国香港、澳门、台湾节点（含分流节点或 WARP）。</li>
+				<li><strong>无法判断</strong>：IPv4 与 IPv6 两条线路均未连通。</li>
 			</ul>
 
-			<h2 id="boundaries">哪些情况测不到，以及隐私说明</h2>
+			<h2 id="boundaries">局限性与隐私保护</h2>
 			<ul>
-				<li>只分析当前打开页面的这一条连接，不提供任意 IP 查询，也不会根据单个 IP 去猜测访问用途。</li>
-				<li>检测结果“未见明显异常”只代表当前可检测项目之间没有发现明显矛盾或泄露，不代表目标网站的风控规则，本工具也不负责隐藏身份或修改指纹。</li>
-				<li>IPv6 专项页与首页均在前端与服务端严格排除中国香港、澳门、台湾及海外机房双栈分流，仅将中国大陆非机房 IPv6 旁路标为泄露。</li>
-				<li>Canvas、Audio、WebGL 的渲染结果和扩展列表都会先在浏览器本地算成 SHA-256 哈希值再上报，不上传原始画面；报告分享图片在本地生成，复制文字与保存图片都会自动隐藏完整 IP。详情可查看<a href="/privacy/">隐私政策</a>和<a href="/terms/">服务条款</a>。</li>
+				<li>只检测你当前这一条网络连线，不支持输入任意第三方 IP 来查。</li>
+				<li>结果写着「未见明显异常」，只代表这次各项信息彼此对得上、没发现泄露，不保证目标网站不会风控；DetectRadar 只做检测，不提供代理或改指纹功能。</li>
+				<li>Canvas、Audio、WebGL 的渲染结果和扩展列表都在浏览器本地算成无法还原原样的匿名哈希后再提交（不上传原始画面和插件明细，仅显卡型号原文核对系统）；分享文字与截图也在本地生成并自动隐藏完整 IP。详情见<a href="/privacy/">隐私政策</a>和<a href="/terms/">服务条款</a>。</li>
 			</ul>
 
-			<h2 id="cli">终端查询与 AI Agent 使用</h2>
+			<h2 id="cli">终端查询与 AI 助手</h2>
 			<p>
-				如果你在排查「浏览器出口正常，但终端、Git 或 AI 编程工具（Claude Code、Codex、Cursor 等）走错了代理或直连」，无需安装客户端，直接用系统自带的 <code>curl</code> 和 <code>dig</code> 即可核对当前终端出口与 DNS：
+				排查终端、Git 或 AI 编程工具走错代理时，可以直接用系统自带的 curl 和 dig 查看当前终端的出口 IP 与 DNS：
 			</p>
-			<h3>1. 查询终端当前出口（IPv4 / IPv6）</h3>
+			<h3>1. 查看终端出口（IPv4 / IPv6）</h3>
 			<pre><code>curl -s https://detectradar.com/api/v1/ip
 curl -s https://4.detectradar.com/api/v1/ip
 curl -s https://6.detectradar.com/api/v1/ip</code></pre>
 			<p>
-				返回 JSON 包含当前连接的 <code>ip</code>、<code>country</code>、<code>city</code>、<code>asn</code>、<code>org</code>、<code>usage_type</code>（固定为 <code>isp</code>、<code>hosting</code> 或 <code>unknown</code>）以及 <code>tier</code>。默认走本地 <code>L1+L2</code> 并按出口 IP 复用服务端缓存，HTTP 响应头固定 <code>Cache-Control: no-store</code>，切换代理后可立即看到新出口；如需补充第三方深度识别可附加 <code>?deep=true</code>（受全站每日配额保护，超限时自动回退本地结果）。
+				接口返回当前连接的地区、运营商、网络编号（ASN）和线路类型（isp 为普通宽带，hosting 为机房，unknown 为未知），响应不走客户端缓存，切换代理后再查会立刻看到新出口。默认仅查本地库；想进一步核查是否属于已知代理可附加 <code>?deep=true</code>（受全站每日配额限制，超限自动回退本地结果）。
 			</p>
-			<h3>2. 终端 3 步检测 DNS 解析出口</h3>
+			<h3>2. 终端检测 DNS 出口</h3>
 			<pre><code># 1. 创建一次性探测域名
 curl -s -X POST https://detectradar.com/api/v1/leaks/dns \
   -H "Content-Type: application/json" -d '{}'
 
-# 2. 用上一步返回的 test_domain 触发真实解析
+# 2. 用返回的 test_domain 触发一次真实解析
 dig +short "r1.&lt;test_domain&gt;"
 
-# 3. 用返回的 id 取回实际捕获到的 DNS 解析器列表
+# 3. 等待 1–2 秒后，用返回的 id 取回实际捕获到的 DNS 服务器列表
 curl -s "https://detectradar.com/api/v1/leaks/dns/&lt;id&gt;"</code></pre>
 			<p>
-				将返回的 <code>dns_servers</code> 与上一步查到的出口国家对照，即可判断终端 DNS 是否回落至国内宽带运营商。
+				单测未绑定出口时 assessment.state 为 unknown，把查到的 DNS 列表和当前出口地区对照，就能看出终端 DNS 有没有漏回国内运营商。
 			</p>
-			<h3>3. AI Agent 技能文件（SKILL.md）</h3>
+			<h3>3. 让 AI 助手自动排查</h3>
 			<p>
-				如果希望让 Claude Code、Codex、Cursor 等 Agent 按统一口径自动执行上述检查并避免误读字段，可直接让它读取纯文本指令文件：<a href="/SKILL.md"><code>https://detectradar.com/SKILL.md</code></a>。
+				把 <a href="/SKILL.md" class="break-all">https://detectradar.com/SKILL.md</a> 发给 Antigravity、Claude Code 或 Codex，就能自动跑完上面的检查。终端接口免鉴权并按 IP 限流（请勿高频轮询），且测不到浏览器 WebRTC、时区语言与指纹，排查网页环境请直接打开首页检测。
 			</p>
-			<ul>
-				<li>终端接口仅能观测当前终端进程的出口 IP 与 DNS，<strong>测不到</strong>浏览器 WebRTC、时区/语言一致性与浏览器指纹；排查网页环境请直接在浏览器访问本站工具页。</li>
-				<li>接口免鉴权且按 IP 限流，请勿用于高频循环轮询或批量探测第三方资产。</li>
-				<li>如果希望在 Mac 菜单栏随时查看出口与 IPv6 泄露提醒，可使用开源的 <a href="/macos/">DetectRadar for macOS</a>。</li>
-			</ul>
+			<p>
+				如果用 Mac，也可以装 <a href="/macos/">DetectRadar for macOS</a>，在菜单栏随时看出口 IP 和 IPv6 泄露提醒。
+			</p>
 
 			<h2 id="faq">常见问题</h2>
 			<div class="not-prose mt-4 divide-y divide-slate-800/70 border-y border-slate-800/70">

@@ -245,7 +245,7 @@ export function compareDNS(previous: DNSCheck, current: DNSCheck, after: Map<str
   return {
     previousVerdict,
     improved: beforeStatus === 'suspected' && afterStatus === 'clear',
-    summary: stable ? (dnsIPsChanged ? 'DNS 服务商未变，地址有变化。' : '与上次一致') : '',
+    summary: stable ? (dnsIPsChanged ? 'DNS 服务商未变，地址有变化' : '与上次一致') : '',
     dnsChanges, exitChange, addedIPs, removedIPs,
   };
 }

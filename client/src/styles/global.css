@@ -188,8 +188,28 @@ body {
   scroll-margin-top: 5rem;
 }
 
-.prose :not(pre) > code {
+.prose code:not(pre code):not(:where(.not-prose, .not-prose *)) {
   overflow-wrap: anywhere;
+  padding: 0.12em 0.36em;
+  border-radius: 0.3125rem;
+  background: rgba(148, 163, 184, 0.14);
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-weight: 400;
+  font-size: 0.86em;
+  color: var(--slate-200);
+}
+.prose code:not(pre code):not(:where(.not-prose, .not-prose *))::before,
+.prose code:not(pre code):not(:where(.not-prose, .not-prose *))::after {
+  content: none;
+}
+.prose a code:not(:where(.not-prose, .not-prose *)) {
+  color: inherit;
+}
+.prose pre:not(:where(.not-prose, .not-prose *)) {
+  background: rgba(7, 13, 27, 0.85);
+  border: 1px solid rgba(30, 41, 59, 0.9);
+  border-radius: 0.75rem;
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
 
 /* 2.5D 等距实测路径画布（放在 global.css 以避免 Astro 条件挂载丢样式） */

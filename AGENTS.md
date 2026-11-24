@@ -42,7 +42,7 @@
 
 ### 2.2 一致性、泄露与指纹边界（`client/src/lib/report.ts`、`client/src/lib/collectors/`）
 - **一致性维度**：仅比对浏览器 `Intl` 时区（按 UTC 偏移归一）与出口 IP 时区、以及 `navigator.languages` 与出口国家常用语；**硬件参数行仅作展示，不计入冲突扣分**。
-- **WebGL 与指纹隐私**：WebGL 仅比对 `unmasked_renderer` 与 `navigator.platform`（操作系统一致性，**不与出口国家交叉比对**）；Canvas / Audio / WebGL 绘制结果与扩展列表在本地计算 SHA-256 哈希上传，仅 `unmasked_vendor` 与 `unmasked_renderer` 原文上传。
+- **WebGL 与指纹隐私**：WebGL 仅比对 `unmasked_renderer` 与 `navigator.platform`（操作系统一致性，**不与出口国家交叉比对**，后端仅对 Canvas / Audio 判 Hook）；Canvas / Audio / WebGL 绘制结果与扩展列表在本地计算不可逆哈希（`cyrb53`）上传，仅 `unmasked_vendor` 与 `unmasked_renderer` 原文上传。
 - **WebRTC 专项页与首页统一判定（`server/internal/service/webrtc.go`、`client/src/lib/webrtcCheck.ts`）**：页面状态词固定为 `泄露`、`未泄露`、`无法判断`（严禁自造“存在差异”等状态词）；前后端均按 RFC 5952 规范化 IPv6（修复上游 L3 补零全写导致的误判）并折合同一 IPv6 `/64` 临时隐私地址；当出现与出口不同的公网 IP 时，通过纯本地无留存接口 `POST /api/v1/leaks/webrtc/assessment`（与首页 `refineWebRTCPrivacy` 共用 `AssessWebRTC`）核对地区（区分大陆与港澳台）及 ASN/运营商归属：跨地区/跨运营商或代理/机房出口旁路暴露（含纯 IPv4 代理漏出原生 IPv6）判为 `泄露`；同 IP、同 `/64` 前缀、同归属双栈、非机房同 ASN 的运营商 CGNAT 多出口、仅返回 mDNS（`*.local`）或本机内网地址、已禁用 WebRTC 均判为 `未泄露`；缺少出口 IP 或归属信息时判为 `无法判断`。
 - **IPv6 独立双栈探针边界（`client/src/lib/collectors/leaks/ipv6.ts`、`client/src/lib/ipv6Check.ts`、`server/internal/service/scan.go`）**：首页与 `/ipv6-leak-test/` 均直接并发探测纯 IPv4（`4.detectradar.com`）与纯 IPv6（`6.detectradar.com`）接入点，**不依赖 WebRTC**；状态词固定为 `泄露`、`未泄露`、`无法判断`；后端 `refineIPv6Privacy` 会利用本地 L1+L2/Redis 缓存复核真实 IPv6 归属，并在前后端统一以 `isMainlandChina` 排除 `ip2region-cn` 标为 `CN` 的香港/澳门/台湾及海外机房双栈分流，仅在 IPv4 在中国大陆以外且 IPv6 为中国大陆非机房运营商接入网时判为 `泄露`。
 - **诊断总结词**：无异常时统一表述为 `未见明显异常`（避免与代码脱节的自造词）。
@@ -63,7 +63,7 @@
   - 实时诊断卡片、骨架屏、侧边说明框内部严禁使用 `<h2>`/`<h3>`，统一使用 `<p>`，保证全页仅有 1 个 `<h1>`，信息/文章页静态 HTML 为严格的 `H1 -> H2 -> H3` 树。
   - 工具页前后对比记录复用 `client/src/lib/recentHistory.ts`（IndexedDB 单事务保留相邻两次结果）。
 - **结构化数据与机器资产**：
-  - `client/src/layouts/Layout.astro` 支持 `pageType: 'home' | 'tool' | 'article' | 'static'`，统一输出单块 `@graph` JSON-LD（以 `@id` 关联 `Organization`、`WebSite`、`WebPage`、`WebApplication`、`TechArticle`、`FAQPage`），并支持按页面传入 `ogImage`（默认 `/og-default.png`，`1200×630`），自动同步至 `og:image`、`twitter:image` 与 `primaryImageOfPage`；信息页与文章页 `dateModified` 须与页面及 `client/astro.config.mjs` 的 Sitemap `lastmod` 一致。
+  - `client/src/layouts/Layout.astro` 支持 `pageType: 'home' | 'tool' | 'software' | 'article' | 'static'`，统一输出单块 `@graph` JSON-LD（以 `@id` 关联 `Organization`、`WebSite`、`WebPage`、`WebApplication`、`SoftwareApplication`、`TechArticle`、`FAQPage`），并支持按页面传入 `ogImage`（默认 `/og-default.png`，`1200×630`），自动同步至 `og:image`、`twitter:image` 与 `primaryImageOfPage`；信息页与文章页 `dateModified` 须与页面及 `client/astro.config.mjs` 的 Sitemap `lastmod` 一致。
   - `client/public/robots.txt` 保持 `Content-Signal: search=yes, ai-input=yes, ai-train=yes` 且不 `Disallow: /api/`；由 Nginx 模板（`deploy/setup/templates/site.conf.tpl`）对 `/api/` 和 `/health` 下发 `X-Robots-Tag "noindex, nofollow" always`。
   - 新增工具页或改动检测能力、判据、接口时，同步更新 `client/astro.config.mjs`、`client/src/pages/about.astro`、`client/public/llms.txt`（遵循 `llmstxt.org`）与 `client/public/llms-full.txt`。
   - FAQ 答案首句必须可独立引用，避免“本页”“系统”等悬空指代。

@@ -5,7 +5,7 @@ description: 使用 DetectRadar 公开接口排查终端进程与代理的出口
 
 # DetectRadar 终端自检技能（SKILL.md）
 
-本技能供 Claude Code、Codex、Cursor、OpenClaw 等具备终端执行能力的 AI Agent 直接读取使用，无需安装任何额外 CLI。所有接口免鉴权，仅检测当前发起请求的连接本身，不支持查询任意第三方 IP。
+本技能供 Antigravity、Claude Code、Codex、OpenClaw 等具备终端执行能力的 AI Agent 直接读取使用，无需安装任何额外 CLI。所有接口免鉴权，仅检测当前发起请求的连接本身，不支持查询任意第三方 IP。
 
 ## 适用场景
 

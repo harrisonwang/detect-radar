@@ -7,6 +7,16 @@ interface Alternate {
 	href: string;
 }
 
+interface SoftwareMeta {
+	name: string;
+	alternateName?: string;
+	operatingSystem: string;
+	applicationCategory?: string;
+	installUrl?: string;
+	downloadUrl?: string;
+	screenshots?: string[];
+}
+
 interface Props {
 	title?: string;
 	description?: string;
@@ -15,9 +25,10 @@ interface Props {
 	locale?: 'zh-CN' | 'en';
 	noindex?: boolean;
 	alternates?: Alternate[];
-	pageType?: 'home' | 'tool' | 'article' | 'static';
+	pageType?: 'home' | 'tool' | 'software' | 'article' | 'static';
 	appName?: string;
 	featureList?: string[];
+	software?: SoftwareMeta;
 	faqs?: FAQItem[];
 	dateModified?: string;
 }
@@ -33,6 +44,7 @@ const {
 	pageType = 'static',
 	appName,
 	featureList,
+	software,
 	faqs,
 	dateModified = '2026-11-21',
 } = Astro.props;
@@ -102,7 +114,7 @@ const graphNodes: Record<string, unknown>[] = [
 		dateModified,
 		isPartOf: { '@id': websiteId },
 		about:
-			pageType === 'home' || pageType === 'tool'
+			pageType === 'home' || pageType === 'tool' || pageType === 'software'
 				? { '@id': appId }
 				: pageType === 'article'
 					? { '@id': articleId }
@@ -129,6 +141,28 @@ if (pageType === 'home' || pageType === 'tool') {
 		offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
 		description,
 		featureList: featureList ?? DEFAULT_HOME_FEATURES,
+	});
+}
+
+if (pageType === 'software') {
+	const screenshots = software?.screenshots?.map((s) => new URL(s, site).href);
+	graphNodes.push({
+		'@type': 'SoftwareApplication',
+		'@id': appId,
+		name: software?.name ?? appName ?? (title ? `${BRAND} ${title}` : BRAND),
+		...(software?.alternateName ? { alternateName: software.alternateName } : {}),
+		url: canonicalURL.href,
+		applicationCategory: software?.applicationCategory ?? 'UtilitiesApplication',
+		operatingSystem: software?.operatingSystem ?? 'macOS 13.0 or later',
+		isAccessibleForFree: true,
+		inLanguage: locale,
+		license: 'https://opensource.org/licenses/MIT',
+		...(screenshots && screenshots.length > 0 ? { screenshot: screenshots } : {}),
+		...(software?.installUrl ? { installUrl: software.installUrl } : {}),
+		...(software?.downloadUrl ? { downloadUrl: software.downloadUrl } : {}),
+		publisher: { '@id': orgId },
+		offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+		description,
 	});
 }
 

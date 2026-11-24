@@ -479,7 +479,7 @@
       case 'local-exposed':
         return 'WebRTC 内网地址';
       case 'dual-stack':
-        return 'WebRTC 双栈 IP';
+        return 'WebRTC 公网 IP';
       case 'same-prefix':
         return 'WebRTC IPv6 地址';
       case 'same-network':
@@ -529,15 +529,15 @@
       }
       case 'dual-stack': {
         const ip = activePublicIPs[0];
-        return ip ? `${formatCandidateIP(ip)} · 同网双栈` : '同网 IPv4/IPv6 双栈';
+        return ip ? `${formatCandidateIP(ip)} · 同运营商` : '同运营商 IPv4/IPv6';
       }
       case 'same-prefix': {
         const ip = activePublicIPs[0];
-        return ip ? `${formatCandidateIP(ip)} · 同 /64 前缀` : '同 /64 前缀 IPv6';
+        return ip ? `${formatCandidateIP(ip)} · 同网段 IPv6` : '同网段 IPv6';
       }
       case 'same-network': {
         const ip = activePublicIPs[0];
-        return ip ? `${formatCandidateIP(ip)} · 同运营商 NAT` : '同运营商 CGNAT 出口';
+        return ip ? `${formatCandidateIP(ip)} · 共享出口` : '同运营商共享出口';
       }
       case 'assessment-unavailable': {
         const ip = activePublicIPs[0];

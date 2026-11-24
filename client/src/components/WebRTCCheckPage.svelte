@@ -344,11 +344,11 @@
                           {:else if matchesExit}
                             <span class="badge">与出口一致</span>
                           {:else if samePrefix}
-                            <span class="badge">同 /64 前缀</span>
+                            <span class="badge">同网段 IPv6</span>
                           {:else if isDualStack}
-                            <span class="badge">同网双栈</span>
+                            <span class="badge">同运营商</span>
                           {:else if isSameNetwork}
-                            <span class="badge">同运营商 NAT</span>
+                            <span class="badge">共享出口</span>
                           {/if}
                           {#if comparison?.addedPublicIPs.has(canonIP)}
                             <span class="badge new">新增</span>
@@ -557,9 +557,9 @@
           <i class="fa-solid fa-circle-info" aria-hidden="true"></i>检测说明
         </p>
         <ul class="rule-note">
-          <li>在浏览器本地收集 WebRTC 地址；出现与出口不同的公网 IP 时，通过服务端本地库核对地区与运营商归属（不留存）。</li>
-          <li>跨地区、跨运营商或代理旁路暴露的公网 IP 判为<strong>泄露</strong>；同归属双栈、同 IPv6 /64 前缀与同运营商 CGNAT 出口判为<strong>未泄露</strong>。</li>
-          <li>如需独立核对真实 IPv4 / IPv6 双栈出口，请使用 <a href="/ipv6-leak-test/" class="text-(--radar-400) underline underline-offset-4">IPv6 泄露检测</a>（不依赖 WebRTC）。</li>
+          <li>结果来自当前浏览器的 WebRTC 检测，不同公网 IP 仅做归属核对、不留存</li>
+          <li>测到不同地区、不同运营商或绕过代理的公网 IP，判为<strong>泄露</strong></li>
+          <li>同一运营商下的 IPv4 / IPv6 同时在线、同网段 IPv6 或共享出口不判泄露；如需单独排查 IPv6，请使用 <a href="/ipv6-leak-test/" class="text-(--radar-400) underline underline-offset-4">IPv6 泄露检测</a></li>
         </ul>
       </aside>
     </div>

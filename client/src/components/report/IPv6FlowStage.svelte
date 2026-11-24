@@ -506,15 +506,15 @@
       ? '待检测'
       : busy
         ? liveProgress?.phase === 'comparing'
-          ? '比对双栈归属…'
-          : '双栈并发探测中…'
+          ? '比对出口归属…'
+          : '并发探测中…'
         : verdictTitleWord,
   );
 
   let statusText = $derived.by(() => {
     if (!busy) return '';
-    if (!liveProgress) return '正在发起双栈探测';
-    if (liveProgress.phase === 'comparing') return '正在比对双栈归属…';
+    if (!liveProgress) return '正在测试 IPv4 与 IPv6 出口';
+    if (liveProgress.phase === 'comparing') return '正在比对出口归属…';
     if (liveProgress.v4Done && !liveProgress.v6Done) return 'IPv4 已响应，等待 IPv6…';
     if (!liveProgress.v4Done && liveProgress.v6Done) return 'IPv6 已响应，等待 IPv4…';
     return '正在并发探测 IPv4 与 IPv6';
@@ -535,16 +535,16 @@
           : 'IPv4 出口：未能连通 4.detectradar.com';
       case 'judge': {
         const cleanNote = verdictNote ? verdictNote.replace(/。$/, '') : '';
-        return `双栈比对：${verdictTitleText}${cleanNote && !busy ? ` — ${cleanNote}` : ''}`;
+        return `出口归属比对：${verdictTitleText}${cleanNote && !busy ? ` — ${cleanNote}` : ''}`;
       }
     }
   });
 
   let ariaSummary = $derived(
     isIdle
-      ? 'IPv6 双栈路径图：等待并发探测 4.detectradar.com 与 6.detectradar.com'
+      ? 'IPv6 路径图：等待同时测试 4.detectradar.com 与 6.detectradar.com'
       : busy && !hasResult
-        ? 'IPv6 双栈路径图：正在并发探测 IPv4 与 IPv6 出口'
+        ? 'IPv6 路径图：正在同时测试 IPv4 与 IPv6 出口'
         : `IPv6 实测路径图：IPv4 为 ${v4Name}（${v4DisplayIP}）；IPv6 为 ${v6Name}（${v6DisplayIP}）；结论：${verdictTitleText}${verdictReason ? '' : ''}`,
   );
 </script>
@@ -720,13 +720,13 @@
     {/if}
   </g>
 
-  <!-- 4. 双栈比对 -->
+  <!-- 4. 出口归属比对 -->
   {@const jg = pos.judge}
   <g
     class="dfs-node-hit"
     role="button"
     tabindex="0"
-    aria-label="查看节点：双栈比对"
+    aria-label="查看节点：出口归属比对"
     onclick={() => toggleNode('judge')}
     onkeydown={(e) => handleNodeKey(e, 'judge')}
     transform={`translate(${jg[0]}, ${jg[1]})`}
@@ -757,7 +757,7 @@
     <circle cx="0" cy="-8" r="4.5" fill={judgeAccent} opacity="0.95" />
     <path d="M 0 -22 V -16 M 0 0 V 6 M -14 -8 H -8 M 8 -8 H 14" stroke={judgeAccent} stroke-width="1.5" stroke-linecap="round" />
     <circle cx="0" cy="0" r="32" fill="transparent" />
-    <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#f8fafc" font-size={compact ? 11.5 : 12} font-weight="600">双栈归属比对</text>
+    <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#f8fafc" font-size={compact ? 11.5 : 12} font-weight="600">出口归属比对</text>
     <text x="0" y={compact ? 48 : 53} text-anchor="middle" fill={judgeAccent} font-size="10.5" font-weight="600">
       {verdictTitleText}
     </text>

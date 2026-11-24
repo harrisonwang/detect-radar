@@ -739,18 +739,18 @@ function webrtcUpperCopy(data: WebRTCShareCardInput): { title: string; sub: stri
     }
     case 'dual-stack':
       return {
-        title: 'WebRTC 双栈 IP',
-        sub: data.publicIPs[0] ? `${maskIP(data.publicIPs[0])} · 同网双栈` : '同网 IPv4/IPv6 双栈',
+        title: 'WebRTC 公网 IP',
+        sub: data.publicIPs[0] ? `${maskIP(data.publicIPs[0])} · 同运营商` : '同运营商 IPv4/IPv6',
       };
     case 'same-prefix':
       return {
         title: 'WebRTC IPv6 地址',
-        sub: data.publicIPs[0] ? `${maskIP(data.publicIPs[0])} · 同 /64 前缀` : '同 /64 前缀 IPv6',
+        sub: data.publicIPs[0] ? `${maskIP(data.publicIPs[0])} · 同网段 IPv6` : '同网段 IPv6',
       };
     case 'same-network':
       return {
         title: 'WebRTC 同网出口',
-        sub: data.publicIPs[0] ? `${maskIP(data.publicIPs[0])} · 同运营商 NAT` : '同运营商 CGNAT 出口',
+        sub: data.publicIPs[0] ? `${maskIP(data.publicIPs[0])} · 共享出口` : '同运营商共享出口',
       };
     case 'assessment-unavailable':
       return {
@@ -884,11 +884,11 @@ export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise
         : matchesExit
           ? '与出口一致'
           : samePrefix
-            ? '同 /64 前缀'
+            ? '同网段 IPv6'
             : data.verdictReason === 'dual-stack'
-              ? '同网双栈'
+              ? '同运营商'
               : data.verdictReason === 'same-network'
-                ? '同运营商 NAT'
+                ? '共享出口'
                 : '';
       if (tag) {
         ctx.font = font(11.5, 500, MONO);

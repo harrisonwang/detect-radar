@@ -10,8 +10,8 @@
 - **DNS 泄露检测（https://detectradar.com/dns-leak-test/）**：每次使用独立的随机子域名，通过自建权威 DNS 服务识别实际使用的 DNS 服务器及归属地，并在当前浏览器保留最近两次结果，方便换节点或改完 DNS 后对比差别。
 - **WebRTC 泄露检测（https://detectradar.com/webrtc-leak-test/）**：通过浏览器本地 STUN ICE 收集公网与内网候选地址，并与当前出口 IP 比对；展示 mDNS（`*.local`）隐藏状态与 ICE 捕获到的全局 IPv6，支持在同一浏览器保留最近两次检测并对比变化。
 - **IPv6 泄露检测（https://detectradar.com/ipv6-leak-test/）**：独立并发请求纯 IPv4 节点（`4.detectradar.com`）与纯 IPv6 节点（`6.detectradar.com`）实测真实双栈出口，不依赖浏览器 WebRTC，支持在同一浏览器保留最近两次检测并对比变化。
-- **DetectRadar for macOS（https://detectradar.com/macos/）**：开源免费的 Mac 菜单栏小工具（DetectRadarBar），一眼看当前出口国家与机房/宽带属性，点开复制完整 IP；仅在出口位于海外、IPv6 走中国大陆运营商时提醒，无设置页、不后台轮询，支持 Homebrew（`harrisonwang/tap/detectradar-bar`）与 GitHub Releases 安装。
-- **检测说明（https://detectradar.com/about/）**：说明检测范围、DNS、WebRTC 与 IPv6 泄露怎么判断、哪些情况测不到、数据隐私保护以及常见问题解答。
+- **DetectRadar for macOS（https://detectradar.com/macos/）**：Mac 菜单栏客户端（DetectRadarBar，macOS 13+，Apple Silicon / Intel），在菜单栏随时查看出口 IP 和机房/宽带，发现中国大陆以外出口出现大陆运营商 IPv6 直连泄露时提醒（事件驱动刷新，无后台轮询）；支持安装包与 Homebrew（`harrisonwang/tap/detectradar-bar`）安装，同页附面向 Antigravity / Claude Code / Codex 的 `SKILL.md` 终端自检用法。
+- **检测说明（https://detectradar.com/about/）**：说明检测内容、DNS / WebRTC / IPv6 泄露判断标准、局限性与隐私保护、终端查询与 AI 助手用法及常见问题。
 - **隐私政策（https://detectradar.com/privacy/）**、**服务条款（https://detectradar.com/terms/）**、**联系我们（https://detectradar.com/contact/）**。
 
 ---
@@ -39,12 +39,12 @@
   - 每次测试均生成独立随机子域名，不受历史 DNS 缓存影响。
   - 只有当出口 IP 位于海外，同时检测到了中国大陆宽带运营商的本地 DNS 服务器时，才判定为“泄露”。
   - 如果出口 IP 本身位于中国大陆，使用本地或公共 DNS 属于正常直连路径，判为“未泄露”。
-  - 阿里 DNS（223.5.5.5 / 223.6.6.6）、腾讯 DNSPod（119.29.29.29）、AdGuard DNS、Cloudflare（1.1.1.1）、Google（8.8.8.8）、Quad9、OpenDNS、NextDNS 等公共 DNS，以及常规海外机房 DNS 会跳过运营商泄露判定，不会误判为国内运营商泄露。
+  - 阿里 DNS（223.5.5.5 / 223.6.6.6）、腾讯 DNSPod（119.29.29.29）、AdGuard DNS、Cloudflare（1.1.1.1）、Google（8.8.8.8）、Quad9、OpenDNS、NextDNS 等公共 DNS，以及常规机房 DNS 会跳过运营商泄露判定，不会误判为国内运营商泄露。
   - 如果测试请求被浏览器、扩展或网络拦截导致未收到记录，显示“无 DNS 结果”；缺少归属地信息时显示“无法判断”。
 
 ### 4. 浏览器指纹与自动化
 
-- 检查 Canvas、Audio、WebGL 等原生绘制接口是否存在被改写的痕迹。
+- 检查 Canvas、Audio 等原生接口是否存在被改写的痕迹。
 - 核对 WebGL 显卡信息与浏览器声明的操作系统是否相符（仅对照操作系统，不对照出口国家）。
 - 检查是否存在浏览器自动化控制标记。
 
@@ -54,7 +54,7 @@
 
 - **查终端当前出口**：`curl -s https://detectradar.com/api/v1/ip`（或分别访问 `https://4.detectradar.com/api/v1/ip`、`https://6.detectradar.com/api/v1/ip` 核对双栈真实出口）。返回当前连接的 `ip`、`country`、`city`、`asn`、`org`、`usage_type`（枚举固定为 `isp` / `hosting` / `unknown`）和 `tier`。默认仅走本地 `L1+L2` 或复用服务端同 IP 的深扫缓存，HTTP 响应头固定 `Cache-Control: no-store`；附加 `?deep=true` 才请求第三方 L3 深度识别（受全站每日配额上限保护，超限时自动回退 `L1+L2`）。
 - **终端 3 步 DNS 探测**：`POST https://detectradar.com/api/v1/leaks/dns` 获取 `id` 与 `test_domain` → `dig +short "r1.<test_domain>"` 触发真实解析 → `GET https://detectradar.com/api/v1/leaks/dns/<id>` 获取实际捕获到的 `dns_servers`（对照当前出口国家判断，或提交至 `POST /api/v1/leaks/dns/assessment`）。
-- **Agent 技能文件**：https://detectradar.com/SKILL.md （纯文本 Markdown，供 Claude Code、Codex、Cursor 等直接读取，约定观测路径声明、字段口径与脱敏规范）。
+- **Agent 技能文件**：https://detectradar.com/SKILL.md （纯文本 Markdown，供 Antigravity、Claude Code、Codex 等直接读取，约定观测路径声明、字段口径与脱敏规范）。
 
 ---
 
@@ -63,7 +63,7 @@
 - 只分析发起检测的当前连接，不提供任意 IP 查询，也不根据单个 IP 猜测连接用途。
 - 终端命令仅能观测终端进程的出口 IP 与 DNS，无法检测浏览器 WebRTC、时区/语言一致性及浏览器指纹。
 - “未见明显异常”只代表本次检测没有命中已知矛盾或暴露项，不代表在任何第三方平台上一定安全或不会被风控拦截。
-- Canvas、Audio、WebGL 的渲染特征与扩展列表均在浏览器本地计算为 SHA-256 哈希值后再提交，不上传原始画面。
+- Canvas、Audio、WebGL 的渲染特征与扩展列表均在浏览器本地计算为不可逆哈希值后再提交，不上传原始画面（仅 WebGL 显卡型号字段原文用于与操作系统比对）。
 - 右上角「分享」支持「复制文字」与「保存图片」，均在浏览器本地完成且自动隐藏完整 IP。
 
 ---
@@ -73,9 +73,9 @@
 - 在线检测：https://detectradar.com/
 - DNS 泄露检测：https://detectradar.com/dns-leak-test/
 - WebRTC 泄露检测：https://detectradar.com/webrtc-leak-test/
+- IPv6 泄露检测：https://detectradar.com/ipv6-leak-test/
 - 检测说明与终端查询：https://detectradar.com/about/
 - DetectRadar for macOS：https://detectradar.com/macos/
 - AI Agent 技能文件：https://detectradar.com/SKILL.md
 - 站点地图：https://detectradar.com/sitemap.xml
 - 源码仓库：https://github.com/harrisonwang/detect-radar
-- IPv6 泄露检测：https://detectradar.com/ipv6-leak-test/

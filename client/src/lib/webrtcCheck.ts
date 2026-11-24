@@ -162,7 +162,7 @@ export function evaluateWebRTC(exit: DNSExit | null, rtc: RTCGatherResult): WebR
       return {
         state: 'clear',
         reason: 'dual-stack',
-        note: '测到另一协议栈的公网 IP，属正常 IPv4/IPv6 双栈。',
+        note: 'WebRTC 测到另一协议的公网 IP（IPv4/IPv6），属正常连接。',
         suspectIPs: [],
       };
     }
@@ -270,21 +270,21 @@ export function verdictFromAssessment(
       return {
         state: 'clear',
         reason: 'same-network',
-        note: 'WebRTC 测到同一运营商 ASN 下的公网出口（常见于蜂窝或运营商 CGNAT 出口池），未发现跨网泄露。',
+        note: 'WebRTC 测到同一运营商下的其他公网出口（常见于手机或共享出口），未发现跨网泄露。',
         suspectIPs: [],
       };
     case 'dual-stack':
       return {
         state: 'clear',
         reason: 'dual-stack',
-        note: 'WebRTC 测到另一协议栈的公网 IP，归属与当前出口一致，属正常 IPv4/IPv6 双栈。',
+        note: 'WebRTC 测到同一运营商下的另一协议公网 IP（IPv4/IPv6），属正常连接。',
         suspectIPs: [],
       };
     case 'same-prefix':
       return {
         state: 'clear',
         reason: 'same-prefix',
-        note: 'WebRTC 测到的 IPv6 地址与当前出口属于同一 /64 前缀（临时隐私地址），未发生泄露。',
+        note: 'WebRTC 测到的 IPv6 地址与当前出口同属一个网段（临时隐私地址），未发生泄露。',
         suspectIPs: [],
       };
     default:
@@ -498,6 +498,6 @@ export function compareWebRTC(previous: WebRTCCheck, current: WebRTCCheck): WebR
     publicChange,
     localChange,
     exitChange,
-    summary: unchanged ? 'WebRTC 地址与出口 IP 都和上次一样。' : null,
+    summary: unchanged ? 'WebRTC 地址与出口 IP 和上次一致' : null,
   };
 }

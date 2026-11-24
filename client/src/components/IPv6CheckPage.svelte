@@ -157,7 +157,7 @@
         {#if isLeak}
           <span class="badge danger">境内直连</span>
         {:else if isSplit}
-          <span class="badge">双栈分流</span>
+          <span class="badge">海外分流</span>
         {/if}
         {#if networkType}<span class="badge">{networkType}</span>{/if}
         {#if exit.asn}<span class="font-mono">{exit.asn}</span>{/if}
@@ -195,8 +195,8 @@
   <div role="status" class="sr-only">
     {busy
       ? current
-        ? '正在重新检测 IPv4 与 IPv6 双栈出口。'
-        : '正在检测 IPv4 与 IPv6 双栈出口。'
+        ? '正在重新检测 IPv4 与 IPv6 出口。'
+        : '正在检测 IPv4 与 IPv6 出口。'
       : current
         ? status.title
         : ''}
@@ -208,7 +208,7 @@
         {#if current.v4Error === 'limited' || current.v6Error === 'limited'}
           <div class="result-notice">
             <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
-            <span>部分双栈探测请求过于频繁，结果可能不完整。</span>
+            <span>部分检测请求过于频繁，结果可能不完整。</span>
           </div>
         {/if}
 
@@ -279,7 +279,7 @@
             <p class="verdict-title">
               <span class="dot" aria-hidden="true"></span>待检测 IPv6
             </p>
-            <p class="diagnosis-note">点击开始后将并发请求纯 IPv4 与纯 IPv6 节点比对双栈出口。</p>
+            <p class="diagnosis-note">点击开始后将同时测试 IPv4 与 IPv6 实际出口。</p>
             <button
               type="button"
               onclick={run}
@@ -342,9 +342,9 @@
           <i class="fa-solid fa-circle-info" aria-hidden="true"></i>检测说明
         </p>
         <ul class="rule-note">
-          <li>并发探测纯 IPv4 与纯 IPv6 入口，不依赖浏览器 WebRTC，禁用 WebRTC 也能测出结果。</li>
-          <li>当 IPv4 出口在海外、而 IPv6 经中国大陆宽带运营商直连时，判为<strong>泄露</strong>。</li>
-          <li>海外跨区双栈（如双栈分流或 WARP）、中国香港/澳门/台湾 IPv6 节点或国内正常双栈均判为<strong>未泄露</strong>。</li>
+          <li>同时测试当前网络的 IPv4 与 IPv6 实际出口</li>
+          <li>IPv4 出口在海外，而 IPv6 走中国大陆运营商直连时，判为<strong>泄露</strong></li>
+          <li>海外跨区 IPv6（如分流节点或 WARP）、港澳台节点及国内直连均判为<strong>未泄露</strong></li>
         </ul>
       </aside>
     </div>

@@ -393,8 +393,8 @@
           <i class="fa-solid fa-circle-info" aria-hidden="true"></i>检测说明
         </p>
         <ul class="rule-note">
-          <li>结果来自当前浏览器的 DNS 检测。</li>
-          <li>出口 IP 在海外，测到<span class="nowrap">国内运营商 DNS</span>，判为<strong>泄露</strong>。</li>
+          <li>结果来自当前浏览器的 DNS 检测</li>
+          <li>出口 IP 在海外，测到<span class="nowrap">国内运营商 DNS</span>，判为<strong>泄露</strong></li>
         </ul>
       </aside>
     </div>

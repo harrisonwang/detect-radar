@@ -270,9 +270,9 @@ export function formatWebRTCShareText(data: WebRTCShareTextInput): string {
         const masked = maskIPText(canon);
         if (suspectSet.has(canon)) return `${masked}（与出口不同）`;
         if (sameIP(canon, exitIP)) return `${masked}（与出口一致）`;
-        if (sameIPv6Prefix64(canon, exitIP)) return `${masked}（同 /64 前缀）`;
-        if (data.verdictReason === 'dual-stack') return `${masked}（同网双栈）`;
-        if (data.verdictReason === 'same-network') return `${masked}（同运营商 NAT）`;
+        if (sameIPv6Prefix64(canon, exitIP)) return `${masked}（同网段 IPv6）`;
+        if (data.verdictReason === 'dual-stack') return `${masked}（同运营商）`;
+        if (data.verdictReason === 'same-network') return `${masked}（共享出口）`;
         return masked;
       })
       .join('、');

@@ -206,6 +206,11 @@ function tzToZone(tz: string): string {
 
 // ---- 身份读数 ----
 
+function normalizeHumanRatio(v?: number): number | undefined {
+  if (typeof v !== "number" || !Number.isFinite(v)) return undefined;
+  return Math.max(0, Math.min(100, v));
+}
+
 function buildIdentity(
   a: IdentityAnalysis,
   intel: IPIntel | undefined,
@@ -247,7 +252,7 @@ function buildIdentity(
     confidence: intel?.confidence,
     tier: intel?.tier,
     method: intel?.detect_method,
-    humanRatio: intel?.human_ratio,
+    humanRatio: normalizeHumanRatio(intel?.human_ratio ?? a.human_ratio),
     ceilingNote,
     flags,
     fraudScore: a.fraud_score,

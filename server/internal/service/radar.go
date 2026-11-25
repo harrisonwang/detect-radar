@@ -6,47 +6,120 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 )
 
+const (
+	defaultRadarBaseURL          = "https://api.cloudflare.com/client/v4/radar/http/summary/BOT_CLASS"
+	defaultRadarCacheTTL         = 24 * time.Hour
+	defaultRadarNegativeCacheTTL = 6 * time.Hour
+	defaultRadarRequestTimeout   = 12 * time.Second
+	defaultRadarWaitTimeout      = 3500 * time.Millisecond
+	radarNegativeSentinel        = "none"
+)
+
+// radarCacheStore 抽象 Redis 字符串读写，便于生产直连 Redis、单测注入内存桩。
+type radarCacheStore interface {
+	Get(ctx context.Context, key string) (string, error)
+	Set(ctx context.Context, key string, value string, ttl time.Duration) error
+}
+
+type redisRadarStore struct {
+	client *redis.Client
+}
+
+func (r *redisRadarStore) Get(ctx context.Context, key string) (string, error) {
+	return r.client.Get(ctx, key).Result()
+}
+
+func (r *redisRadarStore) Set(ctx context.Context, key string, value string, ttl time.Duration) error {
+	return r.client.Set(ctx, key, value, ttl).Err()
+}
+
+type radarInflight struct {
+	done  chan struct{}
+	ratio *float64
+	err   error
+}
+
 // RadarService Cloudflare Radar API 服务
-// 用于获取 ASN 级别的真实用户占比数据
+// 用于获取 ASN 近 30 天发往 Cloudflare 的真实人类流量占比（0-100），缓存直走 Redis。
 type RadarService struct {
-	token      string
-	httpClient *http.Client
-	redis      *redis.Client
-	cacheTTL   time.Duration
+	token            string
+	baseURL          string
+	httpClient       *http.Client
+	store            radarCacheStore
+	cacheTTL         time.Duration
+	negativeCacheTTL time.Duration
+	requestTimeout   time.Duration
+	waitTimeout      time.Duration
+
+	inflightMu sync.Mutex
+	inflight   map[string]*radarInflight
 }
 
 // RadarConfig Radar 服务配置
 type RadarConfig struct {
-	Token    string
-	CacheTTL time.Duration
+	Token            string
+	BaseURL          string
+	CacheTTL         time.Duration
+	NegativeCacheTTL time.Duration
+	RequestTimeout   time.Duration
+	WaitTimeout      time.Duration
 }
 
-// NewRadarService 创建 Radar 服务
+// NewRadarService 创建 Radar 服务（生产缓存直走 Redis）
 func NewRadarService(cfg RadarConfig, redisClient *redis.Client) *RadarService {
-	if cfg.Token == "" {
+	var store radarCacheStore
+	if redisClient != nil {
+		store = &redisRadarStore{client: redisClient}
+	}
+	return newRadarServiceWithStore(cfg, store)
+}
+
+func newRadarServiceWithStore(cfg RadarConfig, store radarCacheStore) *RadarService {
+	if strings.TrimSpace(cfg.Token) == "" {
 		return nil
 	}
 
 	ttl := cfg.CacheTTL
-	if ttl == 0 {
-		ttl = 24 * time.Hour // 默认 24 小时缓存
+	if ttl <= 0 {
+		ttl = defaultRadarCacheTTL
+	}
+	negTTL := cfg.NegativeCacheTTL
+	if negTTL <= 0 {
+		negTTL = defaultRadarNegativeCacheTTL
+	}
+	reqTimeout := cfg.RequestTimeout
+	if reqTimeout <= 0 {
+		reqTimeout = defaultRadarRequestTimeout
+	}
+	waitTimeout := cfg.WaitTimeout
+	if waitTimeout <= 0 {
+		waitTimeout = defaultRadarWaitTimeout
+	}
+	baseURL := strings.TrimSpace(cfg.BaseURL)
+	if baseURL == "" {
+		baseURL = defaultRadarBaseURL
 	}
 
 	return &RadarService{
-		token: cfg.Token,
-		httpClient: &http.Client{
-			Timeout: 10 * time.Second,
-		},
-		redis:    redisClient,
-		cacheTTL: ttl,
+		token:            strings.TrimSpace(cfg.Token),
+		baseURL:          baseURL,
+		httpClient:       &http.Client{Timeout: reqTimeout},
+		store:            store,
+		cacheTTL:         ttl,
+		negativeCacheTTL: negTTL,
+		requestTimeout:   reqTimeout,
+		waitTimeout:      waitTimeout,
+		inflight:         make(map[string]*radarInflight),
 	}
 }
 
@@ -64,58 +137,141 @@ type cloudflareRadarResponse struct {
 	} `json:"result"`
 }
 
-// GetHumanRatio 获取 ASN 的真实用户占比
-// 返回 0-100 的百分比，nil 表示无法获取
+func normalizeASNNumber(asn string) string {
+	s := strings.TrimSpace(asn)
+	if len(s) >= 2 && strings.EqualFold(s[:2], "AS") {
+		s = strings.TrimSpace(s[2:])
+	}
+	if s == "" {
+		return ""
+	}
+	for i := 0; i < len(s); i++ {
+		if s[i] < '0' || s[i] > '9' {
+			return ""
+		}
+	}
+	return s
+}
+
+func clampPercent(v float64) float64 {
+	if math.IsNaN(v) || math.IsInf(v, 0) {
+		return 0
+	}
+	if v < 0 {
+		return 0
+	}
+	if v > 100 {
+		return 100
+	}
+	return v
+}
+
+// GetHumanRatio 获取 ASN 的近 30 天真实人类流量占比（0-100）。
+// Redis 命中时毫秒级返回；冷缓存采用同 ASN 请求合并 + 前台限时等待（默认 3.5s），
+// 避免 Cloudflare ClickHouse 慢查询拖慢整次扫描，同时后台继续完成拉取并写入 Redis 供后续命中。
 func (s *RadarService) GetHumanRatio(ctx context.Context, asn string) (*float64, error) {
 	if s == nil {
 		return nil, nil
 	}
 
-	// 规范化 ASN 格式（去掉 "AS" 前缀）
-	asnNum := strings.TrimPrefix(strings.ToUpper(asn), "AS")
+	asnNum := normalizeASNNumber(asn)
 	if asnNum == "" {
 		return nil, nil
 	}
 
-	// 1. 查缓存
+	// 1. 查 Redis 缓存（含无数据的负缓存哨兵）
 	cacheKey := s.cacheKey(asnNum)
-	if s.redis != nil {
-		cached, err := s.redis.Get(ctx, cacheKey).Result()
+	if s.store != nil {
+		cached, err := s.store.Get(ctx, cacheKey)
 		if err == nil {
-			ratio, err := strconv.ParseFloat(cached, 64)
-			if err == nil {
-				return &ratio, nil
+			if cached == radarNegativeSentinel {
+				return nil, nil
+			}
+			if ratio, parseErr := strconv.ParseFloat(cached, 64); parseErr == nil {
+				v := clampPercent(ratio)
+				return &v, nil
 			}
 		}
 	}
 
-	// 2. 调用 Cloudflare Radar API
-	ratio, err := s.fetchFromAPI(ctx, asnNum)
-	if err != nil {
-		log.Printf("[Radar] API error for ASN %s: %v", asnNum, err)
-		return nil, err
+	// 2. 同 ASN 并发合并 + 解耦上下文，慢查询不会阻塞前台扫描，完成后仍能预热 Redis
+	s.inflightMu.Lock()
+	call, exists := s.inflight[asnNum]
+	if !exists {
+		call = &radarInflight{done: make(chan struct{})}
+		s.inflight[asnNum] = call
+		go s.runFetch(asnNum, cacheKey, call)
 	}
+	s.inflightMu.Unlock()
 
-	// 3. 写缓存
-	if s.redis != nil && ratio != nil {
-		s.redis.Set(ctx, cacheKey, fmt.Sprintf("%.2f", *ratio), s.cacheTTL)
+	timer := time.NewTimer(s.waitTimeout)
+	defer timer.Stop()
+
+	select {
+	case <-call.done:
+		if call.err != nil || call.ratio == nil {
+			return nil, call.err
+		}
+		v := *call.ratio
+		return &v, nil
+	case <-timer.C:
+		log.Printf("[Radar] AS%s fetch still running after %v; returning early while warming Redis", asnNum, s.waitTimeout)
+		return nil, nil
+	case <-ctx.Done():
+		return nil, ctx.Err()
 	}
-
-	return ratio, nil
 }
 
-// fetchFromAPI 从 Cloudflare Radar API 获取数据
-func (s *RadarService) fetchFromAPI(ctx context.Context, asnNum string) (*float64, error) {
-	url := fmt.Sprintf("https://api.cloudflare.com/client/v4/radar/http/summary/BOT_CLASS?asn=%s&dateRange=30d", asnNum)
-	log.Printf("[Radar] Fetching from API: %s", url)
+func (s *RadarService) runFetch(asnNum, cacheKey string, call *radarInflight) {
+	defer func() {
+		close(call.done)
+		s.inflightMu.Lock()
+		delete(s.inflight, asnNum)
+		s.inflightMu.Unlock()
+	}()
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
+	bgCtx, cancel := context.WithTimeout(context.Background(), s.requestTimeout)
+	defer cancel()
+
+	ratio, err := s.fetchFromAPI(bgCtx, asnNum)
+	call.ratio = ratio
+	call.err = err
+
+	if err != nil || s.store == nil {
+		return
+	}
+
+	writeCtx, writeCancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer writeCancel()
+
+	if ratio != nil {
+		if setErr := s.store.Set(writeCtx, cacheKey, fmt.Sprintf("%.2f", *ratio), s.cacheTTL); setErr != nil {
+			log.Printf("[Radar] Redis set failed for AS%s: %v", asnNum, setErr)
+		}
+	} else {
+		// 该 ASN 在 Cloudflare Radar 无可用统计（例如小众网段或 AS13335），短时负缓存避免重复打上游
+		if setErr := s.store.Set(writeCtx, cacheKey, radarNegativeSentinel, s.negativeCacheTTL); setErr != nil {
+			log.Printf("[Radar] Redis negative cache set failed for AS%s: %v", asnNum, setErr)
+		}
+	}
+}
+
+// fetchFromAPI 从 Cloudflare Radar API 获取近 30 天人类流量占比
+func (s *RadarService) fetchFromAPI(ctx context.Context, asnNum string) (*float64, error) {
+	sep := "?"
+	if strings.Contains(s.baseURL, "?") {
+		sep = "&"
+	}
+	url := fmt.Sprintf("%s%sasn=%s&dateRange=30d", s.baseURL, sep, asnNum)
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Set("Authorization", "Bearer "+s.token)
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "application/json")
+	req.Header.Set("User-Agent", "DetectRadar/1.0")
 
 	resp, err := s.httpClient.Do(req)
 	if err != nil {
@@ -123,16 +279,13 @@ func (s *RadarService) fetchFromAPI(ctx context.Context, asnNum string) (*float6
 	}
 	defer resp.Body.Close()
 
-	// 读取完整响应体用于调试
-	body, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 256*1024))
 	if err != nil {
 		return nil, err
 	}
 
-	log.Printf("[Radar] API response status: %d, body: %s", resp.StatusCode, string(body))
-
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(body))
+		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 
 	var result cloudflareRadarResponse
@@ -147,10 +300,9 @@ func (s *RadarService) fetchFromAPI(ctx context.Context, asnNum string) (*float6
 		return nil, fmt.Errorf("API returned success=false")
 	}
 
-	// 解析 human 占比
-	humanStr := result.Result.Summary0.Human
-	log.Printf("[Radar] Parsed human ratio for ASN %s: %s", asnNum, humanStr)
+	humanStr := strings.TrimSpace(result.Result.Summary0.Human)
 	if humanStr == "" {
+		log.Printf("[Radar] AS%s has no 30d BOT_CLASS data", asnNum)
 		return nil, nil
 	}
 
@@ -159,7 +311,9 @@ func (s *RadarService) fetchFromAPI(ctx context.Context, asnNum string) (*float6
 		return nil, err
 	}
 
-	return &ratio, nil
+	clamped := clampPercent(ratio)
+	log.Printf("[Radar] AS%s 30d human ratio: %.2f%%", asnNum, clamped)
+	return &clamped, nil
 }
 
 // cacheKey 生成缓存键

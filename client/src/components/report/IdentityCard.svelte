@@ -40,6 +40,28 @@
     identity.fraudScore < 25 ? '很低' : identity.fraudScore < 50 ? '较低' : identity.fraudScore < 75 ? '偏高' : '高危',
   );
   let fraudColor = $derived(identity.fraudScore >= 50 ? 'var(--leak)' : identity.fraudScore >= 25 ? 'var(--warn)' : 'var(--sig)');
+
+  // Cloudflare Radar ASN 近 30 天人类流量占比（0-100）
+  let humanPct = $derived(
+    typeof identity.humanRatio === 'number' && Number.isFinite(identity.humanRatio)
+      ? Math.round(Math.max(0, Math.min(100, identity.humanRatio)) * 10) / 10
+      : null,
+  );
+  let botPct = $derived(humanPct != null ? Math.round((100 - humanPct) * 10) / 10 : null);
+  let humanWord = $derived(
+    humanPct == null ? '' : humanPct >= 70 ? '较高' : humanPct >= 40 ? '中等' : '偏低',
+  );
+  let humanColor = $derived(
+    humanPct == null ? 'var(--unknown)' : humanPct >= 70 ? 'var(--sig)' : humanPct >= 40 ? 'var(--warn)' : 'var(--leak)',
+  );
+  let asnDisplay = $derived.by(() => {
+    const raw = (identity.asn ?? '').trim();
+    if (!raw || raw === '—') return '—';
+    if (/^as\d+$/i.test(raw)) return raw.toUpperCase();
+    if (/^\d+$/.test(raw)) return `AS${raw}`;
+    return raw;
+  });
+  const pct = (x: number) => (Number.isInteger(x) ? String(x) : x.toFixed(1));
 </script>
 
 <div class="glass-card rounded-xl p-6 reveal" class:scan-focus={active} class:scan-settle={settled}>
@@ -53,12 +75,12 @@
 
   {#if isScanning && !settled}
     <div class="flex flex-col md:flex-row gap-6">
-      <div class="md:w-[32%] space-y-3">
+      <div class="md:w-[30%] space-y-3">
         <div class="h-8 w-44 bg-slate-800 rounded animate-pulse"></div>
         <div class="h-6 w-24 bg-slate-800/60 rounded animate-pulse"></div>
       </div>
-      <div class="flex-1 grid grid-cols-2 gap-4">
-        {#each Array(4) as _}<div class="h-10 bg-slate-800/50 rounded animate-pulse"></div>{/each}
+      <div class="flex-1 grid grid-cols-2 lg:grid-cols-3 gap-4">
+        {#each Array(6) as _}<div class="h-10 bg-slate-800/50 rounded animate-pulse"></div>{/each}
       </div>
     </div>
   {:else if idle}
@@ -66,7 +88,7 @@
   {:else}
     <div class="flex flex-col md:flex-row gap-6">
       <!-- 左：核芯 IP -->
-      <div class="md:w-[32%] md:border-r border-slate-800 md:pr-6 flex flex-col justify-center">
+      <div class="md:w-[30%] md:border-r border-slate-800 md:pr-6 flex flex-col justify-center min-w-0">
         <div class="text-xs text-(--slate-500) mb-1.5">出口 IP</div>
         <ExitIPAddress ip={identity.ip} {revealed} {onToggleReveal} {onCopyFeedback} />
         <div class="mt-3.5">
@@ -79,8 +101,8 @@
         </div>
       </div>
 
-      <!-- 右：2x2 属性栅格 -->
-      <div class="flex-1 grid grid-cols-2 gap-x-6 gap-y-5">
+      <!-- 右：3x2 属性栅格（窄屏 2x3） -->
+      <div class="flex-1 grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5 min-w-0">
         <div class="min-w-0">
           <div class="text-xs text-(--slate-500) mb-1 flex items-center gap-1.5">
             <i class="fa-solid fa-location-dot text-[10px]"></i> 归属地
@@ -94,28 +116,56 @@
           <div class="text-xs text-(--slate-500) mb-1 flex items-center gap-1.5">
             <i class="fa-solid fa-building text-[10px]"></i> 运营商
           </div>
-          <div class="text-sm text-(--slate-200) truncate" title="{identity.org} {identity.asn}">{identity.org}</div>
+          <div class="text-sm text-(--slate-200) truncate" title={identity.org}>{identity.org}</div>
         </div>
 
-        <div>
+        <div class="min-w-0">
+          <div class="text-xs text-(--slate-500) mb-1 flex items-center gap-1.5">
+            <i class="fa-solid fa-network-wired text-[10px]"></i> ASN
+          </div>
+          <div class="text-sm font-mono text-(--slate-200) truncate" title={asnDisplay}>{asnDisplay}</div>
+        </div>
+
+        <div class="min-w-0">
           <div class="text-xs text-(--slate-500) mb-1 flex items-center gap-1.5">
             <i class="fa-solid fa-shield-halved text-[10px]"></i> 欺诈评分
           </div>
-          <div class="text-sm">
+          <div class="text-sm whitespace-nowrap">
             <span class="tnum text-(--slate-200)">{identity.fraudScore}</span>
             <span class="text-(--slate-600)"> / 100</span>
             <span class="ml-1" style="color:{fraudColor}">({fraudWord})</span>
           </div>
         </div>
 
-        <div>
+        <div class="min-w-0">
           <div class="text-xs text-(--slate-500) mb-1 flex items-center gap-1.5">
             <i class="fa-solid fa-list-check text-[10px]"></i> 黑名单
           </div>
-          <div class="text-sm flex items-center gap-1.5">
+          <div class="text-sm flex items-center gap-1.5 whitespace-nowrap">
             <span class="dot" style="background:{identity.blacklist.length ? 'var(--leak)' : 'var(--sig)'}; --_soft:transparent"></span>
             <span style="color:{identity.blacklist.length ? 'var(--leak)' : 'var(--sig)'}">{identity.blacklist.length ? `命中 ${identity.blacklist.length}` : '未命中'}</span>
           </div>
+        </div>
+
+        <div
+          class="min-w-0"
+          title={humanPct != null && botPct != null
+            ? `人类 ${pct(humanPct)}% / 机器人 ${pct(botPct)}% · Cloudflare Radar 网段统计`
+            : 'Cloudflare Radar 暂无该网段数据'}
+        >
+          <div class="text-xs text-(--slate-500) mb-1 flex items-center gap-1.5">
+            <i class="fa-solid fa-users text-[10px]"></i> 人类流量
+            <span class="text-[10px] text-(--slate-600)">近30天</span>
+          </div>
+          {#if humanPct != null}
+            <div class="text-sm flex items-center gap-1.5 whitespace-nowrap">
+              <span class="dot" style="background:{humanColor}; --_soft:transparent"></span>
+              <span class="tnum text-(--slate-200)">{pct(humanPct)}%</span>
+              <span style="color:{humanColor}">({humanWord})</span>
+            </div>
+          {:else}
+            <div class="text-sm text-(--slate-500)">暂无数据</div>
+          {/if}
         </div>
       </div>
     </div>

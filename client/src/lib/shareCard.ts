@@ -446,9 +446,16 @@ export async function renderShareCard(
   // 带 RTT 读数时加高一档，底部放「物理延迟」读数行（与页面 IdentityCard 同构）
   const idY = topY + mainH + 20;
   const rtt = report.rtt;
+  const humanPct =
+    typeof report.identity.humanRatio === "number" &&
+    Number.isFinite(report.identity.humanRatio)
+      ? Math.round(Math.max(0, Math.min(100, report.identity.humanRatio)) * 10) /
+        10
+      : null;
+  const fmtPct = (x: number) => (Number.isInteger(x) ? String(x) : x.toFixed(1));
   const idH = rtt ? 152 : 118;
   panel(ctx, PAD, idY, W - PAD * 2, idH);
-  const idCy = idY + (rtt ? 46 : idH / 2); // 上排（IP + 四列读数）的纵向中心
+  const idCy = idY + (rtt ? 46 : idH / 2); // 上排（IP + 属性读数）的纵向中心
   let ix = PAD + 28;
   text(ctx, "出口 IP", ix, idCy - 25, { font: font(12), color: C.slate500 });
   text(ctx, report.identity.masked || "—", ix, idCy + 7, {
@@ -470,7 +477,7 @@ export async function renderShareCard(
     13,
   );
 
-  // 右侧四列读数
+  // 右侧读数（与页面 IdentityCard 同风格）
   const cols = [
     {
       label: "归属地",
@@ -507,18 +514,33 @@ export async function renderShareCard(
         : "未命中",
       color: report.identity.blacklist.length ? C.leak : C.sig,
     },
+    {
+      label: "人类流量(30天)",
+      value:
+        humanPct != null
+          ? `${fmtPct(humanPct)}%（${humanPct >= 70 ? "较高" : humanPct >= 40 ? "中等" : "偏低"}）`
+          : "暂无数据",
+      color:
+        humanPct == null
+          ? C.slate500
+          : humanPct >= 70
+            ? C.sig
+            : humanPct >= 40
+              ? C.warn
+              : C.leak,
+    },
   ];
   // 归属地/运营商内容长，按权重分列宽
-  const colsX = PAD + 480;
+  const colsX = PAD + 470;
   const colsTotal = W - PAD - 28 - colsX;
-  const weights = [1.5, 1.1, 0.7, 0.7];
+  const weights = [1.45, 1.15, 0.72, 0.62, 0.82];
   const weightSum = weights.reduce((a, b) => a + b, 0);
   let cx = colsX;
   cols.forEach((c, i) => {
     const colW = (colsTotal * weights[i]) / weightSum;
     text(ctx, c.label, cx, idCy - 16, { font: font(12), color: C.slate500 });
     ctx.font = font(14, 500);
-    text(ctx, truncate(ctx, c.value, colW - 18), cx, idCy + 12, {
+    text(ctx, truncate(ctx, c.value, colW - 14), cx, idCy + 12, {
       font: font(14, 500),
       color: c.color,
     });
@@ -572,6 +594,8 @@ export async function renderShareCard(
   const detY = idY + idH + 20;
   const detH = H - detY - PAD - 34;
   const detW = (W - PAD * 2 - 40) / 3;
+  const detStart = 68;
+  const detStep = 33;
   const sections = [
     {
       title: "环境一致性",
@@ -604,7 +628,7 @@ export async function renderShareCard(
       STATE_SOFT[s.state],
     );
     s.rows.slice(0, 5).forEach((r, j) => {
-      const ry = detY + 68 + j * 33;
+      const ry = detY + detStart + j * detStep;
       dot(ctx, sx + 28, ry, STATE_COLOR[r.state], STATE_SOFT[r.state]);
       text(ctx, r.label, sx + 44, ry, { font: font(13), color: C.slate400 });
       ctx.font = font(13);

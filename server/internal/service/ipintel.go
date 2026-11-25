@@ -110,12 +110,20 @@ func (s *IPIntelService) Lookup(ctx context.Context, ip string, opts LookupOptio
 
 	// 1. 查缓存（如果启用）；读出时同步规范化 IP 字段，自动自愈历史补零 IPv6 缓存。
 	if !opts.SkipCache && s.cache != nil {
-		if cached := s.getCache(ctx, ip, opts); cached != nil {
+		if cached, fromDeep := s.getCache(ctx, ip, opts); cached != nil {
 			cp := cloneIntel(cached)
 			if normalized := util.CanonicalIP(cp.IP); normalized != "" {
 				cp.IP = normalized
 			} else {
 				cp.IP = ip
+			}
+			// 历史 IP 缓存若缺少 Cloudflare Radar 占比，从 Radar 的 Redis 缓存按需补齐并回写
+			if cp.HumanRatio == nil && s.radarService != nil && s.radarService.IsEnabled() && cp.ASN != "" {
+				if humanRatio, err := s.radarService.GetHumanRatio(ctx, cp.ASN); err == nil && humanRatio != nil {
+					cp.HumanRatio = humanRatio
+					cp.Tip = generateTip(cp)
+					s.setCache(ctx, ip, cp, fromDeep)
+				}
 			}
 			return cp, nil
 		}
@@ -608,30 +616,31 @@ func appendTier(existing, layer string) string {
 	return existing + "+" + layer
 }
 
-// getCache 获取缓存；非深扫查询优先复用已存在的 deep 缓存（确保首页深扫与专项页/curl 结果一致）
-func (s *IPIntelService) getCache(ctx context.Context, ip string, opts LookupOptions) *model.IPIntel {
+// getCache 获取缓存；非深扫查询优先复用已存在的 deep 缓存（确保首页深扫与专项页/curl 结果一致）。
+// 返回值第二个 bool 标识命中是否来自 deep 缓存，便于按原层级回写补齐字段。
+func (s *IPIntelService) getCache(ctx context.Context, ip string, opts LookupOptions) (*model.IPIntel, bool) {
 	if opts.DeepScan {
 		intel, err := s.cache.GetDeep(ctx, ip)
 		if err != nil {
 			log.Printf("[IPIntel] Cache get deep error for %s: %v", ip, err)
-			return nil
+			return nil, false
 		}
-		return intel
+		return intel, intel != nil
 	}
 
 	// 优先复用深扫缓存，零额外成本且保证同 IP 在首页与专项页/终端结果一致
 	if intel, err := s.cache.GetDeep(ctx, ip); err != nil {
 		log.Printf("[IPIntel] Cache get deep error for %s: %v", ip, err)
 	} else if intel != nil {
-		return intel
+		return intel, true
 	}
 
 	intel, err := s.cache.GetBasic(ctx, ip)
 	if err != nil {
 		log.Printf("[IPIntel] Cache get basic error for %s: %v", ip, err)
-		return nil
+		return nil, false
 	}
-	return intel
+	return intel, false
 }
 
 // setCache 设置缓存

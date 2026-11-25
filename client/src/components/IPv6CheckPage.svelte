@@ -17,6 +17,7 @@
     type StackExit,
   } from '../lib/ipv6Check';
   import { emptyHistory } from '../lib/recentHistory';
+  import { trackEvent } from '../lib/analytics';
   import { isAutomatedCrawler } from '../lib/crawler';
   import { renderIPv6ShareCard, saveShareImage } from '../lib/toolShareCard';
   import { copyShareText, formatIPv6ShareText } from '../lib/shareSummary';
@@ -51,13 +52,15 @@
       const navigation = performance.getEntriesByType('navigation')[0] as
         | PerformanceNavigationTiming
         | undefined;
-      if (!history.current || navigation?.type === 'navigate') await run();
+      if (!history.current || navigation?.type === 'navigate') await run('auto');
     }
     void restore();
   });
 
-  async function run() {
+  async function run(mode: 'auto' | 'manual' | 'retest' = 'retest') {
     if (busy || !ready) return;
+    if (mode === 'retest') trackEvent('scan-retest', { page: 'ipv6' });
+    else trackEvent('scan-start', { page: 'ipv6', trigger: mode });
     busy = true;
     liveProgress = null;
     try {
@@ -94,7 +97,9 @@
         v6Region: current.v6?.ip ? stackRegionLabel(current.v6) : '',
         v6TypeLabel: current.v6?.ip ? exitTypeLabel(dnsExitType(current.v6)) : '',
       });
-      toast?.show(await saveShareImage(blob, 'detectradar-ipv6'));
+      const shareMsg = await saveShareImage(blob, 'detectradar-ipv6');
+      trackEvent('share-save-image', { page: 'ipv6' });
+      toast?.show(shareMsg);
     } catch (err) {
       toast?.show('分享图生成失败：' + (err as Error).message);
     } finally {
@@ -104,6 +109,7 @@
 
   async function handleCopyText() {
     if (!current || busy || !verdict) return;
+    trackEvent('share-copy-text', { page: 'ipv6' });
     const text = formatIPv6ShareText({
       verdictState: verdict.state,
       verdictTitle: status.title,
@@ -182,7 +188,7 @@
   page="ipv6"
   onCopyText={handleCopyText}
   onScreenshot={handleScreenshot}
-  onRescan={run}
+  onRescan={() => run('retest')}
   isScanning={!ready || busy}
   ready={!!current}
 />
@@ -282,7 +288,7 @@
             <p class="diagnosis-note">点击开始后将同时测试 IPv4 与 IPv6 实际出口。</p>
             <button
               type="button"
-              onclick={run}
+              onclick={() => run('manual')}
               class="mt-3 text-sm px-3.5 py-1.5 rounded-lg transition-colors cursor-pointer"
               style="color:var(--radar-400); background:var(--sig-soft)"
             >开始检测</button>

@@ -137,7 +137,8 @@ type ScanNetwork struct {
 
 // RTTData 浏览器测得的应用层往返时延（含代理腿）
 type RTTData struct {
-	Samples    []float64 `json:"samples"` // 每次探测的应用层往返 ms
+	ProbeID    string    `json:"probe_id,omitempty"` // 一次性窗口关联键，仅用于归集同窗口 /ping 的 TCP RTT
+	Samples    []float64 `json:"samples"`            // 每次探测的应用层往返 ms
 	MinMS      float64   `json:"min_ms"`
 	MedianMS   float64   `json:"median_ms"`
 	JitterMS   float64   `json:"jitter_ms"` // max-min
@@ -211,9 +212,11 @@ type RTTAnalysis struct {
 	ClientMinMS    float64  `json:"client_min_ms,omitempty"` // 浏览器测得（含代理腿）
 	ClientMedianMS float64  `json:"client_median_ms,omitempty"`
 	ClientJitterMS float64  `json:"client_jitter_ms,omitempty"`
-	ServerTCPMS    float64  `json:"server_tcp_ms,omitempty"` // nginx 测得：出口 IP ↔ 服务器
+	ServerTCPMS    float64  `json:"server_tcp_ms,omitempty"`     // nginx 测得：出口 IP ↔ 服务器（POST /scans 时刻）
+	ServerTCPMinMS float64  `json:"server_tcp_min_ms,omitempty"` // 探测窗口内 /ping 的最小 $tcpinfo_rtt
 	ServerRTTVarMS float64  `json:"server_rtt_var_ms,omitempty"`
-	DeltaMS        *float64 `json:"delta_ms,omitempty"`   // client_min - server_tcp，≈ 浏览器→出口 这一腿
+	DeltaMS        *float64 `json:"delta_ms,omitempty"`     // client_min - server_tcp，历史兼容口径
+	DeltaMinMS     *float64 `json:"delta_min_ms,omitempty"` // client_min - server_tcp_min，同窗口 min 对 min
 	GeoMinMS       *float64 `json:"geo_min_ms,omitempty"` // IP 声称位置到本机的物理最小 RTT
 	GeoDistanceKM  *float64 `json:"geo_distance_km,omitempty"`
 	GeoViolation   *bool    `json:"geo_violation,omitempty"` // server_tcp < geo_min（IP 位置与延迟矛盾）

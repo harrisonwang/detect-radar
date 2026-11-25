@@ -178,6 +178,7 @@ export interface LeaksResults {
 
 /** RTT 探测数据（应用层往返时延，单位 ms） */
 export interface RTTData {
+  probe_id?: string;      // 一次性窗口关联键，供服务端归集同窗口 /ping 的最小 TCP RTT
   samples: number[];      // 每次探测的应用层往返 ms（已丢弃首次预热）
   min_ms: number;         // 最小值——最承重的统计量（详见 network/rtt.ts）
   median_ms: number;

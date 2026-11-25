@@ -17,6 +17,7 @@
   import { collectFingerprintAudit } from '../lib/collectors/fingerprintAudit';
   import type { AllCollectorResults } from '../lib/collectors/types';
   import * as api from '../lib/api';
+  import { trackEvent } from '../lib/analytics';
   import { isAutomatedCrawler } from '../lib/crawler';
   import { buildReport, type ReportModel, type IdentityReadout } from '../lib/report';
   import { renderShareCard } from '../lib/shareCard';
@@ -186,7 +187,9 @@
     return '检测失败，请稍后重试';
   }
 
-  async function runScan() {
+  async function runScan(mode: 'auto' | 'manual' | 'retest' = 'retest') {
+    if (mode === 'retest') trackEvent('scan-retest', { page: 'home' });
+    else trackEvent('scan-start', { page: 'home', trigger: mode });
     isScanning = true;
     scanError = null;
     dnsPending = true;
@@ -254,10 +257,10 @@
       scanStage = 'complete';
       return;
     }
-    runScan();
+    runScan('auto');
     // bfcache：浏览器后退会整页恢复旧状态，onMount 不再触发，需手动重扫
     const onPageShow = (e: PageTransitionEvent) => {
-      if (e.persisted) runScan();
+      if (e.persisted) runScan('auto');
     };
     window.addEventListener('pageshow', onPageShow);
     return () => {
@@ -310,6 +313,7 @@
         /* 剪贴板权限未开 */
       }
       downloadScreenshot(blob);
+      trackEvent('share-save-image', { page: 'home' });
       showToast(clipboardOk ? '分享图已复制并弹出下载' : '已弹出下载窗口（剪贴板权限未开）');
     } catch (error) {
       showToast('分享图生成失败：' + (error as Error).message);
@@ -332,6 +336,7 @@
 
   async function handleCopyText() {
     if (!report || isScanning) return;
+    trackEvent('share-copy-text', { page: 'home' });
     showToast(await copyShareText(formatHomeShareText(report)));
   }
 </script>
@@ -339,7 +344,7 @@
 <AppHeader
   onCopyText={handleCopyText}
   onScreenshot={handleScreenshot}
-  onRescan={runScan}
+  onRescan={() => runScan('retest')}
   isScanning={isScanning}
   ready={!!report && !isScanning}
 />
@@ -369,7 +374,7 @@
         />
       </div>
       <div class="lg:col-span-8">
-        <DiagnosisCard report={report} isScanning={isScanning} active={activeDimension === 'identity'} onCopyPromo={handleCopyPromo} onStart={runScan} />
+        <DiagnosisCard report={report} isScanning={isScanning} active={activeDimension === 'identity'} onCopyPromo={handleCopyPromo} onStart={() => runScan('manual')} />
       </div>
     </div>
 
@@ -379,7 +384,7 @@
         <p class="text-[15px] text-white">检测未完成</p>
         <p class="mt-1.5 text-xs text-(--slate-500) max-w-md mx-auto">{scanError}</p>
         <button
-          onclick={runScan}
+          onclick={() => runScan('retest')}
           class="mt-5 text-sm px-4 py-2 rounded-lg transition-colors cursor-pointer"
           style="color:var(--radar-400); background:var(--sig-soft)"
         >重新检测</button>

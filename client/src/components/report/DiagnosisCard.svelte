@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { ReportModel, Severity } from '../../lib/report';
   import { stateVar, stateSoft } from '../../lib/report';
+  import { specialistToolFromHref, trackEvent } from '../../lib/analytics';
 
   interface Props {
     report: ReportModel | null;
@@ -68,7 +69,14 @@
               </span>
               <div class="min-w-0 flex-1">
                 {#if href}
-                  <a {href} class="text-sm text-(--slate-200) leading-snug hover:text-(--radar-400) underline decoration-slate-600 underline-offset-4">
+                  <a
+                    {href}
+                    onclick={() => {
+                      const to = specialistToolFromHref(href);
+                      if (to) trackEvent('tool-open', { from: 'home', to, source: 'finding' });
+                    }}
+                    class="text-sm text-(--slate-200) leading-snug hover:text-(--radar-400) underline decoration-slate-600 underline-offset-4"
+                  >
                     {f.title}<i class="fa-solid fa-arrow-right ml-1.5 text-[10px]" aria-hidden="true"></i>
                   </a>
                 {:else}

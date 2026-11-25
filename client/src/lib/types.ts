@@ -255,9 +255,11 @@ export interface RTTAnalysis {
   client_min_ms?: number;    // 浏览器↔服务器全程（含代理腿），多次采样取最小
   client_median_ms?: number;
   client_jitter_ms?: number;
-  server_tcp_ms?: number;    // nginx 内核实测：出口 IP↔服务器
+  server_tcp_ms?: number;     // nginx 内核实测：出口 IP↔服务器（POST /scans 时刻）
+  server_tcp_min_ms?: number; // 探测窗口内 /ping 的最小服务端 TCP RTT
   server_rtt_var_ms?: number;
-  delta_ms?: number;         // client_min - server_tcp ≈ 浏览器↔出口 这一腿
+  delta_ms?: number;          // client_min - server_tcp，历史兼容口径
+  delta_min_ms?: number;      // client_min - server_tcp_min，同窗口 min 对 min
   geo_min_ms?: number;
   geo_distance_km?: number;
   geo_violation?: boolean;

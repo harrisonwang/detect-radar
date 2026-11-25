@@ -28,6 +28,23 @@ const BUDGET_MS = 3000;
 /** 时钟被隐私粗化到 ~1ms，保留 0.1ms 精度足够，同时抹掉浮点尾噪 */
 const round1 = (x: number) => Math.round(x * 10) / 10;
 
+/** 生成一次性探测窗口关联键（[A-Za-z0-9_-], 8..64 字符），绝不含用户信息 */
+function createProbeID(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.getRandomValues === 'function') {
+    const bytes = new Uint8Array(8);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  }
+  return (
+    Date.now().toString(36) +
+    Math.random().toString(36).slice(2) +
+    Math.random().toString(36).slice(2)
+  )
+    .replace(/[^a-z0-9]/gi, '')
+    .slice(0, 16)
+    .padEnd(8, '0');
+}
+
 function median(sorted: number[]): number {
   const n = sorted.length;
   const mid = Math.floor(n / 2);
@@ -80,6 +97,7 @@ export async function collectRTT(): Promise<CollectorResult<RTTData>> {
   }
 
   const startWall = performance.now();
+  const probeId = createProbeID();
   const samples: number[] = [];
   const probeUrls: string[] = [];
 
@@ -88,10 +106,9 @@ export async function collectRTT(): Promise<CollectorResult<RTTData>> {
       const remaining = BUDGET_MS - (performance.now() - startWall);
       if (remaining <= 0) break; // 预算耗尽，用已有样本收尾
 
-      // 缓存穿透：no-store + 唯一 query 参数确保每次探测都真的走网络。
-      // 同源 + H2 下 query 变化不会新建 TCP/TLS 连接（连接按 origin 复用），
-      // 仅让请求行不同、绕过缓存，正是我们想要的。
-      const url = `${API_BASE}/ping?_=${Date.now()}-${i}`;
+      // 缓存穿透：no-store + 唯一 query 参数确保每次探测都真的走网络；
+      // probe_id 走 query 参数（不加自定义头避免触发 CORS 预检）供服务端归集同窗口 TCP RTT。
+      const url = `${API_BASE}/ping?probe_id=${probeId}&_=${Date.now()}-${i}`;
       const controller = new AbortController();
       // 单次探测超时挂钩剩余总预算：任一探测都不可能把总耗时拖过 ~3s
       const timer = setTimeout(() => controller.abort(), remaining);
@@ -127,6 +144,7 @@ export async function collectRTT(): Promise<CollectorResult<RTTData>> {
     return {
       status: 'success',
       data: {
+        probe_id: probeId,
         samples,
         min_ms,
         median_ms: round1(median(sorted)),

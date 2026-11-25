@@ -30,6 +30,7 @@ type Services struct {
 	DNS         *service.DNSService         // DNS 泄露（P2）
 	DNSTap      *service.DNSTapService      // DNS 泄露记录端（P2）
 	Reputation  *service.ReputationService  // 出口 IP 信誉/暴露（P5）
+	RTTProbes   *service.RTTProbeStore      // /ping 探测窗口 TCP RTT 归集池
 	Journal     *service.Journal            // 内部遥测流水（不经 HTTP 暴露）
 }
 
@@ -94,6 +95,7 @@ func main() {
 	reputationService := service.NewReputationService(cfg.Reputation)
 	dnsService := service.NewDNSService(cfg.DNS, ipIntelService, journal)
 	dnsTapService := service.NewDNSTapService(cfg.DNS.Domain, dnsService)
+	rttProbes := service.NewRTTProbeStore()
 
 	services := &Services{
 		IPIntel:     ipIntelService,
@@ -101,12 +103,15 @@ func main() {
 		Reputation:  reputationService,
 		DNS:         dnsService,
 		DNSTap:      dnsTapService,
+		RTTProbes:   rttProbes,
 		Scan:        service.NewScanService(ipIntelService, consistencyService, reputationService, cfg.RTT.ServerLat, cfg.RTT.ServerLon, journal),
 		Journal:     journal,
 	}
 
 	// DNS 观测到位后由 DNS 服务重算已存扫描，把 post-DNS 判定写入遥测流水
 	dnsService.SetScanService(services.Scan)
+	services.Scan.SetRTTProbeStore(rttProbes)
+	defer rttProbes.Close()
 	defer dnsService.Close()
 	defer services.Scan.Close()
 
@@ -211,6 +216,11 @@ func setupRoutes(app *fiber.App, services *Services) {
 	//（探针动作，不是资源）。刻意做到最简——不查 IP、不落库、不写遥测，直接 204 且禁缓存
 	//（否则浏览器/中间层缓存会让第 2 次起测到 ~0）。全局限流已豁免本路径（见 middleware.RateLimit 注释）。
 	api.Get("/ping", func(c *fiber.Ctx) error {
+		if services.RTTProbes != nil && c.IsProxyTrusted() {
+			if probeID := c.Query("probe_id"); probeID != "" {
+				services.RTTProbes.Record(probeID, c.Get("X-TCP-RTT"))
+			}
+		}
 		c.Set("Cache-Control", "no-store")
 		return c.SendStatus(fiber.StatusNoContent)
 	})
@@ -220,6 +230,7 @@ func setupRoutes(app *fiber.App, services *Services) {
 	ipIntelHandler := handler.NewIPIntelHandler(services.IPIntel)
 	reputationHandler := handler.NewReputationHandler(services.Reputation)
 	api.Get("/ip", ipIntelHandler.GetMyIPIntel) // 获取客户端 IP 信息（HTTP 禁缓存，服务端按 IP 复用缓存）
+	api.Get("/ip/text", ipIntelHandler.GetMyIPText)
 	api.Get("/ip/reputation", reputationHandler.GetCurrentReputation)
 
 	// 综合扫描（P0）

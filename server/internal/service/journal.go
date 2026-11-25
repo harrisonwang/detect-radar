@@ -135,8 +135,14 @@ func distillRTT(r model.RTTAnalysis) map[string]any {
 	if r.ServerTCPMS > 0 {
 		m["server_tcp_ms"] = r.ServerTCPMS
 	}
+	if r.ServerTCPMinMS > 0 {
+		m["server_tcp_min_ms"] = r.ServerTCPMinMS
+	}
 	if r.DeltaMS != nil {
 		m["delta_ms"] = *r.DeltaMS
+	}
+	if r.DeltaMinMS != nil {
+		m["delta_min_ms"] = *r.DeltaMinMS
 	}
 	if r.GeoViolation != nil {
 		m["geo_violation"] = *r.GeoViolation

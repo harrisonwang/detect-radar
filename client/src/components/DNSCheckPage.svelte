@@ -5,6 +5,7 @@
   import ExitIPAddress from './report/ExitIPAddress.svelte';
   import ReportToast from './report/ReportToast.svelte';
   import { compareDNS, DNSCheckError, dnsNetworks, dnsProviderGroups, measureDNS, type DNSProgress, withDNSAssessment } from '../lib/dnsCheck';
+  import { trackEvent } from '../lib/analytics';
   import { isAutomatedCrawler } from '../lib/crawler';
   import { dnsHistory, emptyDNSHistory, type DNSHistory } from '../lib/dnsHistory';
   import { dnsExitType, dnsProviderName, dnsRegion, dnsStatus, dnsVerdictNote, exitTypeLabel } from '../lib/dnsPresentation';
@@ -65,13 +66,15 @@
       } catch { /* In browsers with storage restrictions, compare in this page. */ }
       ready = true;
       const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
-      if (!history.current || navigation?.type === 'navigate') await run();
+      if (!history.current || navigation?.type === 'navigate') await run('auto');
     }
     void restore();
   });
 
-  async function run() {
+  async function run(mode: 'auto' | 'manual' | 'retest' = 'retest') {
     if (busy || !ready) return;
+    if (mode === 'retest') trackEvent('scan-retest', { page: 'dns' });
+    else trackEvent('scan-start', { page: 'dns', trigger: mode });
     busy = true;
     failure = null;
     pendingExit = null;
@@ -117,7 +120,9 @@
         })),
         resolverCount: current.resolvers.length,
       });
-      toast?.show(await saveShareImage(blob, 'detectradar-dns'));
+      const shareMsg = await saveShareImage(blob, 'detectradar-dns');
+      trackEvent('share-save-image', { page: 'dns' });
+      toast?.show(shareMsg);
     } catch (err) {
       toast?.show('分享图生成失败：' + (err as Error).message);
     } finally {
@@ -126,6 +131,7 @@
   }
   async function handleCopyText() {
     if (!current || busy) return;
+    trackEvent('share-copy-text', { page: 'dns' });
     const text = formatDNSShareText({
       verdictState,
       verdictTitle: status.title,
@@ -173,7 +179,7 @@
   </div>
 {/snippet}
 
-<AppHeader page="dns" onCopyText={handleCopyText} onScreenshot={handleScreenshot} onRescan={run} isScanning={!ready || busy} ready={!!current} failureText={error?.title} />
+<AppHeader page="dns" onCopyText={handleCopyText} onScreenshot={handleScreenshot} onRescan={() => run('retest')} isScanning={!ready || busy} ready={!!current} failureText={error?.title} />
 
 <main class="report-main flex-1 min-w-0">
   <header class="mb-6">
@@ -321,7 +327,7 @@
             <p class="diagnosis-note">点击开始后将并发采集网页出口与权威 DNS 回溯。</p>
             <button
               type="button"
-              onclick={run}
+              onclick={() => run('manual')}
               class="mt-3 text-sm px-3.5 py-1.5 rounded-lg transition-colors cursor-pointer"
               style="color:var(--radar-400); background:var(--sig-soft)"
             >开始检测</button>

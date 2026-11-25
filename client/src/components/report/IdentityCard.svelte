@@ -201,14 +201,14 @@
             </div>
           {/if}
           {#if rtt.serverTCPMS != null}
-            <div title="本站从当前 TCP 连接读取的往返时间">
+            <div title="本站从探测窗口内 TCP 连接读取的往返时间">
               <span class="text-xs text-(--slate-500)">TCP 延迟</span>
               <span class="text-sm text-(--slate-200) tnum ml-1.5">{ms(rtt.serverTCPMS)}</span>
               <span class="text-xs text-(--slate-600)">ms</span>
             </div>
           {/if}
           {#if rtt.deltaMS != null}
-            <div title="延迟减去 TCP 延迟">
+            <div title="同窗口内应用延迟与服务器 TCP 延迟之差，可辅助参考代理中转额外耗时">
               <span class="text-xs text-(--slate-500)">延迟差</span>
               <span class="text-sm text-(--slate-200) tnum ml-1.5">{ms(rtt.deltaMS)}</span>
               <span class="text-xs text-(--slate-600)">ms</span>

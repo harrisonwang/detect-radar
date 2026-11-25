@@ -86,6 +86,10 @@ func parseTCPInfoMS(raw string) (float64, bool) {
 // 全部输入都当不可信/可选：client 为 nil、头缺失、intel 无坐标时都优雅降级为 nil 指针，
 // 绝不编造。Status：ok=两侧都有；partial=只有一侧；unavailable=两侧都无。
 func deriveRTT(client *model.RTTData, tcpRTT, tcpRTTVar string, intel *model.IPIntel, coords rttServerCoords) model.RTTAnalysis {
+	return deriveRTTWithServerMin(client, tcpRTT, tcpRTTVar, 0, intel, coords)
+}
+
+func deriveRTTWithServerMin(client *model.RTTData, tcpRTT, tcpRTTVar string, serverTCPMinMS float64, intel *model.IPIntel, coords rttServerCoords) model.RTTAnalysis {
 	var out model.RTTAnalysis
 
 	// —— 客户端应用层 RTT（含代理腿）——
@@ -129,6 +133,16 @@ func deriveRTT(client *model.RTTData, tcpRTT, tcpRTTVar string, intel *model.IPI
 	if haveClient && haveServer {
 		d := round1(out.ClientMinMS - out.ServerTCPMS)
 		out.DeltaMS = &d
+	}
+
+	// —— 同窗口 min 对 min：server_tcp_min_ms 与 delta_min_ms ——
+	haveServerMin := serverTCPMinMS > 0 && serverTCPMinMS <= implausibleRTTMs
+	if haveServerMin {
+		out.ServerTCPMinMS = serverTCPMinMS
+		if haveClient {
+			dMin := round1(out.ClientMinMS - out.ServerTCPMinMS)
+			out.DeltaMinMS = &dMin
+		}
 	}
 
 	// —— 地理-延迟下限校验 ——
@@ -177,10 +191,11 @@ func deriveRTT(client *model.RTTData, tcpRTT, tcpRTTVar string, intel *model.IPI
 	}
 
 	// —— Status ——
+	haveServerAny := haveServer || haveServerMin
 	switch {
-	case haveClient && haveServer:
+	case haveClient && haveServerAny:
 		out.Status = "ok"
-	case haveClient || haveServer:
+	case haveClient || haveServerAny:
 		out.Status = "partial"
 	default:
 		out.Status = "unavailable"

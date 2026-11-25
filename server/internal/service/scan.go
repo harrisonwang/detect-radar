@@ -23,6 +23,7 @@ type ScanService struct {
 	consistency *ConsistencyService
 	reputation  *ReputationService
 	rttCoords   rttServerCoords // 服务器坐标，用于 RTT 地理-延迟下限校验（Phase 1）
+	rttProbes   *RTTProbeStore  // 同一探测窗口内 /ping 的最小 TCP RTT 归集池
 	mu          sync.RWMutex
 	store       map[string]storedScan // 扫描实例标识 -> 不可变的响应快照
 	latest      map[string]string     // 客户端扫描标识 -> 最新实例
@@ -50,6 +51,11 @@ func NewScanService(ipIntel *IPIntelService, consistency *ConsistencyService, re
 	}
 	go s.cleanup()
 	return s
+}
+
+// SetRTTProbeStore 挂载 /ping 窗口采样归集池，用于计算同窗口最小 Δ（delta_min_ms）。
+func (s *ScanService) SetRTTProbeStore(probes *RTTProbeStore) {
+	s.rttProbes = probes
 }
 
 // Analyze 执行一次完整扫描分析。
@@ -99,7 +105,14 @@ func (s *ScanService) Analyze(ctx context.Context, req *model.ScanRequest, clien
 	resp.Analysis.Automation = buildAutomation(req)
 
 	// 2.2 RTT 物理探测（Phase 1 影子采集：只落库不计分，score() 不读 a.RTT）
-	resp.Analysis.RTT = deriveRTT(clientRTTData(req), tcpRTT, tcpRTTVar, intel, s.rttCoords)
+	clientRTT := clientRTTData(req)
+	var serverTCPMinMS float64
+	if s.rttProbes != nil && clientRTT != nil && clientRTT.ProbeID != "" {
+		if minMS, ok := s.rttProbes.Consume(clientRTT.ProbeID); ok {
+			serverTCPMinMS = minMS
+		}
+	}
+	resp.Analysis.RTT = deriveRTTWithServerMin(clientRTT, tcpRTT, tcpRTTVar, serverTCPMinMS, intel, s.rttCoords)
 
 	// 3. 评分 + 诊断 + 四维雷达分（rules.go 是唯一评分入口）
 	resp.Score, resp.RiskLevel, resp.Diagnosis, resp.Dimensions = score(resp.Analysis, intel)

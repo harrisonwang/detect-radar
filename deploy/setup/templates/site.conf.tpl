@@ -98,6 +98,41 @@ server {
         try_files $uri =404;
     }
 
+    location = / {
+        set $cli_ip 0;
+        if ($http_user_agent ~* "^(curl|wget|httpie|xh|fetch|libfetch)/") {
+            set $cli_ip 1;
+        }
+        if ($http_accept ~* "text/html") {
+            set $cli_ip 0;
+        }
+        if ($request_method !~ ^(GET|HEAD)$) {
+            set $cli_ip 0;
+        }
+        if ($cli_ip = 1) {
+            return 418;
+        }
+        error_page 418 = @cli_ip;
+        add_header Strict-Transport-Security "max-age=63072000" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Vary "User-Agent, Accept" always;
+        try_files /index.html =404;
+    }
+
+    location @cli_ip {
+        proxy_pass http://127.0.0.1:8080/api/v1/ip/text$is_args$args;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header Connection "";
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-Forwarded-Host $host;
+        proxy_connect_timeout 5s;
+        proxy_send_timeout 15s;
+        proxy_read_timeout 15s;
+    }
+
     location / {
         try_files $uri $uri/ =404;
     }

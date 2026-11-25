@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { trackEvent, type SpecialistTool } from '../../lib/analytics';
+
   interface Props {
     page?: "home" | "dns" | "webrtc" | "ipv6" | "static";
     onCopyText?: () => void;
@@ -57,6 +59,13 @@
     menuOpen = false;
   }
 
+  function handleToolNavClick(target: SpecialistTool) {
+    closeNavMenu();
+    if (page !== 'static' && page !== target) {
+      trackEvent('tool-open', { from: page, to: target, source: 'nav' });
+    }
+  }
+
   function handleWindowPointerDown(e: PointerEvent) {
     const target = e.target as Node | null;
     if (shareOpen && shareWrap && target && !shareWrap.contains(target)) {
@@ -100,9 +109,33 @@
 
       <nav id="site-nav" aria-label="主导航" class="site-nav" class:is-open={menuOpen}>
         <a href="/" aria-current={page === 'home' ? 'page' : undefined} onclick={closeNavMenu}>网络环境检测</a>
-        <a href="/dns-leak-test/" aria-current={page === 'dns' ? 'page' : undefined} onclick={closeNavMenu}>DNS 泄露检测</a>
-        <a href="/webrtc-leak-test/" aria-current={page === 'webrtc' ? 'page' : undefined} onclick={closeNavMenu}>WebRTC 泄露检测</a>
-        <a href="/ipv6-leak-test/" aria-current={page === 'ipv6' ? 'page' : undefined} onclick={closeNavMenu}>IPv6 泄露检测</a>
+        <a
+          href="/dns-leak-test/"
+          aria-current={page === 'dns' ? 'page' : undefined}
+          onclick={() => handleToolNavClick('dns')}
+          data-umami-event={page === 'static' ? 'tool-open' : undefined}
+          data-umami-event-from={page === 'static' ? 'static' : undefined}
+          data-umami-event-to={page === 'static' ? 'dns' : undefined}
+          data-umami-event-source={page === 'static' ? 'nav' : undefined}
+        >DNS 泄露检测</a>
+        <a
+          href="/webrtc-leak-test/"
+          aria-current={page === 'webrtc' ? 'page' : undefined}
+          onclick={() => handleToolNavClick('webrtc')}
+          data-umami-event={page === 'static' ? 'tool-open' : undefined}
+          data-umami-event-from={page === 'static' ? 'static' : undefined}
+          data-umami-event-to={page === 'static' ? 'webrtc' : undefined}
+          data-umami-event-source={page === 'static' ? 'nav' : undefined}
+        >WebRTC 泄露检测</a>
+        <a
+          href="/ipv6-leak-test/"
+          aria-current={page === 'ipv6' ? 'page' : undefined}
+          onclick={() => handleToolNavClick('ipv6')}
+          data-umami-event={page === 'static' ? 'tool-open' : undefined}
+          data-umami-event-from={page === 'static' ? 'static' : undefined}
+          data-umami-event-to={page === 'static' ? 'ipv6' : undefined}
+          data-umami-event-source={page === 'static' ? 'nav' : undefined}
+        >IPv6 泄露检测</a>
       </nav>
 
       <div class="report-actions">

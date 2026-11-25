@@ -84,8 +84,8 @@ export interface IdentityReadout {
  */
 export interface RTTReadout {
   clientMinMS?: number; // 浏览器↔服务器 全程（含代理腿）
-  serverTCPMS?: number; // 出口↔服务器（nginx 内核实测）
-  deltaMS?: number; // 两段之差 ≈ 浏览器↔出口 这一腿
+  serverTCPMS?: number; // 出口↔服务器（同探测窗口最小服务端 TCP RTT）
+  deltaMS?: number; // 浏览器→出口 这一腿的估计差值（delta_min_ms，展示收口非负）
   jitterMS?: number; // 客户端多次采样的抖动，悬停提示用
 }
 
@@ -695,16 +695,21 @@ function environmentRows(
 
 // ---- RTT 物理延迟读数 ----
 
-// 只透传三个能讲清的延迟值；两侧全缺（或旧缓存无 rtt 字段）时返回 undefined，整条不渲染。
-// Δ 可为 0 或负（测量噪声），用存在性判断而非 >0。
+// 仅消费同窗口 min 对 min 的 delta_min_ms（展示下限收口到 0）；两侧全缺（或旧缓存无 rtt 字段）时返回 undefined，整条不渲染。
 function buildRTT(a: ScanAnalysis): RTTReadout | undefined {
   const r = a.rtt;
   if (!r || r.status === "unavailable") return undefined;
   const pos = (x?: number) => (typeof x === "number" && x > 0 ? x : undefined);
+  const deltaMS =
+    typeof r.delta_min_ms === "number" && Number.isFinite(r.delta_min_ms)
+      ? r.delta_min_ms <= 0
+        ? 0
+        : r.delta_min_ms
+      : undefined;
   const out: RTTReadout = {
     clientMinMS: pos(r.client_min_ms),
-    serverTCPMS: pos(r.server_tcp_ms),
-    deltaMS: typeof r.delta_ms === "number" ? r.delta_ms : undefined,
+    serverTCPMS: pos(r.server_tcp_min_ms) ?? pos(r.server_tcp_ms),
+    deltaMS,
     jitterMS: pos(r.client_jitter_ms),
   };
   if (out.clientMinMS == null && out.serverTCPMS == null) return undefined;

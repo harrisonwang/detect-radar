@@ -93,11 +93,11 @@ import { ABOUT_FAQS } from '../lib/seoContent';
 				排查终端、Git 或 AI 编程工具走错代理时，可以直接用系统自带的 curl 和 dig 查看当前终端的出口 IP 与 DNS：
 			</p>
 			<h3>1. 查看终端出口（IPv4 / IPv6）</h3>
-			<pre><code>curl -s https://detectradar.com/api/v1/ip
-curl -s https://4.detectradar.com/api/v1/ip
-curl -s https://6.detectradar.com/api/v1/ip</code></pre>
+			<pre><code>curl -s https://detectradar.com
+curl -s https://4.detectradar.com
+curl -s https://6.detectradar.com</code></pre>
 			<p>
-				接口返回当前连接的地区、运营商、网络编号（ASN）和线路类型（isp 为普通宽带，hosting 为机房，unknown 为未知），响应不走客户端缓存，切换代理后再查会立刻看到新出口。默认仅查本地库；想进一步核查是否属于已知代理可附加 <code>?deep=true</code>（受全站每日配额限制，超限自动回退本地结果）。
+				命令行直接请求根路径会返回纯文本出口摘要；需要 JSON 结构化字段时可请求 <code>/api/v1/ip</code>（同样支持 <code>4.detectradar.com</code> 与 <code>6.detectradar.com</code>）。返回内容包含当前连接的地区、运营商、网络编号（ASN）和线路类型（isp 为普通宽带，hosting 为机房，unknown 为未知），响应不走客户端缓存，切换代理后再查会立刻看到新出口。默认仅查本地库；想进一步核查是否属于已知代理可附加 <code>?deep=true</code>（受全站每日配额限制，超限自动回退本地结果）。
 			</p>
 			<h3>2. 终端检测 DNS 出口</h3>
 			<pre><code># 1. 创建一次性探测域名

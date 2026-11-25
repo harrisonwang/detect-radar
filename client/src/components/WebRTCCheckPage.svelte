@@ -22,6 +22,7 @@
     type WebRTCProgress,
   } from '../lib/webrtcCheck';
   import { emptyHistory } from '../lib/recentHistory';
+  import { trackEvent } from '../lib/analytics';
   import { isAutomatedCrawler } from '../lib/crawler';
   import { renderWebRTCShareCard, saveShareImage } from '../lib/toolShareCard';
   import { copyShareText, formatWebRTCShareText } from '../lib/shareSummary';
@@ -93,13 +94,15 @@
       const navigation = performance.getEntriesByType('navigation')[0] as
         | PerformanceNavigationTiming
         | undefined;
-      if (!history.current || navigation?.type === 'navigate') await run();
+      if (!history.current || navigation?.type === 'navigate') await run('auto');
     }
     void restore();
   });
 
-  async function run() {
+  async function run(mode: 'auto' | 'manual' | 'retest' = 'retest') {
     if (busy || !ready) return;
+    if (mode === 'retest') trackEvent('scan-retest', { page: 'webrtc' });
+    else trackEvent('scan-start', { page: 'webrtc', trigger: mode });
     busy = true;
     pendingExit = null;
     liveProgress = null;
@@ -147,7 +150,9 @@
         mdnsCount: current.mdnsHosts.length,
         ipv6Global: current.ipv6Global,
       });
-      toast?.show(await saveShareImage(blob, 'detectradar-webrtc'));
+      const shareMsg = await saveShareImage(blob, 'detectradar-webrtc');
+      trackEvent('share-save-image', { page: 'webrtc' });
+      toast?.show(shareMsg);
     } catch (err) {
       toast?.show('分享图生成失败：' + (err as Error).message);
     } finally {
@@ -156,6 +161,7 @@
   }
   async function handleCopyText() {
     if (!current || busy || !verdict) return;
+    trackEvent('share-copy-text', { page: 'webrtc' });
     const text = formatWebRTCShareText({
       verdictState: verdict.state,
       verdictTitle: status.title,
@@ -217,7 +223,7 @@
   page="webrtc"
   onCopyText={handleCopyText}
   onScreenshot={handleScreenshot}
-  onRescan={run}
+  onRescan={() => run('retest')}
   isScanning={!ready || busy}
   ready={!!current}
 />
@@ -483,7 +489,7 @@
             <p class="diagnosis-note">点击开始后将并发检测网页出口与 WebRTC 地址。</p>
             <button
               type="button"
-              onclick={run}
+              onclick={() => run('manual')}
               class="mt-3 text-sm px-3.5 py-1.5 rounded-lg transition-colors cursor-pointer"
               style="color:var(--radar-400); background:var(--sig-soft)"
             >开始检测</button>
@@ -559,7 +565,7 @@
         <ul class="rule-note">
           <li>结果来自当前浏览器的 WebRTC 检测，不同公网 IP 仅做归属核对、不留存</li>
           <li>测到不同地区、不同运营商或绕过代理的公网 IP，判为<strong>泄露</strong></li>
-          <li>同一运营商下的 IPv4 / IPv6 同时在线、同网段 IPv6 或共享出口不判泄露；如需单独排查 IPv6，请使用 <a href="/ipv6-leak-test/" class="text-(--radar-400) underline underline-offset-4">IPv6 泄露检测</a></li>
+          <li>同一运营商下的 IPv4 / IPv6 同时在线、同网段 IPv6 或共享出口不判泄露；如需单独排查 IPv6，请使用 <a href="/ipv6-leak-test/" onclick={() => trackEvent('tool-open', { from: 'webrtc', to: 'ipv6', source: 'note' })} class="text-(--radar-400) underline underline-offset-4">IPv6 泄露检测</a></li>
         </ul>
       </aside>
     </div>

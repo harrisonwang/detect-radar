@@ -71,9 +71,11 @@ func (s *ScanService) Analyze(ctx context.Context, req *model.ScanRequest, clien
 		intel = &model.IPIntel{IP: clientIP}
 	}
 
+	scenario := NormalizeScenario(req.Scenario)
 	resp := &model.ScanResponse{
-		ScanID: req.ScanID,
-		Status: "success",
+		ScanID:   req.ScanID,
+		Status:   "success",
+		Scenario: scenario,
 		ServerData: model.ScanServerData{
 			ClientIP:    clientIP,
 			IPIntel:     intel,
@@ -115,7 +117,7 @@ func (s *ScanService) Analyze(ctx context.Context, req *model.ScanRequest, clien
 	resp.Analysis.RTT = deriveRTTWithServerMin(clientRTT, tcpRTT, tcpRTTVar, serverTCPMinMS, intel, s.rttCoords)
 
 	// 3. 评分 + 诊断 + 四维雷达分（rules.go 是唯一评分入口）
-	resp.Score, resp.RiskLevel, resp.Diagnosis, resp.Dimensions = score(resp.Analysis, intel)
+	resp.Score, resp.RiskLevel, resp.Diagnosis, resp.Dimensions = scoreForScenario(resp.Analysis, intel, scenario)
 
 	resp.ProcessedAt = time.Now().UTC().Format(time.RFC3339)
 	resp.ProcessingTimeMs = time.Since(start).Milliseconds()
@@ -143,13 +145,30 @@ func (s *ScanService) persistScan(resp *model.ScanResponse, ua string) (string, 
 
 // Get 仅查询短期内存缓存；SQLite 用于保存内部遥测记录。
 func (s *ScanService) Get(scanID string) (*model.ScanResponse, bool) {
+	return s.GetWithScenario(scanID, "")
+}
+
+// GetWithScenario 从短期内存缓存取出扫描快照，并按指定口径（strict/daily）实时重算返回新副本（绝不原地修改缓存）。
+func (s *ScanService) GetWithScenario(scanID, rawScenario string) (*model.ScanResponse, bool) {
 	s.mu.RLock()
-	defer s.mu.RUnlock()
 	stored, ok := s.store[s.latest[scanID]]
 	if !ok || time.Since(stored.createdAt) >= s.ttl {
+		s.mu.RUnlock()
 		return nil, false
 	}
-	return stored.resp, true
+	cp := *stored.resp
+	s.mu.RUnlock()
+
+	if strings.TrimSpace(rawScenario) == "" {
+		return &cp, true
+	}
+	target := NormalizeScenario(rawScenario)
+	if NormalizeScenario(cp.Scenario) == target && cp.Scenario == target {
+		return &cp, true
+	}
+	cp.Scenario = target
+	cp.Score, cp.RiskLevel, cp.Diagnosis, cp.Dimensions = scoreForScenario(cp.Analysis, cp.ServerData.IPIntel, target)
+	return &cp, true
 }
 
 // InstanceID 仅关联数据库中的唯一实例，避免内存清理后误判重复标识。
@@ -266,9 +285,10 @@ func rescoreDNS(previous *model.ScanResponse, leaked bool) *model.ScanResponse {
 // 复制响应后再修改，避免影响并发读取或发布未提交的结果。
 func rescoreDNSStatus(previous *model.ScanResponse, dns model.PrivacyDNS) *model.ScanResponse {
 	resp := *previous
+	resp.Scenario = NormalizeScenario(previous.Scenario)
 	resp.Analysis.Privacy.DNS = dns
 	resp.Analysis.Privacy.OverallStatus = privacyOverallStatus(resp.Analysis.Privacy)
-	resp.Score, resp.RiskLevel, resp.Diagnosis, resp.Dimensions = score(resp.Analysis, resp.ServerData.IPIntel)
+	resp.Score, resp.RiskLevel, resp.Diagnosis, resp.Dimensions = scoreForScenario(resp.Analysis, resp.ServerData.IPIntel, resp.Scenario)
 	return &resp
 }
 

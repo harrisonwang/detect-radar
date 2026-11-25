@@ -6,7 +6,7 @@
 
 ## 1. 站点页面
 
-- **在线综合检测（https://detectradar.com/）**：免费、免注册采集浏览器指纹与当前连接出口信息，检查住宅 IP / 机房 IP 属性、环境一致性与代理泄露，生成问题清单与四维雷达图，支持在浏览器本地生成隐藏 IP 的分享图。
+- **在线综合检测（https://detectradar.com/）**：免费、免注册采集浏览器指纹与当前连接出口信息，检查住宅 IP / 机房 IP 属性、环境一致性与代理泄露，生成问题清单与四维雷达图，支持在浏览器本地生成隐藏 IP 的分享图；首页支持「严格」（含时区、语言、机房 IP 与指纹 Hook）与「日常」（聚焦泄露与高危 IP，时区、语言、纯净机房与指纹 Hook 只展示不扣分）两档口径无等待切换。
 - **DNS 泄露检测（https://detectradar.com/dns-leak-test/）**：每次使用独立的随机子域名，通过自建权威 DNS 服务识别实际使用的 DNS 服务器及归属地，并在当前浏览器保留最近两次结果，方便换节点或改完 DNS 后对比差别。
 - **WebRTC 泄露检测（https://detectradar.com/webrtc-leak-test/）**：通过浏览器本地 STUN ICE 收集公网与内网候选地址，并与当前出口 IP 比对；展示 mDNS（`*.local`）隐藏状态与 ICE 捕获到的全局 IPv6，支持在同一浏览器保留最近两次检测并对比变化。
 - **IPv6 泄露检测（https://detectradar.com/ipv6-leak-test/）**：独立并发请求纯 IPv4 节点（`4.detectradar.com`）与纯 IPv6 节点（`6.detectradar.com`）实测真实双栈出口，不依赖浏览器 WebRTC，支持在同一浏览器保留最近两次检测并对比变化。

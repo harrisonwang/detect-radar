@@ -85,7 +85,9 @@ body {
 /* 玻璃拟态卡片 */
 .glass-card {
   background: rgba(30, 41, 59, 0.55);
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
+  isolation: isolate;
   border: 1px solid var(--line);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 }
@@ -99,11 +101,11 @@ body {
   }
 }
 
-/* 扫描阶段让雷达轴和对应卡片保持同一视觉焦点 */
+/* 扫描阶段让雷达轴和对应卡片保持同一视觉焦点（与 .glass-card 共用 0 8px 32px 包络，避免扩缩离屏合成面） */
 .scan-focus {
   border-color: rgba(74, 222, 128, 0.5);
-  box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.18), 0 0 28px rgba(74, 222, 128, 0.12);
-  transition: border-color 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.22), 0 8px 32px 0 rgba(74, 222, 128, 0.14);
+  transition: border-color 0.2s ease;
 }
 
 /* 状态点 */
@@ -149,9 +151,9 @@ body {
   animation: reveal-up 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
-/* 采集结果真正可用时，卡片与雷达节点同步落定 */
+/* 采集结果真正可用时，卡片内容与雷达节点同步落定（仅作用于内部内容，绝不套在带 backdrop-filter 的 .glass-card 上） */
 @keyframes scan-settle {
-  from { opacity: 0.58; transform: translateY(5px); }
+  from { opacity: 0.45; transform: translateY(4px); }
   to { opacity: 1; transform: none; }
 }
 .scan-settle {

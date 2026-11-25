@@ -31,7 +31,7 @@
   const partnerCode = typeof ENV.PUBLIC_PARTNER_CODE === 'string' && ENV.PUBLIC_PARTNER_CODE ? ENV.PUBLIC_PARTNER_CODE : 'RADAR';
 </script>
 
-<div class="glass-card rounded-xl p-6 h-full flex flex-col reveal" class:scan-focus={active}>
+<div class="glass-card rounded-xl p-6 h-full flex flex-col" class:scan-focus={active}>
   {#if isScanning}
     <div class="space-y-3">
       <div class="h-6 w-2/5 bg-slate-800 rounded animate-pulse"></div>
@@ -39,6 +39,7 @@
       <div class="h-4 w-3/5 bg-slate-800/50 rounded animate-pulse mt-6"></div>
     </div>
   {:else if report}
+    <div class="flex flex-col flex-1 scan-settle">
     <!-- 判定 -->
     <div class="flex items-start gap-3">
       <span class="dot mt-2" style="background:{stateVar(report.verdict.state)}; --_soft:{stateSoft(report.verdict.state)}"></span>
@@ -131,6 +132,7 @@
         </div>
       </div>
     {/if}
+    </div>
   {:else}
     <div class="flex flex-col items-start justify-center h-full gap-2.5">
       <p class="text-lg font-semibold text-white">待检测</p>

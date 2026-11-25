@@ -11,13 +11,12 @@
     note?: string;
     isScanning?: boolean;
     settled?: boolean;
-    delay?: number;
     active?: boolean;
   }
-  let { title, icon, rows, state, note = '', isScanning = false, settled = false, delay = 0, active = false }: Props = $props();
+  let { title, icon, rows, state, note = '', isScanning = false, settled = false, active = false }: Props = $props();
 </script>
 
-<div class="glass-card rounded-xl p-5 h-full reveal" class:scan-focus={active} class:scan-settle={settled} style="animation-delay:{delay}ms">
+<div class="glass-card rounded-xl p-5 h-full" class:scan-focus={active}>
   <header class="flex items-center justify-between mb-3.5">
     <div class="flex items-center gap-2.5">
       <i class="fa-solid {icon} text-(--slate-400) text-sm"></i>
@@ -38,7 +37,7 @@
   {:else if rows.length === 0}
     <p class="text-sm text-(--slate-500)">待检测</p>
   {:else}
-    <div class="space-y-3">
+    <div class="space-y-3" class:scan-settle={settled}>
       {#each rows as r}
         <div class="flex items-center gap-2.5">
           <span class="dot" style="background:{stateVar(r.state)}; --_soft:{stateSoft(r.state)}"></span>

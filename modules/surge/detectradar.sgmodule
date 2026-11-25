@@ -1,0 +1,9 @@
+#!name=DetectRadar 出口检测
+#!desc=查看当前出口 IP、归属地、ASN、宽带/机房类型、Cloudflare Radar 网段人类流量占比与 IPv6 旁路检测（不消耗深度扫描配额）
+#!homepage=https://detectradar.com/
+
+[Panel]
+DetectRadar = title="DetectRadar 出口", content="点击刷新检测", style=info, script-name=detectradar-panel, update-interval=-1
+
+[Script]
+detectradar-panel = type=generic, script-path=https://raw.githubusercontent.com/harrisonwang/detect-radar/main/modules/scripts/detectradar-panel.js, script-update-interval=86400, timeout=10, argument=ipv6=true&hide_ip=false

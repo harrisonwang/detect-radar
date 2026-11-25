@@ -10,6 +10,7 @@ import type { AllCollectorResults } from "./collectors/types";
 import type { DeviceSignals } from "./collectors/environment/device";
 import type {
   ScanResponse,
+  ScanScenario,
   ScanAnalysis,
   IdentityAnalysis,
   DNSExit,
@@ -90,6 +91,7 @@ export interface RTTReadout {
 }
 
 export interface ReportModel {
+  scenario: ScanScenario;
   score: number;
   riskLevel: RiskLevel;
   verdict: { state: SignalState; headline: string; sub: string };
@@ -280,7 +282,7 @@ const GROUP_LABEL: Record<ReportGroup["key"], string> = {
 };
 
 // 维度小注：纯展示文本，随后端语义状态派生（不参与评分）
-function groupNote(key: ReportGroup["key"], state: SignalState): string {
+function groupNote(key: ReportGroup["key"], state: SignalState, scenario: ScanScenario): string {
   switch (key) {
     case "identity":
       return state === "leak"
@@ -291,6 +293,7 @@ function groupNote(key: ReportGroup["key"], state: SignalState): string {
             ? "类型无法高置信判定"
             : "出口正常";
     case "consistency":
+      if (scenario === "daily") return "日常口径下仅作展示";
       return state === "coherent"
         ? "时区 / 语言与 IP 相符"
         : "存在与 IP 不符的环境项";
@@ -303,7 +306,7 @@ function groupNote(key: ReportGroup["key"], state: SignalState): string {
   }
 }
 
-function buildGroups(dims: DimensionScore[]): ReportGroup[] {
+function buildGroups(dims: DimensionScore[], scenario: ScanScenario): ReportGroup[] {
   const byKey = new Map(dims.map((d) => [d.key, d]));
   return GROUP_ORDER.map((key) => {
     const d = byKey.get(key);
@@ -326,14 +329,14 @@ function buildGroups(dims: DimensionScore[]): ReportGroup[] {
       state,
       passed: d.passed,
       total: d.total,
-      note: groupNote(key, state),
+      note: groupNote(key, state, scenario),
     };
   });
 }
 
 // ---- 破绽清单 ----
 
-function buildFindings(a: ScanAnalysis, id: IdentityReadout): Finding[] {
+function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScenario): Finding[] {
   const F: Finding[] = [];
   const push = (f: Finding) => F.push(f);
 
@@ -403,6 +406,7 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout): Finding[] {
     });
   }
   if (
+    scenario === "strict" &&
     a.identity.verdict === "datacenter_fail" &&
     proxyFlags.length === 0 &&
     id.blacklist.length === 0
@@ -437,9 +441,9 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout): Finding[] {
     });
   }
 
-  // 一致性类
+  // 一致性类（日常口径仅作展示，不列为暴露项）
   const tz = a.consistency.timezone;
-  if (!tz.passed) {
+  if (scenario === "strict" && !tz.passed) {
     push({
       id: "tz-mismatch",
       severity: "contradiction",
@@ -450,7 +454,7 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout): Finding[] {
     });
   }
   const lang = a.consistency.language;
-  if (!lang.passed) {
+  if (scenario === "strict" && !lang.passed) {
     push({
       id: "lang-mismatch",
       severity: "contradiction",
@@ -484,7 +488,7 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout): Finding[] {
       fix: "确保显卡信息与声称的系统、硬件逻辑一致。",
     });
   }
-  if (fp.canvas.is_hooked || fp.audio.is_hooked) {
+  if (scenario === "strict" && (fp.canvas.is_hooked || fp.audio.is_hooked)) {
     const which = [
       fp.canvas.is_hooked && "Canvas",
       fp.audio.is_hooked && "Audio",
@@ -525,26 +529,28 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout): Finding[] {
 
 // ---- 明细读数 ----
 
-function consistencyRows(a: ScanAnalysis): ReadoutRow[] {
+function consistencyRows(a: ScanAnalysis, scenario: ScanScenario): ReadoutRow[] {
   const tz = a.consistency.timezone;
   const lang = a.consistency.language;
   const tzUnknown = ["unknown", "-", ""].includes(tz.expected);
+  const daily = scenario === "daily";
   return [
     {
       label: "时区",
       value: `${tzToZone(tz.browser)} ↔ ${tzToZone(tz.expected)}`,
-      state: tzUnknown ? "unknown" : tz.passed ? "coherent" : "contradiction",
+      state: tzUnknown ? "unknown" : tz.passed ? "coherent" : daily ? "unknown" : "contradiction",
       compare: { browser: tzToZone(tz.browser), ip: tzToZone(tz.expected) },
-      hint: tzUnknown ? "IP 时区未知" : undefined,
+      hint: tzUnknown ? "IP 时区未知" : !tz.passed && daily ? "日常口径下仅作展示" : undefined,
     },
     {
       label: "语言",
       value: `${langName(lang.browser)} ↔ ${langName((lang.expected || [])[0] || "")}`,
-      state: lang.passed ? "coherent" : "contradiction",
+      state: lang.passed ? "coherent" : daily ? "unknown" : "contradiction",
       compare: {
         browser: langName(lang.browser),
         ip: langName((lang.expected || [])[0] || ""),
       },
+      hint: !lang.passed && daily ? "日常口径下仅作展示" : undefined,
     },
   ];
 }
@@ -642,9 +648,11 @@ function environmentRows(
   a: ScanAnalysis,
   c: AllCollectorResults,
   d: DeviceSignals,
+  scenario: ScanScenario,
 ): ReadoutRow[] {
   const fp = a.fingerprint;
   const nav = c.environment.navigator?.data;
+  const daily = scenario === "daily";
   return [
     {
       label: "显卡",
@@ -664,12 +672,14 @@ function environmentRows(
     {
       label: "Canvas 指纹",
       value: fp.canvas.is_hooked ? "被篡改" : "正常",
-      state: fp.canvas.is_hooked ? "contradiction" : "coherent",
+      state: fp.canvas.is_hooked ? (daily ? "unknown" : "contradiction") : "coherent",
+      hint: fp.canvas.is_hooked && daily ? "日常口径下仅作展示" : undefined,
     },
     {
       label: "Audio 指纹",
       value: fp.audio.is_hooked ? "被篡改" : "正常",
-      state: fp.audio.is_hooked ? "contradiction" : "coherent",
+      state: fp.audio.is_hooked ? (daily ? "unknown" : "contradiction") : "coherent",
+      hint: fp.audio.is_hooked && daily ? "日常口径下仅作展示" : undefined,
     },
     {
       label: "自动化",
@@ -718,7 +728,7 @@ function buildRTT(a: ScanAnalysis): RTTReadout | undefined {
 
 // ---- 顶层判定 ----
 
-function buildVerdict(groups: ReportGroup[]): ReportModel["verdict"] {
+function buildVerdict(groups: ReportGroup[], scenario: ScanScenario): ReportModel["verdict"] {
   const has = (s: SignalState) => groups.some((g) => g.state === s);
   if (has("leak")) {
     return {
@@ -745,7 +755,10 @@ function buildVerdict(groups: ReportGroup[]): ReportModel["verdict"] {
   return {
     state: "coherent",
     headline: "未检测到明显异常",
-    sub: "网络身份与环境特征基本一致。",
+    sub:
+      scenario === "daily"
+        ? "日常口径下未发现泄露或高危出口特征。"
+        : "网络身份与环境特征基本一致。",
   };
 }
 
@@ -757,23 +770,25 @@ export function buildReport(
   device: DeviceSignals,
 ): ReportModel {
   const a = resp.analysis;
-  const groups = buildGroups(resp.dimensions ?? []);
+  const scenario: ScanScenario = resp.scenario === "daily" ? "daily" : "strict";
+  const groups = buildGroups(resp.dimensions ?? [], scenario);
   const identity = buildIdentity(a.identity, resp.server_data.ip_intel);
   const exit = resp.server_data.ip_intel ? browserExit(resp.server_data.ip_intel) : null;
   const idGroup = groups.find((g) => g.key === "identity");
   if (idGroup) identity.state = idGroup.state; // 身份卡状态色与后端评分对齐
-  const verdict = buildVerdict(groups);
+  const verdict = buildVerdict(groups, scenario);
 
   return {
+    scenario,
     score: resp.score,
     riskLevel: resp.risk_level,
     verdict,
     groups,
     identity,
-    findings: buildFindings(a, identity),
-    consistency: consistencyRows(a),
+    findings: buildFindings(a, identity, scenario),
+    consistency: consistencyRows(a, scenario),
     leaks: leakRows(a, exit),
-    environment: environmentRows(a, collectors, device),
+    environment: environmentRows(a, collectors, device, scenario),
     rtt: buildRTT(a),
     meta: {
       scanId: resp.scan_id,

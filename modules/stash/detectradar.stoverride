@@ -1,0 +1,17 @@
+name: DetectRadar 出口检测
+desc: 在 Stash 首页磁贴查看当前出口 IP、归属地、ASN、宽带/机房类型、Cloudflare Radar 网段人类流量占比与 IPv6 旁路检测
+icon: https://detectradar.com/icon-192.png
+
+tiles:
+  - name: detectradar-panel
+    interval: 3600
+    title: DetectRadar 出口
+    content: 点击刷新检测
+    icon: network
+    backgroundColor: "#16A34A"
+    url: https://detectradar.com/
+
+script-providers:
+  detectradar-panel:
+    url: https://raw.githubusercontent.com/harrisonwang/detect-radar/main/modules/scripts/detectradar-panel.js
+    interval: 86400

@@ -48,7 +48,7 @@
   const labelAnchor = (i: number) => (i === 1 ? 'start' : i === 3 ? 'end' : 'middle');
 </script>
 
-<div class="glass-card rounded-xl p-5 h-full flex flex-col items-center justify-center reveal">
+<div class="glass-card rounded-xl p-5 h-full flex flex-col items-center justify-center">
   <div class="relative w-full max-w-75">
     <svg viewBox="0 0 300 260" class="w-full h-auto overflow-visible" role="img" aria-label="检测雷达">
       {#each rings as r}

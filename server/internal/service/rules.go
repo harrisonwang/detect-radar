@@ -13,7 +13,21 @@ const (
 	dimConsistency = "consistency"
 	dimLeak        = "leak"
 	dimEnvironment = "environment"
+
+	// ScenarioStrict 默认严格口径：时区/语言、机房 IP 与指纹 Hook 均参与扣分。
+	ScenarioStrict = "strict"
+	// ScenarioDaily 日常口径：聚焦 DNS/WebRTC/IPv6 泄露与黑名单/代理等高危信号，
+	// 时区、语言、纯净机房/灰区 IP 与指纹 Hook 仅作展示不扣分。
+	ScenarioDaily = "daily"
 )
+
+// NormalizeScenario 将调用方传入的口径归一为 strict 或 daily（历史值 general/ecommerce/social 统一按 strict）。
+func NormalizeScenario(raw string) string {
+	if strings.EqualFold(strings.TrimSpace(raw), ScenarioDaily) {
+		return ScenarioDaily
+	}
+	return ScenarioStrict
+}
 
 // dimCap 各维度扣分上限：同一维度内多条高相关规则（如机房+代理+黑名单常指同一个
 // "脏"出口）不再线性叠加，扣到封顶为止，避免重复计分同一件事。
@@ -168,9 +182,15 @@ var scoreRules = []scoreRule{
 	}},
 }
 
-// score 遍历规则表，分维度封顶后得出干净度评分（0-100，越高越安全）、风险等级、
-// 诊断清单与四维雷达分。这是唯一评分入口，前端直接消费，不再本地计算。
+// score 按默认严格口径遍历规则表（保留既有签名以兼容回放/单测）。
 func score(a model.ScanAnalysis, intel *model.IPIntel) (int, string, []model.DiagnosisItem, []model.DimensionScore) {
+	return scoreForScenario(a, intel, ScenarioStrict)
+}
+
+// scoreForScenario 按指定口径（strict / daily）遍历规则表，分维度封顶后得出干净度评分、
+// 风险等级、诊断清单与四维雷达分。这是唯一评分入口，前端直接消费，不再本地计算。
+func scoreForScenario(a model.ScanAnalysis, intel *model.IPIntel, rawScenario string) (int, string, []model.DiagnosisItem, []model.DimensionScore) {
+	scenario := NormalizeScenario(rawScenario)
 	diag := make([]model.DiagnosisItem, 0, len(scoreRules)+1)
 
 	// 正向诊断：身份判定为住宅/移动时给一条 success（不计分）
@@ -185,6 +205,9 @@ func score(a model.ScanAnalysis, intel *model.IPIntel) (int, string, []model.Dia
 	rawPenalty := map[string]int{}
 	anyError := false
 	for _, r := range scoreRules {
+		if scenario == ScenarioDaily && isRelaxedInDaily(r.Code) {
+			continue
+		}
 		points, text := r.eval(a, intel)
 		if points <= 0 {
 			continue
@@ -211,7 +234,16 @@ func score(a model.ScanAnalysis, intel *model.IPIntel) (int, string, []model.Dia
 		level = "low"
 	}
 
-	return total, level, diag, buildDimensions(a, intel, rawPenalty)
+	return total, level, diag, buildDimensions(a, intel, rawPenalty, scenario)
+}
+
+func isRelaxedInDaily(code string) bool {
+	switch code {
+	case "TZ_MISMATCH", "LANG_MISMATCH", "IP_DATACENTER", "IP_GRAY", "FP_HOOKED":
+		return true
+	default:
+		return false
+	}
 }
 
 // riskLevel 把干净度评分映射为风险等级。
@@ -232,7 +264,7 @@ func riskLevel(s int) string {
 
 // buildDimensions 产出四轴雷达所需的维度分（0-100）、语义状态与通过数。
 // 维度轴分独立于总分：某维度重创时轴分接近 0，而总分受该维度封顶保护。
-func buildDimensions(a model.ScanAnalysis, intel *model.IPIntel, rawPenalty map[string]int) []model.DimensionScore {
+func buildDimensions(a model.ScanAnalysis, intel *model.IPIntel, rawPenalty map[string]int, scenario string) []model.DimensionScore {
 	dimScore := func(dim string) int {
 		return max(100-rawPenalty[dim], 0)
 	}
@@ -240,11 +272,13 @@ func buildDimensions(a model.ScanAnalysis, intel *model.IPIntel, rawPenalty map[
 	// —— 身份 ——
 	idState, idPassed := "coherent", 1
 	switch {
-	case intel.HasProxy() || len(a.Identity.BlacklistHits) > 0 || a.Identity.IsTorExit:
+	case intel.HasProxy() || len(a.Identity.BlacklistHits) > 0 || a.Identity.IsTorExit || a.Identity.OpenProxyPort:
 		idState, idPassed = "leak", 0
-	case a.Identity.Verdict == "datacenter_fail":
+	case (a.Identity.WeakProxyPort && a.Identity.Verdict == "datacenter_fail") || intel.FraudScore > 50:
 		idState, idPassed = "contradiction", 0
-	case a.Identity.Verdict == "gray_unknown":
+	case scenario != ScenarioDaily && a.Identity.Verdict == "datacenter_fail":
+		idState, idPassed = "contradiction", 0
+	case scenario != ScenarioDaily && a.Identity.Verdict == "gray_unknown":
 		idState, idPassed = "unknown", 0
 	}
 
@@ -260,7 +294,9 @@ func buildDimensions(a model.ScanAnalysis, intel *model.IPIntel, rawPenalty map[
 	count(cons.Timezone.Passed)
 	count(cons.Language.Passed)
 	consState := "coherent"
-	if consPassed < consTotal {
+	if scenario == ScenarioDaily {
+		consPassed = consTotal
+	} else if consPassed < consTotal {
 		consState = "contradiction"
 	} else if tzUnknown(cons.Timezone.Expected) {
 		consState = "unknown"
@@ -294,8 +330,10 @@ func buildDimensions(a model.ScanAnalysis, intel *model.IPIntel, rawPenalty map[
 	fp := a.Fingerprint
 	envChecks := []bool{
 		fp.WebGL.Status != "mismatch",
-		!fp.Canvas.IsHooked && !fp.Audio.IsHooked,
 		!a.Automation.WebdriverDetected,
+	}
+	if scenario != ScenarioDaily {
+		envChecks = append(envChecks, !fp.Canvas.IsHooked && !fp.Audio.IsHooked)
 	}
 	envPassed := 0
 	for _, ok := range envChecks {

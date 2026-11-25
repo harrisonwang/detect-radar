@@ -40,6 +40,9 @@ import { ABOUT_FAQS } from '../lib/seoContent';
 				<li>
 					<strong>浏览器指纹</strong>：检查网页绘图与音频接口（Canvas / Audio）有没有被插件改写、是否存在自动化脚本标记，以及 WebGL 显卡型号与操作系统是否相符（只核对系统，不对照出口地区）。
 				</li>
+				<li>
+					<strong>严格 / 日常两档口径</strong>：首页默认按「严格」口径（含时区、语言、机房 IP 与指纹 Hook）评分；切换到「日常」口径时，仅保留 DNS / WebRTC / IPv6 泄露及黑名单、已知代理、开放代理端口、高欺诈分与自动化等风险扣分，时区、语言、纯净机房 IP 与指纹 Hook 只作展示不扣分。
+				</li>
 			</ul>
 
 			<h2 id="dns">DNS 泄露怎么判断</h2>
@@ -117,7 +120,7 @@ curl -s "https://detectradar.com/api/v1/leaks/dns/&lt;id&gt;"</code></pre>
 				把 <a href="/SKILL.md" class="break-all">https://detectradar.com/SKILL.md</a> 发给 Antigravity、Claude Code 或 Codex，就能自动跑完上面的检查。终端接口免鉴权并按 IP 限流（请勿高频轮询），且测不到浏览器 WebRTC、时区语言与指纹，排查网页环境请直接打开首页检测。
 			</p>
 			<p>
-				如果用 Mac，也可以装 <a href="/macos/">DetectRadar for macOS</a>，在菜单栏随时看出口 IP 和 IPv6 泄露提醒。
+				如果用 Mac，也可以装 <a href="/macos/">DetectRadar for macOS</a>，在菜单栏随时看出口 IP 和 IPv6 泄露提醒；使用 Surge、Stash 或 Loon 的用户也可以导入仓库里的 <a href="https://github.com/harrisonwang/detect-radar/tree/main/modules" target="_blank" rel="noopener noreferrer">面板模块</a>，在代理客户端内直接查看出口类型、网段人类流量与 IPv6 旁路。
 			</p>
 
 			<h2 id="faq">常见问题</h2>

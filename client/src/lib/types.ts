@@ -1,6 +1,7 @@
 import type { RTTData } from './collectors/types';
 
 // Scenario types
+export type ScanScenario = 'strict' | 'daily';
 export type ScenarioId = 'general' | 'ecommerce' | 'social';
 
 export interface DiagnosisItem {
@@ -162,7 +163,7 @@ export interface FPJSAudit {
 export interface ScanRequest {
   scan_id: string;
   timestamp: number;
-  scenario: ScenarioId;
+  scenario: ScanScenario | ScenarioId;
   fingerprint: Record<string, unknown>;
   environment: Record<string, unknown>;
   leaks: Record<string, unknown>;
@@ -288,6 +289,7 @@ export interface DimensionScore {
 export interface ScanResponse {
   scan_id: string;
   status: string;
+  scenario?: ScanScenario;
   score: number;
   risk_level: RiskLevel;
   diagnosis: DiagnosisItem[];

@@ -18,7 +18,7 @@ type CollectorResult[T any] struct {
 type ScanRequest struct {
 	ScanID      string          `json:"scan_id"`
 	Timestamp   int64           `json:"timestamp"`
-	Scenario    string          `json:"scenario"` // general / ecommerce / social
+	Scenario    string          `json:"scenario"` // strict（默认）/ daily；旧值 general/ecommerce/social 归一为 strict
 	Fingerprint ScanFingerprint `json:"fingerprint"`
 	Environment ScanEnvironment `json:"environment"`
 	Leaks       ScanLeaks       `json:"leaks"`
@@ -167,6 +167,7 @@ type FPJSHookAudit struct {
 type ScanResponse struct {
 	ScanID           string           `json:"scan_id"`
 	Status           string           `json:"status"`
+	Scenario         string           `json:"scenario,omitempty"` // strict / daily
 	Score            int              `json:"score"`
 	RiskLevel        string           `json:"risk_level"` // safe / low / medium / high / critical
 	Diagnosis        []DiagnosisItem  `json:"diagnosis"`

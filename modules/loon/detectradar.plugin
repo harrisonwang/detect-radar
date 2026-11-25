@@ -1,0 +1,8 @@
+#!name = DetectRadar 出口检测
+#!desc = 长按节点检测出口 IP、归属地、ASN、宽带/机房类型、Cloudflare Radar 网段人类流量占比与 IPv6 旁路
+#!author = DetectRadar
+#!homepage = https://detectradar.com/
+#!icon = https://detectradar.com/icon-192.png
+
+[Script]
+generic script-path=https://raw.githubusercontent.com/harrisonwang/detect-radar/main/modules/scripts/detectradar-panel.js, tag=DetectRadar 出口检测, timeout=10, img-url=https://detectradar.com/icon-192.png

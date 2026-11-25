@@ -22,7 +22,7 @@
   import { buildReport, type ReportModel, type IdentityReadout } from '../lib/report';
   import { renderShareCard } from '../lib/shareCard';
   import { copyShareText, formatHomeShareText } from '../lib/shareSummary';
-  import type { ScanRequest } from '../lib/types';
+  import type { ScanRequest, ScanScenario } from '../lib/types';
 
   interface ScanSignals {
     collectors: AllCollectorResults;
@@ -38,6 +38,11 @@
 
   const RISK_LABEL: Record<string, string> = {
     safe: '很低', low: '较低', medium: '中等', high: '偏高', critical: '严重',
+  };
+  const SCENARIO_KEY = 'detectradar:scenario';
+  const SCENARIO_META: Record<ScanScenario, { label: string; note: string }> = {
+    strict: { label: '严格', note: '含时区、语言、机房 IP 与指纹' },
+    daily: { label: '日常', note: '聚焦泄露与高危 IP，时区/语言/普通机房不扣分' },
   };
 
   type ScanStage = 'identity' | 'consistency' | 'leak' | 'environment' | 'analysis' | 'complete';
@@ -59,6 +64,8 @@
   ] as const;
 
   let report = $state<ReportModel | null>(null);
+  let scenario = $state<ScanScenario>('strict');
+  let scenarioSwitchToken = 0;
   let isScanning = $state(true);
   let scanError = $state<string | null>(null);
   // DNS 泄露走独立慢路径（enrichDNS 约 4s），未定前雷达该轴显示待定而非中间值
@@ -166,7 +173,7 @@
     return {
       scan_id: crypto?.randomUUID ? crypto.randomUUID() : `scan_${Date.now()}`,
       timestamp: Date.now(),
-      scenario: 'general',
+      scenario,
       fingerprint: s.collectors.fingerprint as Record<string, unknown>,
       environment: s.collectors.environment as Record<string, unknown>,
       leaks: s.collectors.leaks as Record<string, unknown>,
@@ -199,15 +206,18 @@
       const signals = await collectSignals(completeStage);
       lastSignals = signals;
       const resp = await api.createScan(buildRequest(signals));
-      report = buildReport(resp, signals.collectors, signals.device);
+      const synced =
+        resp.scenario && resp.scenario !== scenario
+          ? await api.getScan(resp.scan_id, scenario).catch(() => resp)
+          : resp;
+      report = buildReport(synced, signals.collectors, signals.device);
       completeStage('identity');
       queueReadyReveals();
 
       await enrichDNS();
       dnsPending = false;
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 220));
       revealDimension('leak');
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 320));
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 440));
       completeStage('analysis');
       scanStage = 'complete';
       isScanning = false;
@@ -227,13 +237,46 @@
       const scanId = report?.meta.scanId;
       const dns = await collectDNSLeak(scanId);
       if (!report || !scanId || dns.status !== 'success' || !dns.data || dns.data.resolvers.length === 0) return;
+      const targetScenario = scenario;
       // 新后端已用权威观测重算，旧后端仍走原来的更新接口。
-      const updated = dns.data.assessed ? await api.getScan(scanId) : await api.updateScanDNS(scanId, dns.data.leaked);
+      let updated = dns.data.assessed
+        ? await api.getScan(scanId, targetScenario)
+        : await api.updateScanDNS(scanId, dns.data.leaked);
+      if (scenario !== targetScenario && dns.data.assessed) {
+        updated = await api.getScan(scanId, scenario);
+      }
       if (report?.meta.scanId === scanId && lastSignals) {
         report = buildReport(updated, lastSignals.collectors, lastSignals.device);
       }
     } catch {
       /* 忽略：DNS 富化失败不影响已呈现的报告 */
+    }
+  }
+
+  async function selectScenario(next: ScanScenario) {
+    if (scenario === next) return;
+    scenario = next;
+    try {
+      window.localStorage.setItem(SCENARIO_KEY, next);
+    } catch {
+      /* 忽略无痕/禁用存储 */
+    }
+    trackEvent('scenario-switch', { to: next });
+
+    const currentId = report?.meta.scanId;
+    const signals = lastSignals;
+    if (!currentId || !signals) return;
+
+    const token = ++scenarioSwitchToken;
+    try {
+      const updated = await api.getScan(currentId, next);
+      if (token !== scenarioSwitchToken || report?.meta.scanId !== currentId) return;
+      report = buildReport(updated, signals.collectors, signals.device);
+    } catch (err) {
+      if (token !== scenarioSwitchToken) return;
+      if (err instanceof api.ApiError && err.status === 404) {
+        runScan('retest');
+      }
     }
   }
 
@@ -251,6 +294,13 @@
   }
 
   onMount(() => {
+    try {
+      if (window.localStorage.getItem(SCENARIO_KEY) === 'daily') {
+        scenario = 'daily';
+      }
+    } catch {
+      /* 忽略无痕/禁用存储 */
+    }
     if (isAutomatedCrawler()) {
       isScanning = false;
       dnsPending = false;
@@ -350,12 +400,39 @@
 />
 
 <main class="report-main flex-1">
-  <!-- 标题 -->
-  <div class="mb-8">
-    <h1 class="report-title mb-2">
-      网络环境一致性检测<span class="text-(--radar-400)">雷达</span>
-    </h1>
-    <p class="text-sm text-(--slate-400)">核对出口 IP、时区语言、网络泄露与浏览器指纹</p>
+  <!-- 标题与口径切换 -->
+  <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between min-w-0">
+    <div class="min-w-0">
+      <h1 class="report-title mb-2">
+        网络环境一致性检测<span class="text-(--radar-400)">雷达</span>
+      </h1>
+      <p class="text-sm text-(--slate-400)">核对出口 IP、时区语言、网络泄露与浏览器指纹</p>
+    </div>
+
+    <div class="flex flex-col sm:items-end gap-1.5 min-w-0 shrink-0" data-nosnippet>
+      <div
+        class="inline-flex items-center gap-1 self-start sm:self-end rounded-lg border border-white/10 bg-slate-900/75 p-1"
+        role="radiogroup"
+        aria-label="检测口径"
+      >
+        <span class="px-2 text-[11px] font-mono text-(--slate-500)">口径</span>
+        {#each (['strict', 'daily'] as const) as mode}
+          {@const active = scenario === mode}
+          <button
+            type="button"
+            role="radio"
+            aria-checked={active}
+            onclick={() => selectScenario(mode)}
+            class="px-3 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer {active
+              ? 'bg-emerald-500/15 text-(--radar-400) ring-1 ring-emerald-500/35'
+              : 'text-(--slate-400) hover:text-slate-200'}"
+          >{SCENARIO_META[mode].label}</button>
+        {/each}
+      </div>
+      <p class="text-[11px] text-(--slate-500) leading-snug max-w-full">
+        {SCENARIO_META[scenario].note}
+      </p>
+    </div>
   </div>
 
     <div data-nosnippet>
@@ -379,7 +456,7 @@
     </div>
 
     {#if scanError}
-      <div class="glass-card rounded-xl p-8 text-center reveal">
+      <div class="glass-card rounded-xl p-8 text-center">
         <i class="fa-solid fa-plug-circle-xmark text-2xl mb-3" style="color:var(--leak)"></i>
         <p class="text-[15px] text-white">检测未完成</p>
         <p class="mt-1.5 text-xs text-(--slate-500) max-w-md mx-auto">{scanError}</p>
@@ -412,21 +489,21 @@
           rows={report?.consistency ?? []}
           state={report?.groups[1]?.state ?? 'unknown'}
           note={report?.groups[1]?.note ?? ''}
-          isScanning={isScanning} settled={revealedKeys.includes('consistency')} delay={40} active={activeDimension === 'consistency'}
+          isScanning={isScanning} settled={revealedKeys.includes('consistency')} active={activeDimension === 'consistency'}
         />
         <ReadoutCard
           title="DNS/IP 泄露" icon="fa-shield-halved"
           rows={report?.leaks ?? []}
           state={report?.groups[2]?.state ?? 'unknown'}
           note={report?.groups[2]?.note ?? ''}
-          isScanning={isScanning} settled={revealedKeys.includes('leak')} delay={100} active={activeDimension === 'leak'}
+          isScanning={isScanning} settled={revealedKeys.includes('leak')} active={activeDimension === 'leak'}
         />
         <ReadoutCard
           title="环境指纹" icon="fa-fingerprint"
           rows={report?.environment ?? []}
           state={report?.groups[3]?.state ?? 'unknown'}
           note={report?.groups[3]?.note ?? ''}
-          isScanning={isScanning} settled={revealedKeys.includes('environment')} delay={160} active={activeDimension === 'environment'}
+          isScanning={isScanning} settled={revealedKeys.includes('environment')} active={activeDimension === 'environment'}
         />
       </div>
 

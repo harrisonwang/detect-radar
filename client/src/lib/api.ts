@@ -17,6 +17,7 @@
 import type {
   ScanRequest,
   ScanResponse,
+  ScanScenario,
   DNSLeakTestResponse,
   DNSLeakResult,
   DNSAssessmentInput,
@@ -95,9 +96,11 @@ async function request<T>(
 export const createScan = (req: ScanRequest) =>
   request<ScanResponse>('/scans', { method: 'POST', body: JSON.stringify(req) }, 20_000);
 
-/** 按 scan_id 取回历史扫描结果（30 分钟内有效） */
-export const getScan = (id: string) =>
-  request<ScanResponse>(`/scans/${encodeURIComponent(id)}`);
+/** 按 scan_id 取回历史扫描结果（30 分钟内有效）；传入 scenario 时按指定口径即时重算 */
+export const getScan = (id: string, scenario?: ScanScenario) => {
+  const qs = scenario ? `?scenario=${encodeURIComponent(scenario)}` : '';
+  return request<ScanResponse>(`/scans/${encodeURIComponent(id)}${qs}`);
+};
 
 /** 回传异步 DNS 泄露结果，后端更新该扫描并重新评分（评分始终纯后端产出） */
 export const updateScanDNS = (id: string, leaked: boolean) =>

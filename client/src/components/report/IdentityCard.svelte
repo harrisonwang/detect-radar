@@ -64,7 +64,7 @@
   const pct = (x: number) => (Number.isInteger(x) ? String(x) : x.toFixed(1));
 </script>
 
-<div class="glass-card rounded-xl p-6 reveal" class:scan-focus={active} class:scan-settle={settled}>
+<div class="glass-card rounded-xl p-6" class:scan-focus={active}>
   <header class="flex items-center justify-between mb-5">
     <div class="flex items-center gap-2.5">
       <i class="fa-solid fa-id-card text-(--radar-400)"></i>
@@ -86,6 +86,7 @@
   {:else if idle}
     <p class="text-sm text-(--slate-500)">待检测</p>
   {:else}
+    <div class:scan-settle={settled}>
     <div class="flex flex-col md:flex-row gap-6">
       <!-- 左：核芯 IP -->
       <div class="md:w-[30%] md:border-r border-slate-800 md:pr-6 flex flex-col justify-center min-w-0">
@@ -217,5 +218,6 @@
         </div>
       </div>
     {/if}
+    </div>
   {/if}
 </div>

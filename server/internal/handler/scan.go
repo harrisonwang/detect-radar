@@ -55,13 +55,13 @@ func (h *ScanHandler) CreateScan(c *fiber.Ctx) error {
 	return c.Status(fiber.StatusCreated).JSON(result)
 }
 
-// GetScan 查询扫描结果（GET /scans/:id）。
+// GetScan 查询扫描结果（GET /scans/:id?scenario=strict|daily）。
 func (h *ScanHandler) GetScan(c *fiber.Ctx) error {
 	id := c.Params("id")
 	if id == "" {
 		return util.MissingParameter(c, "缺少扫描标识")
 	}
-	result, ok := h.service.Get(id)
+	result, ok := h.service.GetWithScenario(id, c.Query("scenario"))
 	if !ok {
 		return util.ResourceNotFound(c, "扫描 '"+id+"' 不存在或已过期")
 	}

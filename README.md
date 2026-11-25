@@ -39,6 +39,7 @@ DNS 检测结果会稍后返回。无法完成的检测会标为“未检测”�
 | `client/` | Astro + Svelte 5 前端，负责采集信息和展示报告 |
 | `server/` | Go + Fiber 后端，负责出口 IP 信息查询、一致性判断、泄露复核和评分 |
 | `macos/` | 原生 Swift 6 + AppKit macOS 顶部状态栏伴侣（DetectRadarBar），详见 [macos/README.md](macos/README.md) |
+| `modules/` | Surge / Stash / Loon 代理面板模块，在客户端内直接查看出口 IP、线路类型与 IPv6 旁路，详见 [modules/README.md](modules/README.md) |
 | `cloud-ip-crawler/` | 云厂商与机房 IP 段抓取工具，负责生成和更新 `hosting.db` 所需的云网段数据 |
 
 机房识别所需的云厂商 IP 段由本仓库 [cloud-ip-crawler/](cloud-ip-crawler/) 生成，详见 [cloud-ip-crawler/README.md](cloud-ip-crawler/README.md)。

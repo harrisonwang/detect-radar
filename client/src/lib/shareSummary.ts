@@ -95,7 +95,11 @@ function formatHomeIPv6Leak(row: ReadoutRow): string {
 }
 
 export function formatHomeShareText(report: ReportModel): string {
-  const lines: string[] = ['DetectRadar 网络环境检测结果'];
+  const titleLine =
+    report.scenario === 'daily'
+      ? 'DetectRadar 网络环境检测结果（日常口径）'
+      : 'DetectRadar 网络环境检测结果';
+  const lines: string[] = [titleLine];
 
   // 1. 综合结论（无异常时统一使用「未见明显异常」）
   const abnormalCount = report.findings.filter(

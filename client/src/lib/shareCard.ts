@@ -305,11 +305,17 @@ export async function renderShareCard(
     font: font(28, 700, MONO),
     color: C.radar,
   });
-  text(ctx, "网络环境一致性检测报告", W - PAD, y - 10, {
-    font: font(14),
-    color: C.slate400,
-    align: "right",
-  });
+  text(
+    ctx,
+    report.scenario === "daily" ? "网络环境检测报告 · 日常口径" : "网络环境一致性检测报告",
+    W - PAD,
+    y - 10,
+    {
+      font: font(14),
+      color: C.slate400,
+      align: "right",
+    },
+  );
   const when = report.meta.processedAt
     ? new Date(report.meta.processedAt)
     : new Date();

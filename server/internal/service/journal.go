@@ -49,6 +49,7 @@ func (j *Journal) ScanEvent(instanceID string, resp *model.ScanResponse, ua stri
 		"event":      "scan",
 		"ts":         time.Now().UTC().Format(time.RFC3339Nano),
 		"scan_id":    resp.ScanID,
+		"scenario":   NormalizeScenario(resp.Scenario),
 		"ip":         resp.ServerData.ClientIP,
 		"ua":         ua,
 		"score":      resp.Score,

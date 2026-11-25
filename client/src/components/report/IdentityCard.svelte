@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { IdentityReadout, RTTReadout } from '../../lib/report';
+  import type { IdentityReadout, RTTReadout, SignalState } from '../../lib/report';
   import { stateVar, stateSoft } from '../../lib/report';
   import ExitIPAddress from './ExitIPAddress.svelte';
 
@@ -61,6 +61,10 @@
     if (/^\d+$/.test(raw)) return `AS${raw}`;
     return raw;
   });
+  // 日常模式下普通机房 IP 总体为 coherent，但徽章保持中性灰，避免被误解为住宅 IP
+  let usageBadgeState = $derived<SignalState>(
+    identity.state === 'coherent' && identity.usageLabel.includes('机房') ? 'unknown' : identity.state,
+  );
   const pct = (x: number) => (Number.isInteger(x) ? String(x) : x.toFixed(1));
 </script>
 
@@ -95,7 +99,7 @@
         <div class="mt-3.5">
           <span
             class="inline-flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-md"
-            style="color:{stateVar(identity.state)}; background:{stateSoft(identity.state)}"
+            style="color:{stateVar(usageBadgeState)}; background:{stateSoft(usageBadgeState)}"
           >
             <i class="fa-solid {typeIcon(identity.usageLabel)}"></i>{identity.usageLabel}
           </span>

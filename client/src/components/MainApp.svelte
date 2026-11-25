@@ -40,9 +40,9 @@
     safe: '很低', low: '较低', medium: '中等', high: '偏高', critical: '严重',
   };
   const SCENARIO_KEY = 'detectradar:scenario';
-  const SCENARIO_META: Record<ScanScenario, { label: string; note: string }> = {
-    strict: { label: '严格', note: '含时区、语言、机房 IP 与指纹' },
-    daily: { label: '日常', note: '聚焦泄露与高危 IP，时区/语言/普通机房不扣分' },
+  const SCENARIO_META: Record<ScanScenario, { label: string; subtitle: string }> = {
+    strict: { label: '严格模式', subtitle: '核对出口 IP、时区语言、网络泄露与浏览器指纹' },
+    daily: { label: '日常模式', subtitle: '聚焦网络泄露与高危 IP，时区、语言与普通机房仅作展示' },
   };
 
   type ScanStage = 'identity' | 'consistency' | 'leak' | 'environment' | 'analysis' | 'complete';
@@ -399,39 +399,34 @@
   ready={!!report && !isScanning}
 />
 
-<main class="report-main flex-1">
-  <!-- 标题与口径切换 -->
-  <div class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between min-w-0">
+<main class="report-main flex-1 pt-6 sm:pt-10">
+  <!-- 标题与模式切换 -->
+  <div class="mb-5 sm:mb-8 flex flex-col gap-3.5 sm:flex-row sm:items-end sm:justify-between min-w-0">
     <div class="min-w-0">
-      <h1 class="report-title mb-2">
+      <h1 class="report-title text-2xl sm:text-3xl md:text-4xl mb-1.5 sm:mb-2">
         网络环境一致性检测<span class="text-(--radar-400)">雷达</span>
       </h1>
-      <p class="text-sm text-(--slate-400)">核对出口 IP、时区语言、网络泄露与浏览器指纹</p>
+      <p class="text-sm text-(--slate-400) leading-relaxed">{SCENARIO_META[scenario].subtitle}</p>
     </div>
 
-    <div class="flex flex-col sm:items-end gap-1.5 min-w-0 shrink-0" data-nosnippet>
-      <div
-        class="inline-flex items-center gap-1 self-start sm:self-end rounded-lg border border-white/10 bg-slate-900/75 p-1"
-        role="radiogroup"
-        aria-label="检测口径"
-      >
-        <span class="px-2 text-[11px] font-mono text-(--slate-500)">口径</span>
-        {#each (['strict', 'daily'] as const) as mode}
-          {@const active = scenario === mode}
-          <button
-            type="button"
-            role="radio"
-            aria-checked={active}
-            onclick={() => selectScenario(mode)}
-            class="px-3 py-1 rounded-md text-xs font-medium transition-colors cursor-pointer {active
-              ? 'bg-emerald-500/15 text-(--radar-400) ring-1 ring-emerald-500/35'
-              : 'text-(--slate-400) hover:text-slate-200'}"
-          >{SCENARIO_META[mode].label}</button>
-        {/each}
-      </div>
-      <p class="text-[11px] text-(--slate-500) leading-snug max-w-full">
-        {SCENARIO_META[scenario].note}
-      </p>
+    <div
+      class="grid grid-cols-2 w-full sm:inline-flex sm:w-auto items-center gap-1 rounded-lg border border-white/10 bg-slate-900/80 p-1 shrink-0"
+      role="radiogroup"
+      aria-label="检测模式"
+      data-nosnippet
+    >
+      {#each (['strict', 'daily'] as const) as mode}
+        {@const active = scenario === mode}
+        <button
+          type="button"
+          role="radio"
+          aria-checked={active}
+          onclick={() => selectScenario(mode)}
+          class="px-3.5 py-1.5 rounded-md text-xs font-medium text-center whitespace-nowrap transition-colors cursor-pointer {active
+            ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10'
+            : 'text-(--slate-400) hover:text-slate-200'}"
+        >{SCENARIO_META[mode].label}</button>
+      {/each}
     </div>
   </div>
 
@@ -489,6 +484,7 @@
           rows={report?.consistency ?? []}
           state={report?.groups[1]?.state ?? 'unknown'}
           note={report?.groups[1]?.note ?? ''}
+          referenceOnly={scenario === 'daily'}
           isScanning={isScanning} settled={revealedKeys.includes('consistency')} active={activeDimension === 'consistency'}
         />
         <ReadoutCard

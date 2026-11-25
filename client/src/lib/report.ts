@@ -757,7 +757,7 @@ function buildVerdict(groups: ReportGroup[], scenario: ScanScenario): ReportMode
     headline: "未检测到明显异常",
     sub:
       scenario === "daily"
-        ? "日常口径下未发现泄露或高危出口特征。"
+        ? "未发现网络泄露或高危出口特征。"
         : "网络身份与环境特征基本一致。",
   };
 }

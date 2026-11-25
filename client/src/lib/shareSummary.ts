@@ -97,7 +97,7 @@ function formatHomeIPv6Leak(row: ReadoutRow): string {
 export function formatHomeShareText(report: ReportModel): string {
   const titleLine =
     report.scenario === 'daily'
-      ? 'DetectRadar 网络环境检测结果（日常口径）'
+      ? 'DetectRadar 网络环境检测结果（日常模式）'
       : 'DetectRadar 网络环境检测结果';
   const lines: string[] = [titleLine];
 

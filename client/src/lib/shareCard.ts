@@ -307,7 +307,7 @@ export async function renderShareCard(
   });
   text(
     ctx,
-    report.scenario === "daily" ? "网络环境检测报告 · 日常口径" : "网络环境一致性检测报告",
+    report.scenario === "daily" ? "网络环境检测报告 · 日常模式" : "网络环境一致性检测报告",
     W - PAD,
     y - 10,
     {
@@ -473,13 +473,18 @@ export async function renderShareCard(
     ctx.measureText(report.identity.masked || "—").width,
     220,
   );
+  const usageBadgeState: SignalState =
+    report.identity.state === "coherent" &&
+    report.identity.usageLabel.includes("机房")
+      ? "unknown"
+      : report.identity.state;
   chip(
     ctx,
     ix + ipW + 20,
     idCy + 3,
     report.identity.usageLabel,
-    STATE_COLOR[report.identity.state],
-    STATE_SOFT[report.identity.state],
+    STATE_COLOR[usageBadgeState],
+    STATE_SOFT[usageBadgeState],
     13,
   );
 
@@ -626,13 +631,21 @@ export async function renderShareCard(
       font: font(14, 600),
       color: C.white,
     });
-    dot(
-      ctx,
-      sx + detW - 26,
-      detY + 32,
-      STATE_COLOR[s.state],
-      STATE_SOFT[s.state],
-    );
+    if (i === 0 && report.scenario === "daily") {
+      text(ctx, "仅参考", sx + detW - 24, detY + 32, {
+        font: font(11, 400, MONO),
+        color: C.slate500,
+        align: "right",
+      });
+    } else {
+      dot(
+        ctx,
+        sx + detW - 26,
+        detY + 32,
+        STATE_COLOR[s.state],
+        STATE_SOFT[s.state],
+      );
+    }
     s.rows.slice(0, 5).forEach((r, j) => {
       const ry = detY + detStart + j * detStep;
       dot(ctx, sx + 28, ry, STATE_COLOR[r.state], STATE_SOFT[r.state]);

@@ -9,11 +9,12 @@
     rows: ReadoutRow[];
     state: SignalState;
     note?: string;
+    referenceOnly?: boolean;
     isScanning?: boolean;
     settled?: boolean;
     active?: boolean;
   }
-  let { title, icon, rows, state, note = '', isScanning = false, settled = false, active = false }: Props = $props();
+  let { title, icon, rows, state, note = '', referenceOnly = false, isScanning = false, settled = false, active = false }: Props = $props();
 </script>
 
 <div class="glass-card rounded-xl p-5 h-full" class:scan-focus={active}>
@@ -22,7 +23,11 @@
       <i class="fa-solid {icon} text-(--slate-400) text-sm"></i>
       <p class="text-sm font-semibold text-white tracking-wide">{title}</p>
     </div>
-    <span class="dot" style="background:{stateVar(state)}; --_soft:{stateSoft(state)}"></span>
+    {#if referenceOnly && !isScanning && rows.length > 0}
+      <span class="text-[11px] font-mono text-(--slate-500)">仅参考</span>
+    {:else}
+      <span class="dot" style="background:{stateVar(state)}; --_soft:{stateSoft(state)}"></span>
+    {/if}
   </header>
 
   {#if isScanning && !settled}

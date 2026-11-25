@@ -3,22 +3,29 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="DetectRadarBar"
-VERSION="${VERSION:-0.1.0}"
-BUILD_NUMBER="${BUILD_NUMBER:-1}"
+VERSION="${VERSION:-0.1.1}"
+BUILD_NUMBER="${BUILD_NUMBER:-2}"
 BUNDLE_ID="com.detectradar.bar"
 ARCH="${ARCH:-$(uname -m)}"
 
 cd "$ROOT_DIR"
 
 echo "==> Building $APP_NAME ($ARCH)..."
+SDK_VERSION="$(xcrun --show-sdk-version)"
+SDK_LINK_FLAGS=(
+  -Xlinker -platform_version
+  -Xlinker macos
+  -Xlinker 13.0
+  -Xlinker "$SDK_VERSION"
+)
 if [[ "$ARCH" == "universal" ]]; then
-  swift build -c release --arch arm64 --arch x86_64
+  swift build -c release --arch arm64 --arch x86_64 "${SDK_LINK_FLAGS[@]}"
   BIN_PATH="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/$APP_NAME"
   if [[ ! -x "$BIN_PATH" && -x "$ROOT_DIR/.build/apple/Products/Release/$APP_NAME" ]]; then
     BIN_PATH="$ROOT_DIR/.build/apple/Products/Release/$APP_NAME"
   fi
 else
-  swift build -c release
+  swift build -c release "${SDK_LINK_FLAGS[@]}"
   BIN_PATH="$(swift build -c release --show-bin-path)/$APP_NAME"
 fi
 
@@ -38,7 +45,7 @@ mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$BIN_PATH" "$MACOS_DIR/$APP_NAME"
 chmod +x "$MACOS_DIR/$APP_NAME"
 
-# 程序化生成深空绿雷达 .icns 图标
+# 程序化生成浅白底绿雷达 macOS 标准规范 .icns 图标（824/1024 HIG 圆角网格）
 ICONSET_DIR="$(mktemp -d /tmp/detectradar-icon-XXXX).iconset"
 mkdir -p "$ICONSET_DIR"
 swift - "$ICONSET_DIR" <<'SWIFT'
@@ -59,6 +66,8 @@ let sizes: [(String, Int)] = [
     ("icon_512x512@2x.png", 1024),
 ]
 
+let cs = CGColorSpace(name: CGColorSpace.sRGB)!
+
 for (name, px) in sizes {
     let s = CGFloat(px)
     let rep = NSBitmapImageRep(
@@ -67,28 +76,97 @@ for (name, px) in sizes {
         colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
     )!
     NSGraphicsContext.saveGraphicsState()
-    let ctx = NSGraphicsContext(bitmapImageRep: rep)!.cgContext
-    let rect = CGRect(x: 0, y: 0, width: s, height: s)
-    let path = CGPath(roundedRect: rect.insetBy(dx: s * 0.06, dy: s * 0.06), cornerWidth: s * 0.22, cornerHeight: s * 0.22, transform: nil)
-    ctx.addPath(path)
-    ctx.setFillColor(CGColor(red: 0.02, green: 0.05, blue: 0.12, alpha: 1.0))
+    let nsCtx = NSGraphicsContext(bitmapImageRep: rep)!
+    NSGraphicsContext.current = nsCtx
+    let ctx = nsCtx.cgContext
+    ctx.setAllowsAntialiasing(true)
+    ctx.setShouldAntialias(true)
+
+    let inset = s * (100.0 / 1024.0)
+    let tile = CGRect(x: inset, y: inset, width: s - inset * 2, height: s - inset * 2)
+    let radius = tile.width * 0.2237
+    let tilePath = CGPath(roundedRect: tile, cornerWidth: radius, cornerHeight: radius, transform: nil)
+
+    // macOS HIG 底部轻投影
+    ctx.saveGState()
+    ctx.setShadow(
+        offset: CGSize(width: 0, height: -s * 0.012),
+        blur: s * 0.024,
+        color: CGColor(colorSpace: cs, components: [0, 0, 0, 0.20])!
+    )
+    ctx.addPath(tilePath)
+    ctx.setFillColor(CGColor(colorSpace: cs, components: [1, 1, 1, 1])!)
     ctx.fillPath()
+    ctx.restoreGState()
 
-    ctx.setStrokeColor(CGColor(red: 0.29, green: 0.87, blue: 0.50, alpha: 0.92))
-    ctx.setLineWidth(max(1.2, s * 0.065))
-    let center = CGPoint(x: s / 2, y: s / 2)
-    ctx.strokeEllipse(in: CGRect(x: center.x - s * 0.28, y: center.y - s * 0.28, width: s * 0.56, height: s * 0.56))
+    // 柔和白底渐变（与 macOS 原生白色系应用图标保持一致）
+    ctx.saveGState()
+    ctx.addPath(tilePath)
+    ctx.clip()
+    let bgColors = [
+        CGColor(colorSpace: cs, components: [1.0, 1.0, 1.0, 1.0])!,
+        CGColor(colorSpace: cs, components: [0.955, 0.965, 0.980, 1.0])!,
+    ] as CFArray
+    let bgGrad = CGGradient(colorsSpace: cs, colors: bgColors, locations: [0.0, 1.0])!
+    ctx.drawLinearGradient(
+        bgGrad,
+        start: CGPoint(x: tile.midX, y: tile.maxY),
+        end: CGPoint(x: tile.midX, y: tile.minY),
+        options: []
+    )
+    ctx.restoreGState()
 
-    let crossR = s * 0.36
-    let innerR = s * 0.17
+    // 浅细描边，确保在纯白 Finder 背景下边缘清晰
+    ctx.saveGState()
+    let borderW = max(1.0, s * 0.004)
+    let borderPath = CGPath(
+        roundedRect: tile.insetBy(dx: borderW * 0.5, dy: borderW * 0.5),
+        cornerWidth: max(0, radius - borderW * 0.5),
+        cornerHeight: max(0, radius - borderW * 0.5),
+        transform: nil
+    )
+    ctx.addPath(borderPath)
+    ctx.setStrokeColor(CGColor(colorSpace: cs, components: [0.06, 0.09, 0.16, 0.09])!)
+    ctx.setLineWidth(borderW)
+    ctx.strokePath()
+    ctx.restoreGState()
+
+    // 统一 DetectRadar 雷达十字靶图形（圆角端点 + 单层渐变，无叠加接缝）
+    let center = CGPoint(x: tile.midX, y: tile.midY)
+    let w = tile.width
+    let ringR = w * 0.268
+    let strokeW = max(1.5, w * 0.086)
+    let innerR = w * 0.195
+    let outerR = w * 0.342
+    let dotR = w * 0.084
+
+    let markPath = CGMutablePath()
+    markPath.addEllipse(in: CGRect(x: center.x - ringR, y: center.y - ringR, width: ringR * 2, height: ringR * 2))
     for (dx, dy) in [(1.0, 0.0), (-1.0, 0.0), (0.0, 1.0), (0.0, -1.0)] {
-        ctx.move(to: CGPoint(x: center.x + CGFloat(dx) * innerR, y: center.y + CGFloat(dy) * innerR))
-        ctx.addLine(to: CGPoint(x: center.x + CGFloat(dx) * crossR, y: center.y + CGFloat(dy) * crossR))
-        ctx.strokePath()
+        markPath.move(to: CGPoint(x: center.x + CGFloat(dx) * innerR, y: center.y + CGFloat(dy) * innerR))
+        markPath.addLine(to: CGPoint(x: center.x + CGFloat(dx) * outerR, y: center.y + CGFloat(dy) * outerR))
     }
+    let strokedMark = markPath.copy(strokingWithWidth: strokeW, lineCap: .round, lineJoin: .round, miterLimit: 4)
+    let unified = CGMutablePath()
+    unified.addPath(strokedMark)
+    unified.addEllipse(in: CGRect(x: center.x - dotR, y: center.y - dotR, width: dotR * 2, height: dotR * 2))
 
-    ctx.setFillColor(CGColor(red: 0.29, green: 0.87, blue: 0.50, alpha: 1.0))
-    ctx.fillEllipse(in: CGRect(x: center.x - s * 0.08, y: center.y - s * 0.08, width: s * 0.16, height: s * 0.16))
+    ctx.saveGState()
+    ctx.addPath(unified)
+    ctx.clip()
+    let markColors = [
+        CGColor(colorSpace: cs, components: [0.165, 0.820, 0.420, 1.0])!,
+        CGColor(colorSpace: cs, components: [0.086, 0.639, 0.290, 1.0])!,
+    ] as CFArray
+    let markGrad = CGGradient(colorsSpace: cs, colors: markColors, locations: [0.0, 1.0])!
+    ctx.drawLinearGradient(
+        markGrad,
+        start: CGPoint(x: center.x, y: center.y + outerR + strokeW),
+        end: CGPoint(x: center.x, y: center.y - outerR - strokeW),
+        options: []
+    )
+    ctx.restoreGState()
+
     NSGraphicsContext.restoreGraphicsState()
 
     let data = rep.representation(using: .png, properties: [:])!

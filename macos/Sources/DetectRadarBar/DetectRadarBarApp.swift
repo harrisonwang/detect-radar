@@ -90,19 +90,19 @@ private enum PopoverPreviewRenderer {
             snapshot: cleanSnap,
             dark: true,
             minCanvasHeight: unifiedCanvasH,
-            url: outDir.appendingPathComponent("macos-bar-preview-dark-v2.png")
+            url: outDir.appendingPathComponent("macos-bar-preview-dark-v3.png")
         )
         renderPopoverShot(
             snapshot: alertSnap,
             dark: true,
             minCanvasHeight: unifiedCanvasH,
-            url: outDir.appendingPathComponent("macos-bar-preview-alert-v2.png")
+            url: outDir.appendingPathComponent("macos-bar-preview-alert-v3.png")
         )
         renderPopoverShot(
             snapshot: cleanSnap,
             dark: false,
             minCanvasHeight: unifiedCanvasH,
-            url: outDir.appendingPathComponent("macos-bar-preview-light-v2.png")
+            url: outDir.appendingPathComponent("macos-bar-preview-light-v3.png")
         )
     }
 
@@ -162,8 +162,8 @@ private enum PopoverPreviewRenderer {
     private static func renderPopoverShot(snapshot: EgressSnapshot, dark: Bool, minCanvasHeight: CGFloat, url: URL) {
         let appearance = NSAppearance(named: dark ? .darkAqua : .aqua)!
         let panelFill = dark
-            ? NSColor(srgbRed: 0.155, green: 0.165, blue: 0.185, alpha: 1.0)
-            : NSColor(srgbRed: 0.965, green: 0.97, blue: 0.98, alpha: 1.0)
+            ? NSColor(srgbRed: 0.145, green: 0.155, blue: 0.175, alpha: 0.94)
+            : NSColor(srgbRed: 0.985, green: 0.988, blue: 0.995, alpha: 0.95)
 
         let popoverView = PopoverContentView.make(
             snapshot: snapshot,
@@ -184,11 +184,11 @@ private enum PopoverPreviewRenderer {
 
         let padX: CGFloat = 22
         let menuBarH: CGFloat = 28
-        let arrowH: CGFloat = 8
-        let gapToBar: CGFloat = 4
+        let gapToBar: CGFloat = 6
         let bottomPad: CGFloat = 24
+        let cornerRadius: CGFloat = 16
         let canvasW = panelW + padX * 2
-        let canvasH = max(minCanvasHeight, menuBarH + gapToBar + arrowH + panelH + bottomPad)
+        let canvasH = max(minCanvasHeight, menuBarH + gapToBar + panelH + bottomPad)
         let scale: CGFloat = 2.0
 
         guard let canvasRep = NSBitmapImageRep(
@@ -213,15 +213,15 @@ private enum PopoverPreviewRenderer {
             // 桌面壁纸底色 + 顶栏
             let desktopBg = dark
                 ? NSColor(srgbRed: 0.055, green: 0.08, blue: 0.125, alpha: 1.0)
-                : NSColor(srgbRed: 0.85, green: 0.885, blue: 0.935, alpha: 1.0)
+                : NSColor(srgbRed: 0.86, green: 0.895, blue: 0.945, alpha: 1.0)
             desktopBg.setFill()
             NSRect(x: 0, y: 0, width: canvasW, height: canvasH).fill()
 
-            let barColor = dark ? NSColor(white: 0.12, alpha: 0.96) : NSColor(white: 0.96, alpha: 0.96)
+            let barColor = dark ? NSColor(white: 0.12, alpha: 0.92) : NSColor(white: 0.97, alpha: 0.92)
             barColor.setFill()
             NSRect(x: 0, y: canvasH - menuBarH, width: canvasW, height: menuBarH).fill()
 
-            NSColor(white: dark ? 1 : 0, alpha: dark ? 0.08 : 0.08).setFill()
+            NSColor(white: dark ? 1 : 0, alpha: dark ? 0.08 : 0.06).setFill()
             NSRect(x: 0, y: canvasH - menuBarH, width: canvasW, height: 0.5).fill()
 
             // 按真实 macOS 菜单栏顺序：系统时钟固定在最右端，第三方图标紧靠时钟左侧
@@ -252,29 +252,36 @@ private enum PopoverPreviewRenderer {
             NSBezierPath(roundedRect: NSRect(x: pillX, y: pillY, width: pillW, height: pillH), xRadius: 5, yRadius: 5).fill()
             titleStr.draw(at: NSPoint(x: pillX + 8, y: pillY + (pillH - ts.height) / 2))
 
-            // NSPopover 气泡顶边固定紧贴菜单栏下方，不同态切换时仅底部自然延展
-            let panelTopY = canvasH - menuBarH - gapToBar - arrowH
+            // 无箭头圆角控制中心玻璃浮层，顶边固定紧贴菜单栏下方
+            let panelTopY = canvasH - menuBarH - gapToBar
             let panelRect = NSRect(x: padX, y: panelTopY - panelH, width: panelW, height: panelH)
-            let arrowCenterX = pillX + pillW / 2
-            let popoverPath = makePopoverBubblePath(rect: panelRect, cornerRadius: 11, arrowTipX: arrowCenterX, arrowHeight: arrowH)
+            let panelPath = NSBezierPath(roundedRect: panelRect, xRadius: cornerRadius, yRadius: cornerRadius)
 
             let shadow = NSShadow()
-            shadow.shadowBlurRadius = 20
-            shadow.shadowOffset = NSSize(width: 0, height: -5)
-            shadow.shadowColor = NSColor(white: 0, alpha: dark ? 0.56 : 0.22)
+            shadow.shadowBlurRadius = 22
+            shadow.shadowOffset = NSSize(width: 0, height: -6)
+            shadow.shadowColor = NSColor(white: 0, alpha: dark ? 0.52 : 0.16)
             shadow.set()
             panelFill.setFill()
-            popoverPath.fill()
+            panelPath.fill()
             NSShadow().set()
 
             NSGraphicsContext.saveGraphicsState()
-            popoverPath.addClip()
+            panelPath.addClip()
             panelRep.draw(in: panelRect)
             NSGraphicsContext.restoreGraphicsState()
 
-            NSColor(white: dark ? 1 : 0, alpha: dark ? 0.16 : 0.12).setStroke()
-            popoverPath.lineWidth = 1
-            popoverPath.stroke()
+            // 玻璃外缘微弱描边与亮边高光
+            NSColor(white: dark ? 1 : 0, alpha: dark ? 0.18 : 0.08).setStroke()
+            panelPath.lineWidth = 0.75
+            panelPath.stroke()
+            if !dark {
+                let innerRect = panelRect.insetBy(dx: 0.75, dy: 0.75)
+                let innerPath = NSBezierPath(roundedRect: innerRect, xRadius: cornerRadius - 0.75, yRadius: cornerRadius - 0.75)
+                NSColor.white.withAlphaComponent(0.75).setStroke()
+                innerPath.lineWidth = 0.75
+                innerPath.stroke()
+            }
         }
         NSGraphicsContext.restoreGraphicsState()
 
@@ -282,31 +289,6 @@ private enum PopoverPreviewRenderer {
             try? png.write(to: url)
             print("Saved preview: \(url.path) (\(Int(panelW))x\(Int(panelH))@2x)")
         }
-    }
-
-    private static func makePopoverBubblePath(rect: NSRect, cornerRadius r: CGFloat, arrowTipX: CGFloat, arrowHeight: CGFloat) -> NSBezierPath {
-        let halfW: CGFloat = 9
-        let minX = rect.minX
-        let maxX = rect.maxX
-        let minY = rect.minY
-        let maxY = rect.maxY
-        let clampedTipX = min(max(arrowTipX, minX + r + halfW + 4), maxX - r - halfW - 4)
-
-        let path = NSBezierPath()
-        path.move(to: NSPoint(x: minX + r, y: minY))
-        path.line(to: NSPoint(x: maxX - r, y: minY))
-        path.appendArc(withCenter: NSPoint(x: maxX - r, y: minY + r), radius: r, startAngle: -90, endAngle: 0, clockwise: false)
-        path.line(to: NSPoint(x: maxX, y: maxY - r))
-        path.appendArc(withCenter: NSPoint(x: maxX - r, y: maxY - r), radius: r, startAngle: 0, endAngle: 90, clockwise: false)
-        path.line(to: NSPoint(x: clampedTipX + halfW, y: maxY))
-        path.line(to: NSPoint(x: clampedTipX, y: maxY + arrowHeight))
-        path.line(to: NSPoint(x: clampedTipX - halfW, y: maxY))
-        path.line(to: NSPoint(x: minX + r, y: maxY))
-        path.appendArc(withCenter: NSPoint(x: minX + r, y: maxY - r), radius: r, startAngle: 90, endAngle: 180, clockwise: false)
-        path.line(to: NSPoint(x: minX, y: minY + r))
-        path.appendArc(withCenter: NSPoint(x: minX + r, y: minY + r), radius: r, startAngle: 180, endAngle: 270, clockwise: false)
-        path.close()
-        return path
     }
 }
 #endif

@@ -4,13 +4,15 @@ import Foundation
 import ServiceManagement
 
 @MainActor
-final class StatusBarController: NSObject, NSPopoverDelegate {
+final class StatusBarController: NSObject, NSWindowDelegate {
     private var statusItem: NSStatusItem?
-    private let popover = NSPopover()
-    private let contentController = PopoverContentViewController()
+    private let panel = MenuBarPanel()
+    private let contentView = PopoverContentView()
     private let probeClient = ProbeClient()
     private var monitor: NetworkEventMonitor?
     private var outsideClickMonitor: Any?
+    private var spaceChangeObserver: NSObjectProtocol?
+    private var lastResignCloseAt: Date = .distantPast
 
     private var snapshot: EgressSnapshot?
     private var isRefreshing = false
@@ -24,16 +26,25 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
             button.title = IPMasker.menuBarTitle(snapshot: nil, isLoading: true)
             button.toolTip = "DetectRadar"
             button.target = self
-            button.action = #selector(togglePopover(_:))
+            button.action = #selector(togglePanel(_:))
+            button.sendAction(on: [.leftMouseDown])
         }
         statusItem = item
 
-        popover.behavior = .transient
-        popover.animates = true
-        popover.delegate = self
-        popover.contentViewController = contentController
+        panel.delegate = self
+        panel.embed(contentView: contentView)
 
-        syncPopoverContent(forceRebuild: true)
+        syncPanelContent(forceRebuild: true)
+
+        spaceChangeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.activeSpaceDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                self?.closePanel()
+            }
+        }
 
         let monitor = NetworkEventMonitor(debounceSeconds: 3.0, cooldownSeconds: 10.0) { [weak self] _ in
             Task { @MainActor [weak self] in
@@ -58,14 +69,14 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         isRefreshing = true
         updateTitle()
         if previousSnapshot == nil {
-            syncPopoverContent(forceRebuild: false)
+            syncPanelContent(forceRebuild: false)
         }
 
         defer {
             isRefreshing = false
             lastRefreshAt = Date()
             updateTitle()
-            syncPopoverContent(forceRebuild: snapshot != previousSnapshot || previousSnapshot == nil)
+            syncPanelContent(forceRebuild: snapshot != previousSnapshot || previousSnapshot == nil)
         }
 
         snapshot = await probeClient.runProbe()
@@ -75,9 +86,9 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         statusItem?.button?.title = IPMasker.menuBarTitle(snapshot: snapshot, isLoading: isRefreshing)
     }
 
-    private func syncPopoverContent(forceRebuild: Bool) {
+    private func syncPanelContent(forceRebuild: Bool) {
         let loginEnabled = isBundledApp && SMAppService.mainApp.status == .enabled
-        contentController.configure(
+        contentView.configure(
             snapshot: snapshot,
             isRefreshing: isRefreshing,
             launchAtLoginEnabled: loginEnabled,
@@ -87,7 +98,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
                 self?.copyToPasteboard(ip)
             },
             onOpenIPv6Check: { [weak self] in
-                self?.closePopover(nil)
+                self?.closePanel()
                 self?.openIPv6Check()
             },
             onRetry: { [weak self] in
@@ -96,7 +107,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
                 }
             },
             onOpenWebHome: { [weak self] in
-                self?.closePopover(nil)
+                self?.closePanel()
                 self?.openWebHome()
             },
             onToggleLaunchAtLogin: { [weak self] in
@@ -108,26 +119,41 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
                 }
             },
             onClosePopover: { [weak self] in
-                self?.closePopover(nil)
+                self?.closePanel()
             },
             onQuit: { [weak self] in
                 self?.quitApp()
             }
         )
-        popover.contentSize = contentController.contentView.fittingPanelSize()
+        let size = contentView.fittingPanelSize()
+        if panel.isVisible {
+            panel.resizeKeepingTopEdge(to: size)
+        } else {
+            panel.setContentSize(size)
+        }
     }
 
-    @objc private func togglePopover(_ sender: AnyObject?) {
+    @objc private func togglePanel(_ sender: AnyObject?) {
         guard let button = statusItem?.button else { return }
-        if popover.isShown {
-            closePopover(sender)
+        if panel.isVisible {
+            closePanel()
+            return
+        }
+        // 避免刚因失焦关闭后同一点击事件再次弹开
+        if Date().timeIntervalSince(lastResignCloseAt) < 0.15 {
             return
         }
 
-        syncPopoverContent(forceRebuild: false)
-        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-        NSApp.activate(ignoringOtherApps: true)
-        popover.contentViewController?.view.window?.makeKey()
+        syncPanelContent(forceRebuild: false)
+        let size = contentView.fittingPanelSize()
+        panel.position(relativeTo: button, contentSize: size)
+        panel.orderFrontRegardless()
+        panel.makeKey()
+        panel.makeFirstResponder(contentView)
+        DispatchQueue.main.async { [weak self] in
+            guard let self, self.panel.isVisible else { return }
+            self.statusItem?.button?.highlight(true)
+        }
         installOutsideClickMonitor()
 
         let stale = Date().timeIntervalSince(lastRefreshAt) >= 2.0
@@ -138,24 +164,32 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         }
     }
 
-    private func closePopover(_ sender: AnyObject?) {
-        popover.performClose(sender)
+    private func closePanel() {
+        guard panel.isVisible else {
+            removeOutsideClickMonitor()
+            statusItem?.button?.highlight(false)
+            return
+        }
+        panel.orderOut(nil)
+        statusItem?.button?.highlight(false)
         removeOutsideClickMonitor()
+    }
+
+    private func isMouseInsideStatusButton() -> Bool {
+        guard let button = statusItem?.button, let buttonWin = button.window else { return false }
+        let buttonScreenRect = buttonWin.convertToScreen(button.convert(button.bounds, to: nil))
+        return buttonScreenRect.contains(NSEvent.mouseLocation)
     }
 
     private func installOutsideClickMonitor() {
         removeOutsideClickMonitor()
         outsideClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
             Task { @MainActor [weak self] in
-                guard let self, self.popover.isShown else { return }
-                if let button = self.statusItem?.button,
-                   let buttonWin = button.window {
-                    let buttonScreenRect = buttonWin.convertToScreen(button.convert(button.bounds, to: nil))
-                    if buttonScreenRect.contains(NSEvent.mouseLocation) {
-                        return
-                    }
+                guard let self, self.panel.isVisible else { return }
+                if self.isMouseInsideStatusButton() {
+                    return
                 }
-                self.closePopover(nil)
+                self.closePanel()
             }
         }
     }
@@ -167,8 +201,12 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         }
     }
 
-    func popoverDidClose(_ notification: Notification) {
-        removeOutsideClickMonitor()
+    func windowDidResignKey(_ notification: Notification) {
+        guard panel.isVisible else { return }
+        if isMouseInsideStatusButton() {
+            lastResignCloseAt = Date()
+        }
+        closePanel()
     }
 
     private func copyToPasteboard(_ text: String) {
@@ -197,7 +235,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         } catch {
             NSSound.beep()
         }
-        syncPopoverContent(forceRebuild: true)
+        syncPanelContent(forceRebuild: true)
     }
 
     private func quitApp() {
@@ -205,44 +243,114 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
     }
 }
 
+/// 与系统控制中心 / 菜单栏面板一致的无箭头圆角浮层：
+/// - macOS 26+ 使用原生 `NSGlassEffectView`（Liquid Glass），与 Wi-Fi 等系统托盘面板背景材质一致；
+/// - macOS 13–15 回退到 `NSVisualEffectView(material: .menu, state: .active)`，避免 `NSPopover` 在深色窗口上发灰发暗。
 @MainActor
-final class PopoverContentViewController: NSViewController {
-    let contentView = PopoverContentView()
+private final class MenuBarPanel: NSPanel {
+    static let cornerRadius: CGFloat = {
+        if #available(macOS 26.0, *) { return 16 }
+        return 12
+    }()
 
-    override func loadView() {
-        view = contentView
+    init() {
+        super.init(
+            contentRect: NSRect(x: 0, y: 0, width: PopoverContentView.panelWidth, height: 168),
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        isOpaque = false
+        backgroundColor = .clear
+        hasShadow = true
+        level = .popUpMenu
+        hidesOnDeactivate = false
+        isReleasedWhenClosed = false
+        isMovable = false
+        collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .transient, .ignoresCycle]
     }
 
-    func configure(
-        snapshot: EgressSnapshot?,
-        isRefreshing: Bool,
-        launchAtLoginEnabled: Bool,
-        launchAtLoginAvailable: Bool,
-        forceRebuild: Bool,
-        onCopyIP: @escaping (String) -> Void,
-        onOpenIPv6Check: @escaping () -> Void,
-        onRetry: @escaping () -> Void,
-        onOpenWebHome: @escaping () -> Void,
-        onToggleLaunchAtLogin: @escaping () -> Void,
-        onSilentRefresh: @escaping () -> Void,
-        onClosePopover: @escaping () -> Void,
-        onQuit: @escaping () -> Void
-    ) {
-        contentView.configure(
-            snapshot: snapshot,
-            isRefreshing: isRefreshing,
-            launchAtLoginEnabled: launchAtLoginEnabled,
-            launchAtLoginAvailable: launchAtLoginAvailable,
-            forceRebuild: forceRebuild,
-            onCopyIP: onCopyIP,
-            onOpenIPv6Check: onOpenIPv6Check,
-            onRetry: onRetry,
-            onOpenWebHome: onOpenWebHome,
-            onToggleLaunchAtLogin: onToggleLaunchAtLogin,
-            onSilentRefresh: onSilentRefresh,
-            onClosePopover: onClosePopover,
-            onQuit: onQuit
+    override var canBecomeKey: Bool { true }
+    override var canBecomeMain: Bool { false }
+
+    func embed(contentView inner: NSView) {
+        let wrapper = NSView()
+        wrapper.autoresizingMask = [.width, .height]
+        inner.translatesAutoresizingMaskIntoConstraints = false
+        wrapper.addSubview(inner)
+        NSLayoutConstraint.activate([
+            inner.topAnchor.constraint(equalTo: wrapper.topAnchor),
+            inner.leadingAnchor.constraint(equalTo: wrapper.leadingAnchor),
+            inner.trailingAnchor.constraint(equalTo: wrapper.trailingAnchor),
+            inner.bottomAnchor.constraint(equalTo: wrapper.bottomAnchor),
+        ])
+
+        #if compiler(>=6.2)
+        if #available(macOS 26.0, *) {
+            let glass = NSGlassEffectView()
+            glass.style = .regular
+            glass.cornerRadius = Self.cornerRadius
+            glass.autoresizingMask = [.width, .height]
+            glass.contentView = wrapper
+            contentView = glass
+            return
+        }
+        #endif
+
+        let effectView = NSVisualEffectView()
+        effectView.material = .menu
+        effectView.blendingMode = .behindWindow
+        effectView.state = .active
+        effectView.maskImage = Self.roundedMaskImage(cornerRadius: Self.cornerRadius)
+        effectView.autoresizingMask = [.width, .height]
+        effectView.wantsLayer = true
+        effectView.layer?.cornerRadius = Self.cornerRadius
+        effectView.layer?.masksToBounds = true
+        effectView.addSubview(wrapper)
+        wrapper.frame = effectView.bounds
+        contentView = effectView
+    }
+
+    func position(relativeTo button: NSStatusBarButton, contentSize size: NSSize) {
+        guard let buttonWindow = button.window else {
+            setContentSize(size)
+            return
+        }
+        let buttonRect = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
+        let screenFrame = (buttonWindow.screen ?? NSScreen.main)?.visibleFrame
+            ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+
+        let gapBelowBar: CGFloat = 5
+        let edgeMargin: CGFloat = 8
+        let rawX = round(buttonRect.midX - size.width / 2)
+        let clampedX = min(
+            max(rawX, screenFrame.minX + edgeMargin),
+            screenFrame.maxX - size.width - edgeMargin
         )
+        let y = round(buttonRect.minY - gapBelowBar - size.height)
+        setFrame(NSRect(x: clampedX, y: y, width: size.width, height: size.height), display: true)
+    }
+
+    func resizeKeepingTopEdge(to size: NSSize) {
+        let current = frame
+        guard abs(current.width - size.width) > 0.5 || abs(current.height - size.height) > 0.5 else {
+            return
+        }
+        let newY = round(current.maxY - size.height)
+        setFrame(NSRect(x: current.minX, y: newY, width: size.width, height: size.height), display: true)
+    }
+
+    private static func roundedMaskImage(cornerRadius r: CGFloat) -> NSImage {
+        let edge = r * 2 + 2
+        let size = NSSize(width: edge, height: edge)
+        let img = NSImage(size: size, flipped: false) { rect in
+            NSColor.black.setFill()
+            NSBezierPath(roundedRect: rect, xRadius: r, yRadius: r).fill()
+            return true
+        }
+        img.capInsets = NSEdgeInsets(top: r, left: r, bottom: r, right: r)
+        img.resizingMode = .stretch
+        return img
     }
 }
 
@@ -910,8 +1018,9 @@ private class HoverableRowView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         if rowEnabled && isHovered {
+            let r: CGFloat = MenuBarPanel.cornerRadius - 6
             NSColor.labelColor.withAlphaComponent(0.08).setFill()
-            NSBezierPath(roundedRect: bounds, xRadius: 6, yRadius: 6).fill()
+            NSBezierPath(roundedRect: bounds, xRadius: r, yRadius: r).fill()
         }
     }
 

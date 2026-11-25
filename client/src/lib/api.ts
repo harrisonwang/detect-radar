@@ -96,7 +96,7 @@ async function request<T>(
 export const createScan = (req: ScanRequest) =>
   request<ScanResponse>('/scans', { method: 'POST', body: JSON.stringify(req) }, 20_000);
 
-/** 按 scan_id 取回历史扫描结果（30 分钟内有效）；传入 scenario 时按指定口径即时重算 */
+/** 按 scan_id 取回历史扫描结果（30 分钟内有效）；传入 scenario 时按指定模式即时重算 */
 export const getScan = (id: string, scenario?: ScanScenario) => {
   const qs = scenario ? `?scenario=${encodeURIComponent(scenario)}` : '';
   return request<ScanResponse>(`/scans/${encodeURIComponent(id)}${qs}`);

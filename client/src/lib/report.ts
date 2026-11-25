@@ -293,7 +293,7 @@ function groupNote(key: ReportGroup["key"], state: SignalState, scenario: ScanSc
             ? "类型无法高置信判定"
             : "出口正常";
     case "consistency":
-      if (scenario === "daily") return "日常口径下仅作展示";
+      if (scenario === "daily") return "日常模式下仅作展示";
       return state === "coherent"
         ? "时区 / 语言与 IP 相符"
         : "存在与 IP 不符的环境项";
@@ -441,7 +441,7 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
     });
   }
 
-  // 一致性类（日常口径仅作展示，不列为暴露项）
+  // 一致性类（日常模式下仅作展示，不列为暴露项）
   const tz = a.consistency.timezone;
   if (scenario === "strict" && !tz.passed) {
     push({
@@ -540,7 +540,7 @@ function consistencyRows(a: ScanAnalysis, scenario: ScanScenario): ReadoutRow[] 
       value: `${tzToZone(tz.browser)} ↔ ${tzToZone(tz.expected)}`,
       state: tzUnknown ? "unknown" : tz.passed ? "coherent" : daily ? "unknown" : "contradiction",
       compare: { browser: tzToZone(tz.browser), ip: tzToZone(tz.expected) },
-      hint: tzUnknown ? "IP 时区未知" : !tz.passed && daily ? "日常口径下仅作展示" : undefined,
+      hint: tzUnknown ? "IP 时区未知" : !tz.passed && daily ? "日常模式下仅作展示" : undefined,
     },
     {
       label: "语言",
@@ -550,7 +550,7 @@ function consistencyRows(a: ScanAnalysis, scenario: ScanScenario): ReadoutRow[] 
         browser: langName(lang.browser),
         ip: langName((lang.expected || [])[0] || ""),
       },
-      hint: !lang.passed && daily ? "日常口径下仅作展示" : undefined,
+      hint: !lang.passed && daily ? "日常模式下仅作展示" : undefined,
     },
   ];
 }
@@ -673,13 +673,13 @@ function environmentRows(
       label: "Canvas 指纹",
       value: fp.canvas.is_hooked ? "被篡改" : "正常",
       state: fp.canvas.is_hooked ? (daily ? "unknown" : "contradiction") : "coherent",
-      hint: fp.canvas.is_hooked && daily ? "日常口径下仅作展示" : undefined,
+      hint: fp.canvas.is_hooked && daily ? "日常模式下仅作展示" : undefined,
     },
     {
       label: "Audio 指纹",
       value: fp.audio.is_hooked ? "被篡改" : "正常",
       state: fp.audio.is_hooked ? (daily ? "unknown" : "contradiction") : "coherent",
-      hint: fp.audio.is_hooked && daily ? "日常口径下仅作展示" : undefined,
+      hint: fp.audio.is_hooked && daily ? "日常模式下仅作展示" : undefined,
     },
     {
       label: "自动化",

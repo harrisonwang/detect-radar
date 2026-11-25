@@ -180,13 +180,13 @@
     <h1 class="report-title"><span class="text-radar">DNS</span> 泄露检测</h1>
   </header>
 
-  <div role="status" class="sr-only">
+  <div role="status" class="sr-only" data-nosnippet>
     {busy ? (current ? '正在重新检测 DNS。' : '正在检测 DNS。') : error?.title ?? (current ? status.title : '')}
   </div>
 
   <div class="diagnostic-layout">
     {#if current}
-      <section class="glass-card result-card" aria-label="DNS 检测结果">
+      <section class="glass-card result-card" aria-label="DNS 检测结果" data-nosnippet>
         {#if error}
           <div class="result-notice">
             <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
@@ -293,7 +293,7 @@
         {/if}
       </section>
     {:else if error}
-      <section class="glass-card result-card" aria-label={error.title}>
+      <section class="glass-card result-card" aria-label={error.title} data-nosnippet>
         <div class="failure-card">
           <p class="verdict-title">{error.title}</p>
           <p class="diagnosis-note">{error.note}</p>
@@ -301,7 +301,7 @@
       </section>
     {:else}
       {@const isWaiting = ready && !busy}
-      <section class="glass-card result-card" aria-label={isWaiting ? '待检测 DNS' : '正在检测'}>
+      <section class="glass-card result-card" aria-label={isWaiting ? '待检测 DNS' : '正在检测'} data-nosnippet>
         <DNSFlowStage
           exit={pendingExit}
           verdictState="unknown"
@@ -347,7 +347,7 @@
 
     <div class="side-stack">
       {#if comparison && !error}
-        <aside class="glass-card side-card" aria-labelledby="dns-comparison-title">
+        <aside class="glass-card side-card" aria-labelledby="dns-comparison-title" data-nosnippet>
           <p class="side-heading" id="dns-comparison-title">
             <i class="fa-solid fa-arrow-right-arrow-left" aria-hidden="true"></i>
             {busy ? '上次对比' : '和上次比'}
@@ -393,8 +393,9 @@
           <i class="fa-solid fa-circle-info" aria-hidden="true"></i>检测说明
         </p>
         <ul class="rule-note">
-          <li>结果来自当前浏览器的 DNS 检测</li>
-          <li>出口 IP 在海外，测到<span class="nowrap">国内运营商 DNS</span>，判为<strong>泄露</strong></li>
+          <li>每次通过自建权威 DNS 生成独立随机域名，实时识别当前浏览器使用的 DNS 服务器</li>
+          <li>出口 IP 在海外，测到<span class="nowrap">中国大陆运营商 DNS</span>，判为<strong>泄露</strong></li>
+          <li>阿里 DNS、DNSPod、Cloudflare、Google 等公共 DNS 与国内直连均判为<strong>未泄露</strong>，完整口径见 <a href="/about/#dns" class="text-(--radar-400) underline underline-offset-4">检测说明</a></li>
         </ul>
       </aside>
     </div>

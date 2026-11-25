@@ -107,7 +107,7 @@
 
       <div class="report-actions">
         {#if page !== "static"}
-          <span class="status-pill text-xs font-mono text-(--slate-500) whitespace-nowrap" role="status">
+          <span class="status-pill text-xs font-mono text-(--slate-500) whitespace-nowrap" role="status" data-nosnippet>
             <span aria-hidden="true" class="dot" style:background={statusColor} style:--_soft="transparent"></span>
             {statusText}
           </span>

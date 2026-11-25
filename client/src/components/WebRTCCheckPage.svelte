@@ -227,7 +227,7 @@
     <h1 class="report-title"><span class="text-radar">WebRTC</span> 泄露检测</h1>
   </header>
 
-  <div role="status" class="sr-only">
+  <div role="status" class="sr-only" data-nosnippet>
     {busy
       ? current
         ? '正在重新检测 WebRTC。'
@@ -239,7 +239,7 @@
 
   <div class="diagnostic-layout">
     {#if current}
-      <section class="glass-card result-card" aria-label="WebRTC 检测结果">
+      <section class="glass-card result-card" aria-label="WebRTC 检测结果" data-nosnippet>
         {#if current.exitError}
           <div class="result-notice">
             <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
@@ -456,7 +456,7 @@
       </section>
     {:else}
       {@const isWaiting = ready && !busy}
-      <section class="glass-card result-card" aria-label={isWaiting ? '待检测 WebRTC' : '正在检测 WebRTC'}>
+      <section class="glass-card result-card" aria-label={isWaiting ? '待检测 WebRTC' : '正在检测 WebRTC'} data-nosnippet>
         <WebRTCFlowStage
           exit={pendingExit}
           verdictState="unknown"
@@ -513,7 +513,7 @@
 
     <div class="side-stack">
       {#if comparison}
-        <aside class="glass-card side-card" aria-labelledby="webrtc-comparison-title">
+        <aside class="glass-card side-card" aria-labelledby="webrtc-comparison-title" data-nosnippet>
           <p class="side-heading" id="webrtc-comparison-title">
             <i class="fa-solid fa-arrow-right-arrow-left" aria-hidden="true"></i>
             {busy ? '上次对比' : '和上次比'}

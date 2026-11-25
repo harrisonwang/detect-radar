@@ -21,8 +21,9 @@
 ### 1. 当前出口 IP
 
 - 展示归属地、ASN、运营商和网络类型（区分普通家庭或办公宽带住宅 IP 与云服务器、托管机房 IP）。
-- 综合云厂商网段、ASN、BGP 与反向解析等信号识别机房属性。
-- 检查公开黑名单（DNSBL / PBL）、常见代理端口开放情况、Tor 出口列表和第三方信誉信息。
+- 综合 IP2Location / DB-IP 离线库、ip2region（中国大陆）、云厂商网段、ASN 黑名单、Team Cymru 实时 BGP 与 rDNS 反向解析识别机房属性。
+- 展示 Cloudflare Radar 近 30 天所属 ASN 维度的人类流量占比（经 Redis 缓存 24 小时，仅反映所属网段整体构成，非单个 IP 评分）。
+- 检查公开黑名单（Spamhaus / SpamCop / Barracuda / DroneBL）、Shodan InternetDB 开放代理端口、Tor 出口列表和第三方信誉信息。
 - 物理延迟仅呈现浏览器到服务器与出口到服务器的实测毫秒数，不设人为阈值也不计入扣分。
 
 ### 2. 环境一致性

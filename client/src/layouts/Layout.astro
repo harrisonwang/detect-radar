@@ -30,6 +30,7 @@ interface Props {
 	featureList?: string[];
 	software?: SoftwareMeta;
 	faqs?: FAQItem[];
+	datePublished?: string;
 	dateModified?: string;
 }
 
@@ -46,7 +47,8 @@ const {
 	featureList,
 	software,
 	faqs,
-	dateModified = '2026-11-21',
+	datePublished,
+	dateModified = '2026-11-25',
 } = Astro.props;
 
 const BRAND = 'DetectRadar';
@@ -69,6 +71,7 @@ const DEFAULT_HOME_FEATURES = [
 	'IPv6 双栈泄露检测',
 	'出口 IP 归属地 / ASN / 运营商 / 类型分类',
 	'机房 / 托管 IP 识别（云 CIDR + ASN + BGP + rDNS）',
+	'Cloudflare Radar 近 30 天 ASN 人类流量占比',
 	'Canvas / Audio / WebGL 指纹一致性与 Hook 检测',
 	'navigator.webdriver 自动化标记检测',
 	'问题清单、雷达图与报告分享图',
@@ -111,6 +114,7 @@ const graphNodes: Record<string, unknown>[] = [
 		name: fullTitle,
 		description,
 		inLanguage: locale,
+		...(datePublished ? { datePublished } : {}),
 		dateModified,
 		isPartOf: { '@id': websiteId },
 		about:
@@ -173,6 +177,7 @@ if (pageType === 'article') {
 		headline: title ?? fullTitle,
 		description,
 		inLanguage: locale,
+		...(datePublished ? { datePublished } : {}),
 		dateModified,
 		author: { '@id': orgId },
 		publisher: { '@id': orgId },

@@ -5,13 +5,16 @@ import ReportBackdrop from '../components/ReportBackdrop.svelte';
 import SiteFooter from '../components/SiteFooter.svelte';
 ---
 
-<Layout canonical="/" pageType="home">
+<Layout canonical="/" pageType="home" dateModified="2026-11-25">
   <div class="min-h-screen bg-space-950 scan-grid flex flex-col relative">
     <ReportBackdrop />
     <MainApp client:load />
     <noscript>
       <p class="report-main pt-0 text-sm text-(--slate-300)">请启用 JavaScript 后运行实时检测。</p>
     </noscript>
+    <p class="relative z-10 mx-auto w-full max-w-7xl px-4 pb-8 sm:px-6 lg:px-8 text-xs leading-6 text-(--slate-500)">
+      DetectRadar 免费在线核对当前出口 IP（宽带 / 机房、ASN 与 Cloudflare Radar 近 30 天网段人类流量占比）、浏览器时区与语言一致性，并检查 DNS、WebRTC、IPv6 泄露及浏览器指纹；仅分析当前连接，详细判据与数据来源见<a href="/about/" class="text-(--slate-400) underline underline-offset-4 hover:text-white transition-colors">检测说明</a>。
+    </p>
     <SiteFooter />
   </div>
 </Layout>

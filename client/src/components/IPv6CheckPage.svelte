@@ -192,7 +192,7 @@
     <h1 class="report-title"><span class="text-radar">IPv6</span> 泄露检测</h1>
   </header>
 
-  <div role="status" class="sr-only">
+  <div role="status" class="sr-only" data-nosnippet>
     {busy
       ? current
         ? '正在重新检测 IPv4 与 IPv6 出口。'
@@ -204,7 +204,7 @@
 
   <div class="diagnostic-layout">
     {#if current}
-      <section class="glass-card result-card" aria-label="IPv6 泄露检测结果">
+      <section class="glass-card result-card" aria-label="IPv6 泄露检测结果" data-nosnippet>
         {#if current.v4Error === 'limited' || current.v6Error === 'limited'}
           <div class="result-notice">
             <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
@@ -259,7 +259,7 @@
       </section>
     {:else}
       {@const isWaiting = ready && !busy}
-      <section class="glass-card result-card" aria-label={isWaiting ? '待检测 IPv6' : '正在检测 IPv6'}>
+      <section class="glass-card result-card" aria-label={isWaiting ? '待检测 IPv6' : '正在检测 IPv6'} data-nosnippet>
         <IPv6FlowStage
           v4={liveProgress?.v4 ?? null}
           v6={liveProgress?.v6 ?? null}
@@ -302,7 +302,7 @@
 
     <div class="side-stack">
       {#if comparison}
-        <aside class="glass-card side-card" aria-labelledby="ipv6-comparison-title">
+        <aside class="glass-card side-card" aria-labelledby="ipv6-comparison-title" data-nosnippet>
           <p class="side-heading" id="ipv6-comparison-title">
             <i class="fa-solid fa-arrow-right-arrow-left" aria-hidden="true"></i>
             {busy ? '上次对比' : '和上次比'}

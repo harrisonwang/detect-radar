@@ -9,23 +9,27 @@ import { ABOUT_FAQS } from '../lib/seoContent';
 	title="检测说明：DNS、WebRTC 与 IPv6 泄露判断及隐私说明"
 	canonical="/about/"
 	ogImage="/og-about.png"
-	description="说明 DetectRadar 检测哪些内容，DNS、WebRTC 和 IPv6 泄露怎么判断，终端与 AI 助手用法，以及数据隐私保护与常见问题。"
+	description="说明 DetectRadar 检测哪些内容、DNS / WebRTC / IPv6 泄露判断口径、公开数据来源与项目背景、终端与 AI 助手用法及常见问题。"
 	pageType="article"
 	faqs={ABOUT_FAQS}
-	dateModified="2026-11-24"
+	datePublished="2026-10-23"
+	dateModified="2026-11-25"
 >
 	<div class="min-h-screen flex flex-col">
 		<AppHeader page="static" />
 		<main class="flex-1 mx-auto w-full max-w-3xl px-6 py-16 prose prose-invert prose-headings:font-semibold prose-headings:scroll-mt-28 prose-a:text-(--radar-400)">
 			<h1>检测说明</h1>
+			<p class="not-prose -mt-3 mb-6 text-xs font-mono text-(--slate-500)">
+				最后更新：<time datetime="2026-11-25">2026-11-25</time>
+			</p>
 			<p>
-				打开 DetectRadar 就能查看你当前的出口 IP（普通宽带还是机房）、时区和语言对不对得上、有没有 DNS / WebRTC / IPv6 泄露，以及浏览器指纹是否正常。下面说明各项结果是怎么判断的。
+				打开 DetectRadar 就能查看你当前的出口 IP（普通宽带还是机房）、ASN 与所属网段人类流量占比、时区和语言对不对得上、有没有 DNS / WebRTC / IPv6 泄露，以及浏览器指纹是否正常。下面说明各项结果是怎么判断的。
 			</p>
 
 			<h2>检测哪些内容</h2>
 			<ul>
 				<li>
-					<strong>出口 IP 与线路类型</strong>：查看出口地区和运营商，区分普通家庭或办公宽带（住宅 IP）与云服务器/机房 IP；同时核对是否列入公开黑名单、有没有开放常见代理端口，以及是不是 Tor 匿名出口节点。
+					<strong>出口 IP 与线路类型</strong>：查看出口地区、运营商与 ASN，区分普通家庭或办公宽带（住宅 IP）与云服务器/机房 IP；同时展示 Cloudflare Radar 近 30 天所属 ASN 网段的人类流量占比（仅作网段背景参考，非单 IP 评分），并核对公开黑名单、常见代理开放端口及 Tor 出口节点。
 				</li>
 				<li>
 					<strong>时区与语言</strong>：核对浏览器时区、常用语言是否与出口地区一致。页面显示的 CPU、内存等设备参数仅作参考，不计入异常。
@@ -73,6 +77,15 @@ import { ABOUT_FAQS } from '../lib/seoContent';
 				<li>只检测你当前这一条网络连线，不支持输入任意第三方 IP 来查。</li>
 				<li>结果写着「未见明显异常」，只代表这次各项信息彼此对得上、没发现泄露，不保证目标网站不会风控；DetectRadar 只做检测，不提供代理或改指纹功能。</li>
 				<li>Canvas、Audio、WebGL 的渲染结果和扩展列表都在浏览器本地算成无法还原原样的匿名哈希后再提交（不上传原始画面和插件明细，仅显卡型号原文核对系统）；分享文字与截图也在本地生成并自动隐藏完整 IP。详情见<a href="/privacy/">隐私政策</a>和<a href="/terms/">服务条款</a>。</li>
+			</ul>
+
+			<h2 id="sources">数据来源与项目背景</h2>
+			<ul>
+				<li><strong>地理与 ASN 归属</strong>：综合 IP2Location / DB-IP 离线库、ip2region（中国大陆省市与运营商）、Team Cymru 实时 BGP 路由校准及 rDNS 反向解析。</li>
+				<li><strong>公开信誉与端口</strong>：核对 Spamhaus、SpamCop、Barracuda、DroneBL 公开黑名单，以及 Shodan InternetDB 开放端口与 Tor 官方出口列表。</li>
+				<li><strong>人类流量占比</strong>：来自 Cloudflare Radar 近 30 天 ASN 维度 HTTP 流量统计（经服务端 Redis 缓存 24 小时），仅反映所属网段整体构成。</li>
+				<li><strong>DNS 与双栈实测</strong>：基于自建权威 DNS（CoreDNS + DNSTap）与独立纯 IPv4 / 纯 IPv6 接入点（<code>4.detectradar.com</code> / <code>6.detectradar.com</code>）直接观测。</li>
+				<li><strong>关于本站</strong>：DetectRadar 是由独立开发者维护的开源网络诊断工具，全部源码以 MIT 协议公开在 <a href="https://github.com/harrisonwang/detect-radar" target="_blank" rel="noopener noreferrer">GitHub</a>。全站免费、免注册，不销售代理服务、不收代理商推广返佣，也无弹窗广告。</li>
 			</ul>
 
 			<h2 id="cli">终端查询与 AI 助手</h2>

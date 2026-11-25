@@ -5,7 +5,7 @@
 
 ## 核心工具
 
-- [网络环境一致性检测雷达](https://detectradar.com/): 免费、免注册核对当前出口 IP 的归属地、ASN、运营商与住宅 IP / 机房 IP 属性，比对浏览器时区、语言一致性，排查 WebRTC、DNS、IPv6 代理泄露以及 Canvas、Audio、WebGL 等浏览器指纹特征，生成诊断报告并支持分享。
+- [网络环境一致性检测雷达](https://detectradar.com/): 免费、免注册核对当前出口 IP 的归属地、ASN、运营商、住宅 IP / 机房 IP 属性与 Cloudflare Radar 近 30 天网段人类流量占比，比对浏览器时区、语言一致性，排查 WebRTC、DNS、IPv6 代理泄露以及 Canvas、Audio、WebGL 等浏览器指纹特征，生成诊断报告并支持分享。
 - [DNS 泄露检测](https://detectradar.com/dns-leak-test/): 基于自建权威 DNS 服务检测实际使用的 DNS 服务器归属地，区分国内宽带运营商 DNS 泄露与公共 DNS 正常分流，同一浏览器内保留最近两次结果以便对比变化。
 - [WebRTC 泄露检测](https://detectradar.com/webrtc-leak-test/): 通过浏览器本地 STUN ICE 候选核对公网候选 IP 与当前出口 IP 是否一致，检查内网地址与 mDNS（*.local）隐私保护状态，支持改配置后同页对比。
 - [IPv6 泄露检测](https://detectradar.com/ipv6-leak-test/): 独立并发探测纯 IPv4（4.detectradar.com）与纯 IPv6（6.detectradar.com）真实双栈出口，不依赖 WebRTC 即可检出国内宽带运营商 IPv6 旁路泄露。

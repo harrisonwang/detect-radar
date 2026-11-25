@@ -352,6 +352,7 @@
     </h1>
   </div>
 
+    <div data-nosnippet>
     <!-- 评分 + 判定 -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
       <div class="lg:col-span-4">
@@ -430,6 +431,7 @@
         </div>
       {/if}
     {/if}
+    </div>
   </main>
 
   <ReportToast bind:this={toast} suppressed={isCapturing} />

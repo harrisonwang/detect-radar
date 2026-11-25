@@ -11,21 +11,14 @@ ARCH="${ARCH:-$(uname -m)}"
 cd "$ROOT_DIR"
 
 echo "==> Building $APP_NAME ($ARCH)..."
-SDK_VERSION="$(xcrun --show-sdk-version)"
-SDK_LINK_FLAGS=(
-  -Xlinker -platform_version
-  -Xlinker macos
-  -Xlinker 13.0
-  -Xlinker "$SDK_VERSION"
-)
 if [[ "$ARCH" == "universal" ]]; then
-  swift build -c release --arch arm64 --arch x86_64 "${SDK_LINK_FLAGS[@]}"
+  swift build -c release --arch arm64 --arch x86_64
   BIN_PATH="$(swift build -c release --arch arm64 --arch x86_64 --show-bin-path)/$APP_NAME"
   if [[ ! -x "$BIN_PATH" && -x "$ROOT_DIR/.build/apple/Products/Release/$APP_NAME" ]]; then
     BIN_PATH="$ROOT_DIR/.build/apple/Products/Release/$APP_NAME"
   fi
 else
-  swift build -c release "${SDK_LINK_FLAGS[@]}"
+  swift build -c release
   BIN_PATH="$(swift build -c release --show-bin-path)/$APP_NAME"
 fi
 
@@ -44,6 +37,11 @@ rm -rf "$APP_DIR"
 mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$BIN_PATH" "$MACOS_DIR/$APP_NAME"
 chmod +x "$MACOS_DIR/$APP_NAME"
+
+# SwiftPM 默认可能将 Mach-O LC_BUILD_VERSION 的 sdk 写成 minos（13.0），
+# 导致 macOS 26+ 降级到旧版兼容渲染；用 vtool 同步写入当前编译 SDK 版本（保留 minos 13.0）。
+SDK_VERSION="$(xcrun --show-sdk-version)"
+xcrun vtool -set-build-version macos 13.0 "$SDK_VERSION" -replace -output "$MACOS_DIR/$APP_NAME" "$MACOS_DIR/$APP_NAME"
 
 # 程序化生成浅白底绿雷达 macOS 标准规范 .icns 图标（824/1024 HIG 圆角网格）
 ICONSET_DIR="$(mktemp -d /tmp/detectradar-icon-XXXX).iconset"

@@ -4,7 +4,7 @@ import AppHeader from '../components/report/AppHeader.svelte';
 import ReportBackdrop from '../components/ReportBackdrop.svelte';
 import SiteFooter from '../components/SiteFooter.svelte';
 
-const MACOS_VERSION = '0.1.0';
+const MACOS_VERSION = '0.1.1';
 const MACOS_RELEASE_TAG = `macos-v${MACOS_VERSION}`;
 const MACOS_DMG_FILENAME = `DetectRadarBar-v${MACOS_VERSION}-macos-universal.dmg`;
 
@@ -46,7 +46,7 @@ const PREVIEWS = [
 	{
 		id: 'clean-dark',
 		label: '深色',
-		src: '/images/macos-bar-preview-dark-v2.png',
+		src: '/images/macos-bar-preview-dark-v3.png',
 		width: 672,
 		height: 502,
 		alt: 'DetectRadar for macOS 深色预览：菜单栏显示美国机房，面板内展示出口 IP、运营商与快捷操作',
@@ -55,7 +55,7 @@ const PREVIEWS = [
 	{
 		id: 'clean-light',
 		label: '浅色',
-		src: '/images/macos-bar-preview-light-v2.png',
+		src: '/images/macos-bar-preview-light-v3.png',
 		width: 672,
 		height: 502,
 		alt: 'DetectRadar for macOS 浅色预览：跟随系统浅色外观显示出口地区、IP 与机房标签',
@@ -64,7 +64,7 @@ const PREVIEWS = [
 	{
 		id: 'alert-dark',
 		label: 'IPv6 泄露',
-		src: '/images/macos-bar-preview-alert-v2.png',
+		src: '/images/macos-bar-preview-alert-v3.png',
 		width: 672,
 		height: 502,
 		alt: 'DetectRadar for macOS IPv6 泄露提醒预览：菜单栏出现感叹号，面板内提示 IPv6 经中国电信直连',
@@ -78,7 +78,7 @@ const PREVIEWS = [
 	canonical="/macos/"
 	description="DetectRadar for macOS（DetectRadarBar）：在菜单栏随时看出口 IP 和机房/宽带，IPv6 泄露时提醒。支持安装包与 Homebrew 安装，并附 Antigravity / Claude Code / Codex 终端自检用法。"
 	pageType="software"
-	dateModified="2026-11-24"
+	dateModified="2026-11-25"
 	software={{
 		name: 'DetectRadar for macOS',
 		alternateName: 'DetectRadarBar',

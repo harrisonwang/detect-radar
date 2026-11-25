@@ -1,3 +1,13 @@
+map $http_user_agent $detectradar_cli_ua {
+    default 0;
+    "~*^(curl|wget|httpie|xh|fetch|libfetch)/" 1;
+}
+
+map "$request_method:$detectradar_cli_ua:$http_accept" $detectradar_cli_ip {
+    default 0;
+    "~*^(GET|HEAD):1:(?!.*text/html)" 1;
+}
+
 server {
     listen 80;
     listen [::]:80;
@@ -99,17 +109,7 @@ server {
     }
 
     location = / {
-        set $cli_ip 0;
-        if ($http_user_agent ~* "^(curl|wget|httpie|xh|fetch|libfetch)/") {
-            set $cli_ip 1;
-        }
-        if ($http_accept ~* "text/html") {
-            set $cli_ip 0;
-        }
-        if ($request_method !~ ^(GET|HEAD)$) {
-            set $cli_ip 0;
-        }
-        if ($cli_ip = 1) {
+        if ($detectradar_cli_ip = 1) {
             return 418;
         }
         error_page 418 = @cli_ip;

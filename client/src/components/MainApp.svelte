@@ -350,6 +350,7 @@
     <h1 class="report-title mb-2">
       网络环境一致性检测<span class="text-(--radar-400)">雷达</span>
     </h1>
+    <p class="text-sm text-(--slate-400)">核对出口 IP、时区语言、网络泄露与浏览器指纹</p>
   </div>
 
     <div data-nosnippet>

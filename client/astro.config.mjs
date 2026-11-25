@@ -16,8 +16,8 @@ const SITEMAP_META = {
   '/macos/': { priority: 0.7, changefreq: 'weekly', lastmod: '2026-11-24' },
   '/about/': { priority: 0.8, changefreq: 'weekly', lastmod: '2026-11-25' },
   '/contact/': { priority: 0.3, changefreq: 'yearly', lastmod: '2026-11-21' },
-  '/privacy/': { priority: 0.3, changefreq: 'yearly', lastmod: '2026-11-19' },
-  '/terms/': { priority: 0.3, changefreq: 'yearly', lastmod: '2026-10-23' },
+  '/privacy/': { priority: 0.3, changefreq: 'yearly', lastmod: '2026-11-21' },
+  '/terms/': { priority: 0.3, changefreq: 'yearly', lastmod: '2026-11-21' },
 };
 
 // https://astro.build/config

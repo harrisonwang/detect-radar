@@ -7,6 +7,7 @@
     "build": "astro build",
     "preview": "astro preview",
     "astro": "astro",
+    "indexnow": "node scripts/indexnow.mjs",
     "og": "\"${CHROME:-/Applications/Google Chrome.app/Contents/MacOS/Google Chrome}\" --headless=new --disable-gpu --hide-scrollbars --force-device-scale-factor=1 --virtual-time-budget=3000 --window-size=1200,630 --screenshot=\"$PWD/public/og-default.png\" \"file://$PWD/scripts/og-default.html\""
   },
   "dependencies": {

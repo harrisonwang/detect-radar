@@ -227,12 +227,14 @@ const analyticsId = import.meta.env.PUBLIC_UMAMI_ID;
 		<link rel="alternate" type="text/plain" href="/llms.txt" title="LLM & Agent Documentation" />
 
 		<!-- Open Graph -->
-		<meta property="og:type" content="website" />
+		<meta property="og:type" content={pageType === 'article' ? 'article' : 'website'} />
 		<meta property="og:site_name" content="DetectRadar" />
 		<meta property="og:locale" content={ogLocale} />
 		<meta property="og:title" content={fullTitle} />
 		<meta property="og:description" content={description} />
 		<meta property="og:url" content={canonicalURL.href} />
+		{pageType === 'article' && datePublished && <meta property="article:published_time" content={datePublished} />}
+		{pageType === 'article' && dateModified && <meta property="article:modified_time" content={dateModified} />}
 		{ogImageURL && (
 			<>
 				<meta property="og:image" content={ogImageURL.href} />

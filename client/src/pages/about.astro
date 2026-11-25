@@ -123,13 +123,10 @@ curl -s "https://detectradar.com/api/v1/leaks/dns/&lt;id&gt;"</code></pre>
 			<h2 id="faq">常见问题</h2>
 			<div class="not-prose mt-4 divide-y divide-slate-800/70 border-y border-slate-800/70">
 				{ABOUT_FAQS.map((item) => (
-					<details class="group py-4">
-						<summary class="cursor-pointer list-none flex items-center justify-between gap-4 text-[15px] font-medium text-(--slate-200) hover:text-white transition-colors select-none">
-							<span>{item.question}</span>
-							<span aria-hidden="true" class="text-(--slate-500) text-xs transition-transform duration-150 group-open:rotate-45">+</span>
-						</summary>
-						<p class="mt-2.5 text-sm leading-7 text-(--slate-300)">{item.answer}</p>
-					</details>
+					<div class="py-4">
+						<h3 class="text-[15px] font-medium leading-6 text-(--slate-200)">{item.question}</h3>
+						<p class="mt-2 text-sm leading-7 text-(--slate-300)">{item.answer}</p>
+					</div>
 				))}
 			</div>
 		</main>

@@ -87,15 +87,9 @@ func (s *IPIntelService) Lookup(ctx context.Context, ip string, opts LookupOptio
 	if s.cache != nil {
 		if cached, fromDeep := s.getCache(ctx, ip, opts); cached != nil {
 			cp := cloneIntel(cached)
-			if normalized := util.CanonicalIP(cp.IP); normalized != "" {
-				cp.IP = normalized
-			} else {
-				cp.IP = ip
-			}
 			if cp.HumanRatio == nil && s.radarService != nil && s.radarService.IsEnabled() && cp.ASN != "" {
 				if humanRatio, err := s.radarService.GetHumanRatio(ctx, cp.ASN); err == nil && humanRatio != nil {
 					cp.HumanRatio = humanRatio
-					cp.Tip = generateTip(cp)
 					s.setCache(ctx, ip, cp, fromDeep)
 				}
 			}
@@ -270,7 +264,6 @@ func (s *IPIntelService) lookupUncached(ctx context.Context, ip string, opts Loo
 	} else {
 		intel.IP = ip
 	}
-	intel.Tip = generateTip(intel)
 
 	if s.cache != nil {
 		s.setCache(ctx, ip, intel, opts.DeepScan && !l3QuotaBlocked)
@@ -545,44 +538,4 @@ func (s *IPIntelService) setCache(ctx context.Context, ip string, intel *model.I
 	if err != nil {
 		log.Printf("[IPIntel] Cache set error for %s: %v", ip, err)
 	}
-}
-
-func generateTip(intel *model.IPIntel) string {
-	if intel.IsVPN || intel.IsProxy || intel.IsTor || intel.IsRelay || intel.IsAnonymous {
-		return "检测到代理/匿名网络特征"
-	}
-
-	if intel.IsHosting || intel.UsageType == "hosting" {
-		return "当前为托管/机房 IP"
-	}
-
-	var parts []string
-	parts = append(parts, "无代理特征")
-
-	if intel.UsageTypeRaw != "" {
-		switch intel.UsageTypeRaw {
-		case "isp", "residential":
-			parts = append(parts, "住宅宽带")
-		case "mobile":
-			parts = append(parts, "移动网络")
-		case "satellite":
-			parts = append(parts, "卫星网络")
-		case "business":
-			parts = append(parts, "企业网络")
-		case "education":
-			parts = append(parts, "教育网络")
-		case "government":
-			parts = append(parts, "政府网络")
-		}
-	}
-
-	if intel.HumanRatio != nil {
-		if *intel.HumanRatio >= 80 {
-			parts = append(parts, "真实用户占比高")
-		} else if *intel.HumanRatio < 50 {
-			parts = append(parts, "自动化流量较多")
-		}
-	}
-
-	return strings.Join(parts, "，")
 }

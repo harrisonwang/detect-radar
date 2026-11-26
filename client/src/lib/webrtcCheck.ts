@@ -33,8 +33,6 @@ export interface WebRTCProgress {
 
 export type WebRTCVerdictReason =
   | 'public-leak'
-  | 'proxy-bypass'
-  | 'public-mismatch'
   | 'local-exposed'
   | 'matches-exit'
   | 'same-prefix'
@@ -419,16 +417,6 @@ const STATE_RANK: Record<WebRTCVerdictState, number> = {
   leaked: 2,
 };
 
-function normalizeVerdictState(verdict: WebRTCVerdict): WebRTCVerdictState {
-  const raw = verdict.state as string;
-  if (raw === 'mismatch') {
-    return verdict.reason === 'public-mismatch' || verdict.reason === 'proxy-bypass'
-      ? 'leaked'
-      : 'clear';
-  }
-  return raw === 'leaked' || raw === 'clear' || raw === 'unknown' ? raw : 'unknown';
-}
-
 function formatIPDiff(added: string[], removed: string[], fallbackEmpty: string): string {
   const parts: string[] = [];
   if (added.length) parts.push(`新增 ${added.join('、')}`);
@@ -474,8 +462,8 @@ export function compareWebRTC(previous: WebRTCCheck, current: WebRTCCheck): WebR
   })();
 
   const publicChange = formatIPDiff(addedPublicList, removedPublicIPs, '未变');
-  const prevState = normalizeVerdictState(previous.verdict);
-  const curState = normalizeVerdictState(current.verdict);
+  const prevState = previous.verdict.state;
+  const curState = current.verdict.state;
   const previousVerdict = prevState !== curState ? prevState : undefined;
   const improved = STATE_RANK[curState] < STATE_RANK[prevState];
 

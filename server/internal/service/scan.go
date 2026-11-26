@@ -346,14 +346,6 @@ func buildPrivacy(req *model.ScanRequest, exitIP string, intel *model.IPIntel) m
 		}
 	}
 
-	if d := req.Leaks.DNS; d != nil && d.Data != nil {
-		if d.Data.Leaked {
-			pa.DNS = model.PrivacyDNS{Status: "danger", MatchesExitIP: false}
-		} else if len(d.Data.Resolvers) > 0 {
-			pa.DNS = model.PrivacyDNS{Status: "safe", MatchesExitIP: true}
-		}
-	}
-
 	if v := req.Leaks.IPv6; v != nil && v.Data != nil {
 		if v.Data.Leaked && v.Data.IPv6Address != "" {
 			if exitHasProxyRisk {

@@ -79,11 +79,6 @@ func deriveRTTWithServerMin(client *model.RTTData, tcpRTT, tcpRTTVar string, ser
 		out.ServerRTTVarMS = varMS
 	}
 
-	if haveClient && haveServer {
-		d := round1(out.ClientMinMS - out.ServerTCPMS)
-		out.DeltaMS = &d
-	}
-
 	haveServerMin := serverTCPMinMS > 0 && serverTCPMinMS <= implausibleRTTMs
 	if haveServerMin {
 		out.ServerTCPMinMS = serverTCPMinMS

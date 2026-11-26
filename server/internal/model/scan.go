@@ -63,19 +63,12 @@ type TimezoneData struct {
 
 type ScanLeaks struct {
 	WebRTC *CollectorResult[WebRTCLeakData] `json:"webrtc,omitempty"`
-	DNS    *CollectorResult[DNSLeakData]    `json:"dns,omitempty"`
 	IPv6   *CollectorResult[IPv6LeakData]   `json:"ipv6,omitempty"`
 }
 
 type WebRTCLeakData struct {
 	LocalIPs  []string `json:"local_ips"`
 	PublicIPs []string `json:"public_ips"`
-}
-
-type DNSLeakData struct {
-	Leaked    bool     `json:"leaked"`
-	TestID    string   `json:"test_id,omitempty"`
-	Resolvers []string `json:"resolvers"`
 }
 
 type IPv6LeakData struct {
@@ -154,7 +147,6 @@ type RTTAnalysis struct {
 	ServerTCPMS    float64  `json:"server_tcp_ms,omitempty"`
 	ServerTCPMinMS float64  `json:"server_tcp_min_ms,omitempty"`
 	ServerRTTVarMS float64  `json:"server_rtt_var_ms,omitempty"`
-	DeltaMS        *float64 `json:"delta_ms,omitempty"`
 	DeltaMinMS     *float64 `json:"delta_min_ms,omitempty"`
 	GeoMinMS       *float64 `json:"geo_min_ms,omitempty"`
 	GeoDistanceKM  *float64 `json:"geo_distance_km,omitempty"`

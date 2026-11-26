@@ -473,31 +473,6 @@ function consistencyRows(a: ScanAnalysis, scenario: ScanScenario): ReadoutRow[] 
   ];
 }
 
-function allSameAddress(addrs: string[], target: string): boolean {
-  return addrs.length > 0 && addrs.every((ip) => sameIP(ip, target));
-}
-
-export function isExpectedDualStackWebRTC(
-  pv: ScanAnalysis["privacy"],
-  exitIP = "",
-): boolean {
-  const extra = pv.webrtc.leaked_ips ?? [];
-  if (extra.length === 0 || pv.webrtc.status === "danger" || pv.ipv6.status === "danger") {
-    return false;
-  }
-  if (pv.ipv6.address && allSameAddress(extra, pv.ipv6.address)) return true;
-  if (exitIP && !isIPv6Address(exitIP) && extra.every((ip) => isIPv6Address(ip)))
-    return true;
-  if (
-    exitIP &&
-    isIPv6Address(exitIP) &&
-    extra.every((ip) => !isIPv6Address(ip))
-  ) {
-    return true;
-  }
-  return false;
-}
-
 function dnsVerdictState(dns: ScanAnalysis["privacy"]["dns"]): DNSVerdict["state"] {
   if (dns.assessment?.policy_version === DNS_POLICY_VERSION) return dns.assessment.state;
   return dns.status === "blocked" ? "unobserved" : "unknown";
@@ -506,9 +481,8 @@ function dnsVerdictState(dns: ScanAnalysis["privacy"]["dns"]): DNSVerdict["state
 function leakRows(a: ScanAnalysis, exit: DNSExit | null): ReadoutRow[] {
   const pv = a.privacy;
   const exitIP = exit?.ip ?? "";
-  const dualStack = isExpectedDualStackWebRTC(pv, exitIP);
   const webrtcState: SignalState =
-    dualStack || pv.webrtc.status === "safe" || pv.webrtc.status === "blocked"
+    pv.webrtc.status === "safe" || pv.webrtc.status === "blocked"
       ? "coherent"
       : pv.webrtc.status === "danger"
         ? "leak"
@@ -519,7 +493,6 @@ function leakRows(a: ScanAnalysis, exit: DNSExit | null): ReadoutRow[] {
   const webrtcValue = (() => {
     if (pv.webrtc.status === "blocked") return "未检测到公网地址";
     if (pv.webrtc.status === "safe") return "与出口 IP 一致";
-    if (dualStack) return "检测到 IPv6 双栈";
     const extra = pv.webrtc.leaked_ips ?? [];
     if (extra.length === 0) return "未检测到公网地址";
     return "公网地址与出口 IP 不一致";

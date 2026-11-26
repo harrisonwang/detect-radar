@@ -33,7 +33,6 @@ func privateIPResponse(ip string) *model.IPIntel {
 		Tier:         "L0",
 		Confidence:   100,
 		DetectMethod: "rfc1918",
-		Tip:          "内网 IP",
 		FetchedAt:    time.Now(),
 	}
 }

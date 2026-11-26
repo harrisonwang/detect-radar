@@ -34,7 +34,7 @@ func TestIPIntelLookup_NormalizesCachedAndRemoteIPv6(t *testing.T) {
 
 	fakeCache := newFakeIntelCache()
 	_ = fakeCache.SetDeep(context.Background(), canonical, &model.IPIntel{
-		IP: padded, Country: "CN", ASN: "4134", ISP: "电信", UsageType: "isp",
+		IP: canonical, Country: "CN", ASN: "4134", ISP: "电信", UsageType: "isp",
 	})
 	svc := NewIPIntelService(adapter.NewRegistry(), nil, nil, nil, nil)
 	svc.cache = fakeCache

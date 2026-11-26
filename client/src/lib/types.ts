@@ -25,7 +25,6 @@ export interface NetworkIdentity {
   confidence?: number;
   detect_method?: string;
   human_ratio?: number;
-  tip?: string;
   source?: string;
   tier?: string;
   fetched_at?: string;
@@ -150,7 +149,6 @@ export interface RTTAnalysis {
   server_tcp_ms?: number;
   server_tcp_min_ms?: number;
   server_rtt_var_ms?: number;
-  delta_ms?: number;
   delta_min_ms?: number;
   geo_min_ms?: number;
   geo_distance_km?: number;

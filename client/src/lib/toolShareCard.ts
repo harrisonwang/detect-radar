@@ -710,9 +710,7 @@ function webrtcUpperCopy(data: WebRTCShareCardInput): { title: string; sub: stri
         title: 'WebRTC 内网地址',
         sub: data.localIPs[0] ? `${maskIP(data.localIPs[0].ip)} · 本机内网` : '仅读取到本机内网',
       };
-    case 'public-leak':
-    case 'proxy-bypass':
-    case 'public-mismatch': {
+    case 'public-leak': {
       const ip = data.suspectIPs[0] ?? data.publicIPs[0];
       return {
         title: 'WebRTC 公网 IP',

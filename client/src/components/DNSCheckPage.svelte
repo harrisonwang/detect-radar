@@ -4,7 +4,7 @@
   import DNSFlowStage from './report/DNSFlowStage.svelte';
   import ExitIPAddress from './report/ExitIPAddress.svelte';
   import ReportToast from './report/ReportToast.svelte';
-  import { compareDNS, DNSCheckError, dnsNetworks, dnsProviderGroups, measureDNS, type DNSProgress, withDNSAssessment } from '../lib/dnsCheck';
+  import { compareDNS, DNSCheckError, dnsNetworks, dnsProviderGroups, measureDNS, type DNSProgress } from '../lib/dnsCheck';
   import { trackEvent } from '../lib/analytics';
   import { isAutomatedCrawler } from '../lib/crawler';
   import { dnsHistory, emptyDNSHistory, type DNSHistory } from '../lib/dnsHistory';
@@ -57,12 +57,7 @@
     }
     async function restore() {
       try {
-        const saved = await dnsHistory();
-        const [current, previous] = await Promise.all([
-          saved.current && withDNSAssessment(saved.current),
-          saved.previous && withDNSAssessment(saved.previous),
-        ]);
-        history = { current, previous };
+        history = await dnsHistory();
       } catch {  }
       ready = true;
       const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
@@ -85,9 +80,7 @@
         (progress) => { liveProgress = progress; },
       );
       try {
-        const saved = await dnsHistory(result, history.current);
-        const previous = saved.previous && await withDNSAssessment(saved.previous);
-        history = { current: result, previous };
+        history = await dnsHistory(result, history.current);
       } catch {
         history = { previous: history.current, current: result };
       }

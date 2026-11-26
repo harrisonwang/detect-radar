@@ -483,8 +483,6 @@
       case 'same-network':
         return 'WebRTC 同网出口';
       case 'public-leak':
-      case 'proxy-bypass':
-      case 'public-mismatch':
       case 'matches-exit':
       case 'missing-exit':
       case 'assessment-unavailable':
@@ -517,9 +515,7 @@
           ? `${formatCandidateIP(ip)}${activeLocalIPs.length > 1 ? ` 等 ${activeLocalIPs.length} 个` : ' · 本机内网'}`
           : '仅读取到本机内网';
       }
-      case 'public-leak':
-      case 'proxy-bypass':
-      case 'public-mismatch': {
+      case 'public-leak': {
         const ip = suspectIPs[0] ?? activePublicIPs[0];
         return ip
           ? `${formatCandidateIP(ip)}${suspectIPs.length > 1 ? ` 等 ${suspectIPs.length} 个` : ''} · 与出口不同`
@@ -561,9 +557,7 @@
         return `已隐藏 · ${activeMdnsHosts.length} 个`;
       case 'local-exposed':
         return activeLocalIPs[0] ? formatCandidateIP(activeLocalIPs[0]) : '本机内网';
-      case 'public-leak':
-      case 'proxy-bypass':
-      case 'public-mismatch': {
+      case 'public-leak': {
         const ip = suspectIPs[0] ?? activePublicIPs[0];
         return ip ? formatCandidateIP(ip) : '与出口不同';
       }

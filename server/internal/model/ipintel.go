@@ -36,7 +36,6 @@ type IPIntel struct {
 	RDNS          string   `json:"rdns,omitempty"`
 	FraudScore    int      `json:"fraud_score"`
 	HumanRatio    *float64 `json:"human_ratio,omitempty"`
-	Tip           string   `json:"tip,omitempty"`
 
 	Source    string    `json:"source"`
 	Tier      string    `json:"tier"`

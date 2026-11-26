@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
   import { getMessages, type Locale } from '../../i18n';
-  import { dnsProviderName, dnsRegion } from '../../lib/dnsPresentation';
+  import { dnsProvider, dnsRegion } from '../../lib/dnsPresentation';
   import { maskIP } from '../../lib/ipDisplay';
   import type { DNSExit } from '../../lib/types';
   import type { WebRTCProgress, WebRTCVerdictReason, WebRTCVerdictState } from '../../lib/webrtcCheck';
@@ -73,21 +73,21 @@
 
   const DESKTOP_STUN: readonly Pt[] = [
     [106, 148],
-    [186, 84],
+    [214, 84],
     [380, 84],
-    [574, 84],
+    [546, 84],
     [654, 148],
   ];
   const DESKTOP_STUN_HALT: readonly Pt[] = [
     [106, 148],
-    [186, 84],
+    [214, 84],
     [318, 84],
   ];
   const DESKTOP_HTTPS: readonly Pt[] = [
     [106, 148],
-    [186, 212],
+    [214, 212],
     [380, 212],
-    [574, 212],
+    [546, 212],
     [654, 148],
   ];
 
@@ -456,7 +456,19 @@
   }
 
   function truncateText(str: string, max: number): string {
-    return str.length > max ? `${str.slice(0, max - 1)}…` : str;
+    let width = 0;
+    let cutIdx = str.length;
+    let overflow = false;
+    for (let i = 0; i < str.length; i++) {
+      const w = /[\u3000-\u9fff\uff00-\uffef]/.test(str[i]) ? 1 : 0.62;
+      if (width + w > max) {
+        overflow = true;
+        break;
+      }
+      width += w;
+      if (width <= max - 0.8) cutIdx = i + 1;
+    }
+    return overflow ? `${str.slice(0, Math.max(1, cutIdx)).trimEnd()}…` : str;
   }
 
   function formatCandidateIP(ip: string): string {
@@ -467,7 +479,7 @@
 
   let exitName = $derived(
     activeExit?.ip
-      ? `${dnsProviderName(activeExit.network, locale) || dnsFl.exitDefault} · ${dnsRegion(activeExit.country, locale)}`
+      ? `${dnsProvider(activeExit.network) || dnsFl.exitDefault} · ${dnsRegion(activeExit.country, locale)}`
       : isIdle
         ? dnsFl.exitIdle
         : dnsFl.exitFetching,
@@ -500,6 +512,7 @@
         return fl.titleIPv6;
       case 'same-network':
         return fl.titleSameNet;
+      case 'reverse-split':
       case 'public-leak':
       case 'matches-exit':
       case 'missing-exit':
@@ -533,6 +546,13 @@
         return activeLocalIPs.length > 1
           ? fl.subLocalMore(formatCandidateIP(ip), activeLocalIPs.length)
           : fl.subLocalSingle(formatCandidateIP(ip));
+      }
+      case 'reverse-split': {
+        const ip = suspectIPs[0] ?? activePublicIPs[0];
+        if (!ip) return fl.subReverseSplitFallback;
+        return suspectIPs.length > 1
+          ? fl.subReverseSplitMore(formatCandidateIP(ip), suspectIPs.length)
+          : fl.subReverseSplitSingle(formatCandidateIP(ip));
       }
       case 'public-leak': {
         const ip = suspectIPs[0] ?? activePublicIPs[0];
@@ -577,6 +597,10 @@
         return fl.subMdnsCompact(activeMdnsHosts.length);
       case 'local-exposed':
         return activeLocalIPs[0] ? formatCandidateIP(activeLocalIPs[0]) : fl.subLocalCompactFallback;
+      case 'reverse-split': {
+        const ip = suspectIPs[0] ?? activePublicIPs[0];
+        return ip ? formatCandidateIP(ip) : fl.subReverseSplitFallback;
+      }
       case 'public-leak': {
         const ip = suspectIPs[0] ?? activePublicIPs[0];
         return ip ? formatCandidateIP(ip) : fl.subLeakFallback;
@@ -875,8 +899,8 @@
   >
     <ellipse cx="0" cy="20" rx="30" ry="11" fill="rgba(0,0,0,0.52)" />
     {#if showJudgeRipple}
-      {@const pulseRx = verdictPulsing ? 26 + 15 * verdictPulseT : 38}
-      {@const pulseRy = verdictPulsing ? 10 + 6.5 * verdictPulseT : 16}
+      {@const pulseRx = verdictPulsing ? (compact ? 22 + 12 * verdictPulseT : 26 + 15 * verdictPulseT) : compact ? 34 : 38}
+      {@const pulseRy = verdictPulsing ? (compact ? 8 + 4.5 * verdictPulseT : 10 + 6.5 * verdictPulseT) : compact ? 12 : 16}
       <ellipse
         cx="0"
         cy="14"
@@ -887,10 +911,10 @@
         stroke-width="1.5"
         opacity={verdictPulsing ? 0.85 - 0.35 * verdictPulseT : 0.65}
       />
-      <ellipse cx="0" cy="14" rx="28" ry="11.5" fill="none" stroke={judgeAccent} stroke-width="1.2" opacity="0.85" />
+      <ellipse cx="0" cy="14" rx={compact ? 24 : 28} ry={compact ? 9 : 11.5} fill="none" stroke={judgeAccent} stroke-width="1.2" opacity="0.85" />
     {/if}
     {#if selectedNode === 'judge'}
-      <ellipse cx="0" cy="14" rx="40" ry="17" fill="none" stroke="var(--radar-400)" stroke-width="1.4" stroke-dasharray="4 3" />
+      <ellipse cx="0" cy="14" rx={compact ? 36 : 40} ry={compact ? 13 : 17} fill="none" stroke="var(--radar-400)" stroke-width="1.4" stroke-dasharray="4 3" />
     {/if}
     <polygon points="0,-10 24,2 0,14 -24,2" fill={`url(#${prefix}-top)`} stroke={judgeAccent} stroke-width="0.9" stroke-opacity="0.7" />
     <polygon points="-24,2 0,14 0,20 -24,8" fill={`url(#${prefix}-left)`} stroke="#334155" stroke-width="0.8" />
@@ -899,8 +923,8 @@
     <circle cx="0" cy="-8" r="4.5" fill={judgeAccent} opacity="0.95" />
     <path d="M 0 -22 V -16 M 0 0 V 6 M -14 -8 H -8 M 8 -8 H 14" stroke={judgeAccent} stroke-width="1.5" stroke-linecap="round" />
     <circle cx="0" cy="0" r="32" fill="transparent" />
-    <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#f8fafc" font-size={compact ? 11.5 : 12} font-weight="600">{fl.judgeNode}</text>
-    <text x="0" y={compact ? 48 : 53} text-anchor="middle" fill={judgeAccent} font-size="10.5" font-weight="600">
+    <text x="0" y={compact ? 40 : 44} text-anchor="middle" fill="#f8fafc" font-size={compact ? 11.5 : 12} font-weight="600" paint-order="stroke" stroke="#030917" stroke-width="4" stroke-linejoin="round">{fl.judgeNode}</text>
+    <text x="0" y={compact ? 54 : 59} text-anchor="middle" fill={judgeAccent} font-size="10.5" font-weight="600" paint-order="stroke" stroke="#030917" stroke-width="3.5" stroke-linejoin="round">
       {verdictTitleText}
     </text>
   </g>

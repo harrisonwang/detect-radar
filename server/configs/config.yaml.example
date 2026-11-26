@@ -6,7 +6,7 @@ server:
   # 留空 = 不信任任何代理头，杜绝 X-Forwarded-For 伪造（直连部署用这个）。
   # 部署在 nginx/CDN 之后时填入反代地址（支持 CIDR），否则出口 IP 会解析成反代自身。
   trusted_proxies: []
-  proxy_header: "X-Forwarded-For"
+  proxy_header: "X-Real-IP"
 
 cors:
   # 通配 origin 会让任何站点的 JS 直接调用本 API，把 IP 判定结果当免费数据源。
@@ -30,6 +30,9 @@ dns:
   domain: "leak.your-domain.com"  # DNS 泄漏检测域名
   ttl: 1h
   dnstap_addr: ":6000"
+
+stun:
+  addr: ":3478"
 
 # IP 信息配置（三层架构）
 ipintel:

@@ -101,11 +101,12 @@ export interface FingerprintAnalysis {
 export interface PrivacyAnalysis {
   webrtc: {
     status: 'safe' | 'warning' | 'danger' | 'blocked';
+    reason?: string;
     leaked_ips: string[];
     matches_exit_ip: boolean;
   };
   dns: { status: 'safe' | 'danger' | 'unknown' | 'blocked'; matches_exit_ip: boolean; country?: string; isp?: string; assessment?: DNSVerdict };
-  ipv6: { status: 'safe' | 'danger' | 'disabled'; address?: string };
+  ipv6: { status: 'safe' | 'danger' | 'unknown' | 'disabled'; address?: string };
   overall_status: 'safe' | 'warning' | 'danger' | 'disabled';
 }
 

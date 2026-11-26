@@ -1,6 +1,6 @@
 import { getMessages, joinList, type Locale } from '../i18n';
 import { canonicalIP, sameIP, sameIPv6Prefix64 } from './ip';
-import { maskIP } from './ipDisplay';
+import { maskIP, maskIPsInText } from './ipDisplay';
 import type { DNSExit } from './types';
 import type { WebRTCVerdictReason, WebRTCVerdictState } from './webrtcCheck';
 import type { IPv6VerdictReason, IPv6VerdictState, StackExit } from './ipv6Check';
@@ -36,13 +36,6 @@ const C = {
   leakSoft: 'rgba(248, 113, 113, 0.14)',
   unknownSoft: 'rgba(148, 163, 184, 0.12)',
 };
-
-const IPV4_RE = /\b(\d{1,3}\.\d{1,3})\.\d{1,3}\.\d{1,3}\b/g;
-const IPV6_RE = /\b([0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}):[0-9a-fA-F]{1,4}[0-9a-fA-F:]*\b/g;
-
-function maskIPsInText(s: string): string {
-  return s.replace(IPV4_RE, '$1.···.···').replace(IPV6_RE, '$1:···');
-}
 
 function font(size: number, weight = 400, family = SANS): string {
   return `${weight} ${size}px ${family}`;
@@ -338,7 +331,7 @@ function drawFlowDiamondStage(
     ctx.setLineDash([5, 4]);
     ctx.beginPath();
     ctx.moveTo(bx, cy);
-    ctx.lineTo(bx + 100, ry);
+    ctx.lineTo(bx + 130, ry);
     ctx.lineTo(mx - 74, ry);
     ctx.stroke();
     ctx.setLineDash([]);
@@ -346,8 +339,8 @@ function drawFlowDiamondStage(
   } else {
     ctx.beginPath();
     ctx.moveTo(bx, cy);
-    ctx.lineTo(bx + 100, ry);
-    ctx.lineTo(ax - 100, ry);
+    ctx.lineTo(bx + 130, ry);
+    ctx.lineTo(ax - 130, ry);
     ctx.lineTo(ax, cy);
     ctx.stroke();
   }
@@ -357,7 +350,7 @@ function drawFlowDiamondStage(
     ctx.setLineDash([5, 4]);
     ctx.beginPath();
     ctx.moveTo(bx, cy);
-    ctx.lineTo(bx + 100, ey);
+    ctx.lineTo(bx + 130, ey);
     ctx.lineTo(mx - 74, ey);
     ctx.stroke();
     ctx.setLineDash([]);
@@ -365,8 +358,8 @@ function drawFlowDiamondStage(
   } else {
     ctx.beginPath();
     ctx.moveTo(bx, cy);
-    ctx.lineTo(bx + 100, ey);
-    ctx.lineTo(ax - 100, ey);
+    ctx.lineTo(bx + 130, ey);
+    ctx.lineTo(ax - 130, ey);
     ctx.lineTo(ax, cy);
     ctx.stroke();
   }
@@ -470,8 +463,8 @@ function drawFlowDiamondStage(
   ctx.beginPath();
   ctx.arc(ax, cy - 8, 4.5, 0, Math.PI * 2);
   ctx.fill();
-  drawText(ctx, spec.rightTitle, ax, cy + 38, { font: font(12, 600), color: C.white, align: 'center' });
-  drawText(ctx, spec.rightSub, ax, cy + 54, { font: font(11, 600), color: spec.rightColor, align: 'center' });
+  drawText(ctx, spec.rightTitle, ax, cy + 44, { font: font(12, 600), color: C.white, align: 'center' });
+  drawText(ctx, spec.rightSub, ax, cy + 60, { font: font(11, 600), color: spec.rightColor, align: 'center' });
 
   ctx.restore();
 }
@@ -744,6 +737,13 @@ function webrtcUpperCopy(data: WebRTCShareCardInput, locale: Locale): { title: s
         title: fl.titleLocal,
         sub: data.localIPs[0] ? fl.subLocalSingle(maskIP(data.localIPs[0].ip)) : fl.subLocalFallback,
       };
+    case 'reverse-split': {
+      const ip = data.suspectIPs[0] ?? data.publicIPs[0];
+      return {
+        title: fl.titlePublic,
+        sub: ip ? fl.subReverseSplitSingle(maskIP(ip)) : fl.subReverseSplitFallback,
+      };
+    }
     case 'public-leak': {
       const ip = data.suspectIPs[0] ?? data.publicIPs[0];
       return {
@@ -929,7 +929,7 @@ export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise
     });
   }
 
-  const sep1Y = pubShown > 0 ? r1Y + 28 + pubShown * 26 + 10 : r1Y + 34;
+  const sep1Y = pubShown > 0 ? r1Y + 28 + (pubShown - 1) * 26 + 20 : r1Y + 34;
   ctx.strokeStyle = C.line;
   ctx.beginPath();
   ctx.moveTo(rx, sep1Y);
@@ -937,7 +937,7 @@ export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise
   ctx.stroke();
 
   const localShown = data.apiSupported ? Math.min(2, data.localIPs.length) : 0;
-  const r2Y = sep1Y + 30;
+  const r2Y = sep1Y + 26;
   drawText(ctx, pg.localAddrLabel, rx, r2Y, { font: font(14, 500), color: C.slate200 });
   if (!data.apiSupported) {
     drawText(ctx, pg.apiDisabled, rx + rightW, r2Y, { font: font(13), color: C.slate400, align: 'right' });
@@ -958,14 +958,14 @@ export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise
     });
   }
 
-  const sep2Y = localShown > 0 ? r2Y + 28 + localShown * 24 + 10 : r2Y + 34;
+  const sep2Y = localShown > 0 ? r2Y + 28 + (localShown - 1) * 24 + 20 : r2Y + 34;
   ctx.strokeStyle = C.line;
   ctx.beginPath();
   ctx.moveTo(rx, sep2Y);
   ctx.lineTo(rx + rightW, sep2Y);
   ctx.stroke();
 
-  const r3Y = sep2Y + 30;
+  const r3Y = sep2Y + 26;
   drawText(ctx, pg.ipv6AddrLabel, rx, r3Y, { font: font(14, 500), color: C.slate200 });
   if (data.ipv6Global) {
     drawText(ctx, maskIP(data.ipv6Global), rx + rightW, r3Y, {
@@ -1087,7 +1087,9 @@ export async function renderIPv6ShareCard(data: IPv6ShareCardInput): Promise<Blo
     : fl.v6Disconnected;
   const upperSub = data.v6?.ip
     ? `${maskIP(data.v6.ip)}${data.verdictState === 'leaked' ? sh.cardLeakSuffix : ''}`
-    : sh.cardV6OnlyV4;
+    : data.v4?.ip
+      ? sh.cardV6OnlyV4
+      : pg.unreachableShort;
 
   drawFlowDiamondStage(ctx, PAD, 102, W - PAD * 2, 250, {
     browserLabel: fl.browserNode,
@@ -1166,7 +1168,7 @@ export async function renderIPv6ShareCard(data: IPv6ShareCardInput): Promise<Blo
     {
       accent: data.verdictState === 'leaked' ? C.leak : C.white,
       statusChip: v6Chip,
-      emptyText: pg.v6Unreachable,
+      emptyText: data.v4?.ip ? pg.v6Unreachable : pg.unreachableShort,
     },
   );
 

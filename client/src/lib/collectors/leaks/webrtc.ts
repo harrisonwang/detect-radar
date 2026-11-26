@@ -1,10 +1,42 @@
 
 import type { CollectorResult, WebRTCLeakData } from '../types';
 
-const STUN_SERVERS = [
+const ENV = (import.meta as unknown as { env?: Record<string, string | boolean> }).env ?? {};
+
+const FALLBACK_STUN_SERVERS = [
   'stun:stun.l.google.com:19302',
   'stun:stun1.l.google.com:19302',
 ];
+
+export function defaultSTUNServers(hostnameOverride?: string): string[] {
+  const configured =
+    typeof ENV.PUBLIC_STUN_URL === 'string' ? ENV.PUBLIC_STUN_URL.trim() : '';
+  if (configured) {
+    return [configured];
+  }
+  const rawHost =
+    hostnameOverride !== undefined
+      ? hostnameOverride
+      : typeof window !== 'undefined'
+        ? window.location.hostname
+        : '';
+  const host = rawHost.trim().toLowerCase().replace(/^\[|\]$/g, '');
+  const isLocal =
+    !host ||
+    host === 'localhost' ||
+    host.endsWith('.localhost') ||
+    host.endsWith('.local') ||
+    !host.includes('.') ||
+    /^\d+\.\d+\.\d+\.\d+$/.test(host) ||
+    host.includes(':');
+  if (!isLocal) {
+    const bare = host.replace(/^(?:www|4|6)\./i, '');
+    if (bare && bare.includes('.')) {
+      return [`stun:${bare}:3478`];
+    }
+  }
+  return [...FALLBACK_STUN_SERVERS];
+}
 
 const GATHER_TIMEOUT_MS = 2500;
 
@@ -121,7 +153,7 @@ export async function gatherRTCCandidates(
   const details: RTCCandidateDetail[] = [];
 
   const pc = new RTCPeerConnection({
-    iceServers: STUN_SERVERS.map((urls) => ({ urls })),
+    iceServers: defaultSTUNServers().map((urls) => ({ urls })),
   });
 
   const emitUpdate = () => {

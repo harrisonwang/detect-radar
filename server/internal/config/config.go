@@ -16,6 +16,7 @@ type Config struct {
 	CORS       CORSConfig
 	RateLimit  RateLimitConfig `mapstructure:"rate_limit"`
 	DNS        DNSConfig
+	STUN       STUNConfig
 	IPIntel    IPIntelConfig
 	Redis      RedisConfig
 	SQLite     SQLiteConfig
@@ -68,7 +69,8 @@ type RedisConfig struct {
 }
 
 type SQLiteConfig struct {
-	Path string `mapstructure:"path"`
+	Path     string `mapstructure:"path"`
+	SeedPath string `mapstructure:"seed_path"`
 }
 
 type TelemetryConfig struct {
@@ -125,6 +127,10 @@ type DNSConfig struct {
 	DNSTapAddr string `mapstructure:"dnstap_addr"`
 }
 
+type STUNConfig struct {
+	Addr string `mapstructure:"addr"`
+}
+
 func Load() (*Config, error) {
 	viper.SetConfigName("config")
 	viper.SetConfigType("yaml")
@@ -161,7 +167,7 @@ func setDefaults() {
 	viper.SetDefault("server.read_timeout", 10*time.Second)
 	viper.SetDefault("server.write_timeout", 10*time.Second)
 	viper.SetDefault("server.trusted_proxies", []string{})
-	viper.SetDefault("server.proxy_header", "X-Forwarded-For")
+	viper.SetDefault("server.proxy_header", "X-Real-IP")
 
 	viper.SetDefault("cors.allow_origins", []string{"https://detectradar.com"})
 	viper.SetDefault("cors.allow_methods", []string{"GET", "POST", "OPTIONS"})
@@ -174,6 +180,7 @@ func setDefaults() {
 	viper.SetDefault("dns.domain", "leak.detectradar.com")
 	viper.SetDefault("dns.ttl", 1*time.Hour)
 	viper.SetDefault("dns.dnstap_addr", ":6000")
+	viper.SetDefault("stun.addr", ":3478")
 
 	viper.SetDefault("ipintel.city_db_path", "./data/dbip-city-lite.mmdb")
 	viper.SetDefault("ipintel.asn_db_path", "./data/dbip-asn-lite.mmdb")

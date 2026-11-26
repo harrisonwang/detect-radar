@@ -6,7 +6,7 @@ import {
   type RTCGatherResult,
   type RTCLocalScope,
 } from './collectors/leaks/webrtc';
-import { browserExit, dnsProviderName, dnsRegion } from './dnsPresentation';
+import { browserExit, dnsProvider, dnsRegion } from './dnsPresentation';
 import {
   canonicalIP,
   isIPv6Address,
@@ -34,6 +34,7 @@ export interface WebRTCProgress {
 
 export type WebRTCVerdictReason =
   | 'public-leak'
+  | 'reverse-split'
   | 'local-exposed'
   | 'matches-exit'
   | 'same-prefix'
@@ -54,6 +55,7 @@ export interface WebRTCVerdict {
 
 export interface WebRTCCheck {
   time: number;
+  locale?: Locale;
   exit: DNSExit | null;
   apiSupported: boolean;
   publicIPs: string[];
@@ -179,16 +181,16 @@ export function evaluateWebRTC(
   return { state: 'clear', reason: 'no-candidates', note: n.noCandidates, suspectIPs: [] };
 }
 
-function formatCandidateLabel(info: WebRTCNetworkInfo | undefined, locale: Locale): string {
-  if (!info) return '';
+function candidateLabelParts(
+  info: WebRTCNetworkInfo | undefined,
+  locale: Locale,
+): { region: string; provider: string } {
+  if (!info) return { region: '', provider: '' };
   const unknownRegion = getMessages(locale).common.unknownRegion;
   const region = info.country ? dnsRegion(info.country, locale) : '';
   const validRegion = region && region !== unknownRegion ? region : '';
-  const provider = dnsProviderName(info.network ?? '', locale);
-  if (validRegion && provider) {
-    return provider.startsWith(validRegion) ? provider : `${validRegion} ${provider}`;
-  }
-  return provider || validRegion;
+  const provider = dnsProvider(info.network ?? '');
+  return { region: validRegion, provider };
 }
 
 export function webrtcVerdictNote(
@@ -204,14 +206,23 @@ export function webrtcVerdictNote(
       return n.missingExit;
     case 'assessment-unavailable':
       return publicCandidates?.length ? n.assessmentUnavailableWithCands : n.assessmentUnavailableDual;
+    case 'reverse-split': {
+      const firstSuspect = publicCandidates?.find((c) => c.relation === 'leak');
+      const { region, provider } = candidateLabelParts(firstSuspect, locale);
+      const exitRegion = exit?.country ? dnsRegion(exit.country, locale) : '';
+      if (region || provider) {
+        return n.reverseSplit(region, provider, exitRegion);
+      }
+      return n.reverseSplitGeneric;
+    }
     case 'public-leak': {
       const firstSuspect = publicCandidates?.find((c) => c.relation === 'leak');
-      const label = formatCandidateLabel(firstSuspect, locale);
+      const { region, provider } = candidateLabelParts(firstSuspect, locale);
       const exitRegion = exit?.country ? dnsRegion(exit.country, locale) : '';
-      if (label) {
+      if (region || provider) {
         return exitRegion && firstSuspect?.country && firstSuspect.country !== exit?.country
-          ? n.publicLeakDiffCountry(label, exitRegion)
-          : n.publicLeakDiffNet(label);
+          ? n.publicLeakDiffCountry(region, provider, exitRegion)
+          : n.publicLeakDiffNet(region, provider);
       }
       return publicCandidates?.length ? n.publicLeakGenericNet : n.publicLeakGeneric;
     }
@@ -245,12 +256,18 @@ export function verdictFromAssessment(
 
   if (res.verdict.state === 'leaked') {
     const firstSuspect = res.candidates.find((c) => c.relation === 'leak');
-    const label = formatCandidateLabel(firstSuspect, locale);
+    const { region, provider } = candidateLabelParts(firstSuspect, locale);
     const exitRegion = exit?.country ? dnsRegion(exit.country, locale) : '';
-    const note = label
+    if (reason === 'reverse-split') {
+      const note = region || provider
+        ? n.reverseSplit(region, provider, exitRegion)
+        : n.reverseSplitGeneric;
+      return { state: 'leaked', reason: 'reverse-split', note, suspectIPs };
+    }
+    const note = region || provider
       ? exitRegion && firstSuspect?.country && firstSuspect.country !== exit?.country
-        ? n.publicLeakDiffCountry(label, exitRegion)
-        : n.publicLeakDiffNet(label)
+        ? n.publicLeakDiffCountry(region, provider, exitRegion)
+        : n.publicLeakDiffNet(region, provider)
       : n.publicLeakGenericNet;
     return { state: 'leaked', reason: 'public-leak', note, suspectIPs };
   }
@@ -361,8 +378,12 @@ export async function measureWebRTC(
     try {
       const assessed = await assessWebRTCCandidates(canonicalPublicIPs, locale);
       publicCandidates = assessed.candidates;
-      if (assessed.exit?.ip && resolvedExit && !resolvedExit.country && assessed.exit.country) {
-        resolvedExit = { ...resolvedExit, country: assessed.exit.country };
+      if (assessed.exit?.ip && resolvedExit) {
+        resolvedExit = {
+          ...resolvedExit,
+          country: resolvedExit.country || assessed.exit.country || '',
+          network: assessed.exit.network || resolvedExit.network,
+        };
       }
       verdict = verdictFromAssessment(assessed, resolvedExit, locale);
     } catch {
@@ -374,6 +395,7 @@ export async function measureWebRTC(
 
   return {
     time: Date.now(),
+    locale,
     exit: resolvedExit,
     apiSupported: canonicalRTC.apiSupported,
     publicIPs: canonicalRTC.publicIPs,

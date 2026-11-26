@@ -199,8 +199,9 @@ func (s *ScanService) UpdateDNSObservation(instanceID, clientID string, result *
 		}
 		dns := model.PrivacyDNS{Status: status, Assessment: result.Assessment}
 		if len(result.Assessment.SuspectIPs) > 0 {
+			targetIP := util.CanonicalIP(result.Assessment.SuspectIPs[0])
 			for _, resolver := range result.DNSServers {
-				if resolver.IP == result.Assessment.SuspectIPs[0] {
+				if util.CanonicalIP(resolver.IP) == targetIP {
 					dns.Country, dns.ISP = resolver.Country, resolver.ISP
 					break
 				}
@@ -392,9 +393,9 @@ func (s *ScanService) refineWebRTCPrivacy(
 	res := AssessWebRTC(ctx, s.ipIntel, exitIP, exitIntel, wReq.Data.PublicIPs)
 	switch res.Verdict.State {
 	case "clear":
-		pa.WebRTC = model.PrivacyWebRTC{Status: "safe", LeakedIPs: []string{}, MatchesExitIP: true}
+		pa.WebRTC = model.PrivacyWebRTC{Status: "safe", LeakedIPs: []string{}, MatchesExitIP: true, Reason: res.Verdict.Reason}
 	case "leaked":
-		pa.WebRTC = model.PrivacyWebRTC{Status: "danger", LeakedIPs: res.Verdict.SuspectIPs, MatchesExitIP: false}
+		pa.WebRTC = model.PrivacyWebRTC{Status: "danger", LeakedIPs: res.Verdict.SuspectIPs, MatchesExitIP: false, Reason: res.Verdict.Reason}
 	default:
 		return
 	}
@@ -433,29 +434,48 @@ func (s *ScanService) refineIPv6Privacy(
 		return
 	}
 
-	exitGeo := geoBucket(exitIntel)
+	compareIntel := exitIntel
+	exitIsV6 := false
+	if exitIntel != nil {
+		if eAddr, eErr := netip.ParseAddr(strings.TrimSpace(exitIntel.IP)); eErr == nil && eAddr.Is6() && !eAddr.Is4In6() {
+			exitIsV6 = true
+		}
+	}
+	if v4Str := strings.TrimSpace(v6Req.Data.IPv4Address); v4Str != "" && (compareIntel == nil || exitIsV6) {
+		if v4Addr, v4Err := netip.ParseAddr(v4Str); v4Err == nil && v4Addr.Is4() && v4Addr.IsGlobalUnicast() {
+			if v4Intel, lErr := s.ipIntel.Lookup(lookupCtx, v4Addr.String(), LookupOptions{LocalOnly: true}); lErr == nil && v4Intel != nil && v4Intel.Country != "" && v4Intel.Country != "LOCAL" {
+				compareIntel = v4Intel
+			}
+		}
+	}
+
+	exitGeo := geoBucket(compareIntel)
 	v6Geo := geoBucket(v6Intel)
 	if exitGeo == "" || v6Geo == "" {
 		return
 	}
 
 	var exitASN, v6ASN string
-	if exitIntel != nil {
-		exitASN = normalizeASN(exitIntel.ASN)
+	if compareIntel != nil {
+		exitASN = normalizeASN(compareIntel.ASN)
 	}
 	v6ASN = normalizeASN(v6Intel.ASN)
 	sameASN := exitASN != "" && v6ASN != "" && exitASN == v6ASN
-	exitCarrier := canonicalCarrier(exitIntel)
-	v6Carrier := canonicalCarrier(v6Intel)
-	sameCarrier := exitCarrier != "" && v6Carrier != "" && exitCarrier == v6Carrier
 
 	v6Access := isAccessIntel(v6Intel)
-	exitProxyOrHosting := isHostingOrProxyIntel(exitIntel)
+	v6ProxyOrHosting := isHostingOrProxyIntel(v6Intel)
+	exitProxyOrHosting := isHostingOrProxyIntel(compareIntel)
 
-	leaked := v6Access && !sameASN && !sameCarrier && (exitGeo != v6Geo || exitProxyOrHosting)
-	if leaked {
+	crossRegion := exitGeo != v6Geo
+	sameRegionProxyBypass := !crossRegion && exitProxyOrHosting && !sameASN
+	leaked := v6Access && (crossRegion || sameRegionProxyBypass)
+	unclassified := !v6Access && !v6ProxyOrHosting && (crossRegion || sameRegionProxyBypass)
+	switch {
+	case leaked:
 		pa.IPv6 = model.PrivacyIPv6{Status: "danger", Address: addr.String()}
-	} else {
+	case unclassified:
+		pa.IPv6 = model.PrivacyIPv6{Status: "unknown", Address: addr.String()}
+	default:
 		pa.IPv6 = model.PrivacyIPv6{Status: "safe", Address: addr.String()}
 	}
 	pa.OverallStatus = privacyOverallStatus(*pa)

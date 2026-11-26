@@ -15,7 +15,7 @@ export const zh = {
     openMenu: '打开导航菜单',
     closeMenu: '关闭导航菜单',
     switchLabel: 'EN',
-    switchTitle: 'Switch to English',
+    switchTitle: '切换到英文 (English)',
   },
   footer: {
     ariaLabel: '站点信息',
@@ -209,6 +209,7 @@ export const zh = {
       webrtcNone: '未检测到公网地址',
       webrtcMatch: '与出口 IP 一致',
       webrtcMismatch: '公网地址与出口 IP 不一致',
+      webrtcReverseSplit: '经代理/机房节点（反向分流）',
       ipv6Mismatch: 'IPv6 与出口 IP 不一致',
       ipv6None: '未检测到 IPv6',
       ipv6Match: '与出口 IP 一致',
@@ -219,6 +220,11 @@ export const zh = {
         title: 'WebRTC 公网地址与出口 IP 不一致',
         fact: (ip?: string) => `网页可获取额外公网地址${ip ? `（${ip}）` : ''}`,
         fix: '检查代理是否覆盖 WebRTC，或关闭浏览器 WebRTC 公网候选。',
+      },
+      webrtcReverseSplit: {
+        title: 'WebRTC 经代理/机房节点暴露（反向分流）',
+        fact: (ip?: string) => `当前页面走直连出口，但 WebRTC 经代理或机房节点暴露了公网地址${ip ? `（${ip}）` : ''}`,
+        fix: '当前测试页走直连而 WebRTC 走了代理（反向分流）；如要测试代理防泄露，请将本站加入代理规则或开全局后重测；如要避免直连站点探测到代理节点，可限制浏览器 WebRTC 公网候选。',
       },
       dnsLeak: {
         title: 'DNS 泄露',
@@ -349,6 +355,7 @@ export const zh = {
       webrtcClear: 'WebRTC 未泄露',
       webrtcUnknown: 'WebRTC 无法判断',
       ipv6Leak: 'IPv6 泄露',
+      ipv6Unknown: 'IPv6 无法判断',
       ipv6Dual: 'IPv6 双栈正常',
       ipv6Match: 'IPv6 与出口一致',
       ipv6None: '未测到 IPv6',
@@ -511,11 +518,38 @@ export const zh = {
       missingExit: '已测到 WebRTC 公网 IP，但未获取到出口 IP 进行比对。',
       assessmentUnavailableWithCands: '暂未获取到足够归属信息进行比对。',
       assessmentUnavailableDual: '测到另一协议栈的公网 IP，但暂未完成归属核对，无法确认是否同属当前代理网络。',
-      publicLeakDiffCountry: (label: string, exitRegion: string) =>
-        `WebRTC 测到了归属 ${label} 的公网 IP，与当前出口（${exitRegion}）不一致。`,
-      publicLeakDiffNet: (label: string) => `WebRTC 测到了归属 ${label} 的公网 IP，与当前出口不属于同一网络。`,
+      publicLeakDiffCountry: (region: string, provider: string, exitRegion: string) => {
+        const label =
+          region && provider
+            ? provider.startsWith(region)
+              ? provider
+              : `${region} ${provider}`
+            : provider || region;
+        return `WebRTC 测到了归属 ${label} 的公网 IP，与当前出口（${exitRegion}）不一致。`;
+      },
+      publicLeakDiffNet: (region: string, provider: string) => {
+        const label =
+          region && provider
+            ? provider.startsWith(region)
+              ? provider
+              : `${region} ${provider}`
+            : provider || region;
+        return `WebRTC 测到了归属 ${label} 的公网 IP，与当前出口不属于同一网络。`;
+      },
       publicLeakGenericNet: 'WebRTC 测到的公网 IP 与当前出口不属于同一网络。',
       publicLeakGeneric: 'WebRTC 测到的公网 IP 与当前出口不一致。',
+      reverseSplit: (region: string, provider: string, exitRegion: string) => {
+        const label =
+          region && provider
+            ? provider.startsWith(region)
+              ? provider
+              : `${region} ${provider}`
+            : provider || region;
+        const exitPart = exitRegion && exitRegion !== '未知地区' ? `（${exitRegion}）` : '';
+        return `当前页面走直连出口${exitPart}，但 WebRTC 经代理/机房节点暴露了归属 ${label} 的公网 IP（反向分流）。如需测试代理防泄露，请将本站加入代理规则或开全局后重测；如要避免直连站点探测到代理节点，可限制浏览器 WebRTC 公网候选。`;
+      },
+      reverseSplitGeneric:
+        '当前页面走直连出口，但 WebRTC 经代理/机房节点暴露了不同公网 IP（反向分流）。如需测试代理防泄露，请将本站加入代理规则或开全局后重测；如要避免直连站点探测到代理节点，可限制浏览器 WebRTC 公网候选。',
       sameNetwork: 'WebRTC 测到同一运营商下的其他公网出口（常见于手机或共享出口），未发现跨网泄露。',
       dualStackSameISP: 'WebRTC 测到同一运营商下的另一协议公网 IP（IPv4/IPv6），属正常连接。',
       dualStackGeneric: 'WebRTC 测到另一协议的公网 IP（IPv4/IPv6），属正常连接。',
@@ -604,6 +638,9 @@ export const zh = {
       subLeakMore: (ip: string, n: number) => `${ip} 等 ${n} 个 · 与出口不同`,
       subLeakSingle: (ip: string) => `${ip} · 与出口不同`,
       subLeakFallback: '与出口不同',
+      subReverseSplitMore: (ip: string, n: number) => `${ip} 等 ${n} 个 · 经代理/机房`,
+      subReverseSplitSingle: (ip: string) => `${ip} · 经代理/机房`,
+      subReverseSplitFallback: '经代理/机房（反向分流）',
       subDual: (ip?: string) => (ip ? `${ip} · 同运营商` : '同运营商 IPv4/IPv6'),
       subPrefix: (ip?: string) => (ip ? `${ip} · 同网段 IPv6` : '同网段 IPv6'),
       subSameNet: (ip?: string) => (ip ? `${ip} · 共享出口` : '同运营商共享出口'),
@@ -671,6 +708,9 @@ export const zh = {
       matchedDual: (region: string) => `IPv4 与 IPv6 出口均位于${region}，未见泄露。`,
       overseasSplit: (r4: string, r6: string) =>
         `未测到接入网运营商 IPv6 直连泄露（IPv4 位于${r4}，IPv6 位于${r6}，常见于分流节点或 WARP）。`,
+      unclassifiedDual: (r4: string, r6: string) =>
+        `IPv4 出口位于${r4}，IPv6 出口位于${r6}，但当前未能确认 IPv6 的网络归属类型，无法判断是否泄露。`,
+      missingGeo: '未获取完整的 IPv4 或 IPv6 归属地区信息，无法判断是否泄露。',
     },
     page: {
       srRetesting: '正在重新检测 IPv4 与 IPv6 出口。',
@@ -696,7 +736,7 @@ export const zh = {
       rules: [
         '同时测试当前网络的 IPv4 与 IPv6 实际出口',
         'IPv6 经跨地区接入网运营商直连，或 IPv4 走代理/机房而 IPv6 走本机宽带直连时，判为',
-        '仅 IPv4、同地区直连双栈及机房/WARP 双栈分流均判为',
+        '仅 IPv4、仅 IPv6、同地区直连双栈及机房/WARP 双栈分流均判为',
       ],
     },
     compare: {
@@ -733,6 +773,7 @@ export const zh = {
       inspectorBrowser: '你的浏览器：并发连接纯 IPv4（4.detectradar.com）与纯 IPv6（6.detectradar.com）',
       inspectorV6: (name: string, ip: string, asn?: string) => `IPv6 出口：${name}（${ip}${asn ? ` · ${asn}` : ''}）`,
       inspectorV6Empty: 'IPv6 出口：当前网络未连通 IPv6（仅 IPv4 网络）',
+      inspectorV6BothOffline: 'IPv6 出口：未能连通 6.detectradar.com',
       inspectorV4: (name: string, ip: string, asn?: string) => `IPv4 出口：${name}（${ip}${asn ? ` · ${asn}` : ''}）`,
       inspectorV4Empty: 'IPv4 出口：未能连通 4.detectradar.com',
       inspectorJudge: (vText: string, note: string) => `出口归属比对：${vText}${note ? ` — ${note}` : ''}`,
@@ -794,7 +835,7 @@ export const zh = {
   },
   contact: {
     title: '联系我们',
-    description: 'DetectRadar 联系方式：问题反馈、一般联系、隐私请求与滥用举报。',
+    description: 'DetectRadar 官方联系方式与分类邮箱汇总：涵盖检测误报与功能建议反馈（feedback）、一般业务咨询与合作（admin）、个人诊断数据查询与删除隐私请求（privacy），以及滥用或侵权举报（abuse）；如需核查网络出口与泄露，也可直接访问首页免费检测。',
     rows: [
       { name: '问题反馈', purpose: '检测纠错与使用建议', email: 'feedback@detectradar.com' },
       { name: '一般联系', purpose: '咨询与合作', email: 'admin@detectradar.com' },
@@ -805,7 +846,7 @@ export const zh = {
   seo: {
     titleSep: '｜',
     defaultTitle: 'DetectRadar｜网络环境一致性检测：IP、DNS、WebRTC 与指纹自检',
-    defaultDescription: '核对当前出口 IP、浏览器时区与语言一致性，同时检查 WebRTC、DNS 和 IPv6 泄露及环境指纹，生成诊断报告并支持分享。',
+    defaultDescription: '免费免注册在线检测当前出口 IP（住宅宽带与机房识别）、浏览器时区与语言一致性，同步排查 DNS、WebRTC 与 IPv6 代理泄露及 Canvas/WebGL 指纹异常；展示 Cloudflare Radar 网段人类流量占比并支持本地脱敏生成诊断报告与分享卡片。',
     defaultHomeFeatures: [
       '浏览器时区↔IP 时区一致性',
       '系统语言↔IP 国家常用语一致性',
@@ -822,7 +863,7 @@ export const zh = {
     homeNoscript: '请启用 JavaScript 后运行实时检测。',
     dns: {
       title: 'DNS 泄露检测：查看出口 IP 与实际使用的 DNS',
-      description: '在线查看当前出口 IP 与实际使用的 DNS 服务器归属地，排查 DNS 泄露，修改网络或 DNS 后可再次检测对比变化。',
+      description: '免费在线 DNS 泄露检测：通过自建权威 DNS 与随机子域实时捕获浏览器真实递归解析器，按运营商、公共 DNS 与归属地区分组展示，精准排查跨区及代理旁路 DNS 泄露；不误报 Cloudflare、阿里与 DNSPod 等公共 DNS，支持改配置后同页复测对比。',
       appName: 'DetectRadar DNS 泄露检测',
       noscript: '请启用 JavaScript 后再检测 DNS。',
       features: [
@@ -834,7 +875,7 @@ export const zh = {
     },
     webrtc: {
       title: 'WebRTC 泄露检测：查看浏览器暴露的公网与内网 IP',
-      description: '免费在线 WebRTC 泄露检测：比对当前出口 IP 与浏览器通过 WebRTC 暴露的公网、内网地址及 mDNS 保护状态，支持改配置后同页复测对比。',
+      description: '免费在线 WebRTC 泄露检测：在浏览器本地通过 STUN ICE 采集公网与内网候选地址并与当前出口 IP 比对，清晰呈现局域网、CGNAT、Fake-IP 暴露、全局 IPv6 及 mDNS（*.local）隐私保护状态，支持改配置后在当前浏览器同页复测对比。',
       appName: 'DetectRadar WebRTC 泄露检测',
       noscript: '请启用 JavaScript 后再检测 WebRTC。',
       features: [
@@ -846,7 +887,7 @@ export const zh = {
     },
     ipv6: {
       title: 'IPv6 泄露检测：核对 IPv4 与 IPv6 出口是否一致',
-      description: '免费在线 IPv6 泄露检测：同时测试 IPv4 与 IPv6 实际出口，排查代理仅接管 IPv4 导致的本机运营商 IPv6 直连泄露，支持复测前后对比。',
+      description: '免费在线 IPv6 泄露检测：并发探测纯 IPv4（4.detectradar.com）与纯 IPv6（6.detectradar.com）真实出口，不依赖 WebRTC 即可排查代理仅接管 IPv4 导致的本机运营商 IPv6 旁路直连泄露，并支持改配置后同页复测对比。',
       appName: 'DetectRadar IPv6 泄露检测',
       noscript: '请启用 JavaScript 后再检测 IPv6。',
       features: [
@@ -858,7 +899,7 @@ export const zh = {
     },
     macos: {
       title: 'macOS 菜单栏版：查看出口 IP、机房/宽带与 IPv6 泄露',
-      description: 'DetectRadar for macOS（DetectRadarBar）：在菜单栏随时看出口 IP 和机房/宽带，IPv6 泄露时提醒。支持安装包与 Homebrew 安装，并附 Antigravity / Claude Code / Codex 终端自检用法。',
+      description: 'DetectRadar for macOS（DetectRadarBar）：原生 Mac 菜单栏客户端，随时查看出口 IP 与机房/宽带属性并在 IPv6 旁路泄露时提醒；支持安装包与 Homebrew 安装，同页附 AI 助手 SKILL.md 终端自检及 Surge/Stash/Loon 模块。',
     },
   },
 };

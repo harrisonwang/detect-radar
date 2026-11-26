@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"detect-radar/internal/adapter"
@@ -267,6 +268,22 @@ func TestAssessWebRTC(t *testing.T) {
 			wantReason:  "public-leak",
 			wantSuspect: 1,
 		},
+		{
+			name:        "direct_cn_access_exit_with_overseas_proxy_reverse_split",
+			exitIP:      ctV4A,
+			publicIPs:   []string{usVPNv4},
+			wantState:   "leaked",
+			wantReason:  "reverse-split",
+			wantSuspect: 1,
+		},
+		{
+			name:        "direct_cn_access_exit_with_mixed_proxy_and_other_access_stays_public_leak",
+			exitIP:      ctV4A,
+			publicIPs:   []string{usVPNv4, usHomeV4},
+			wantState:   "leaked",
+			wantReason:  "public-leak",
+			wantSuspect: 2,
+		},
 	}
 
 	for _, tc := range tests {
@@ -319,8 +336,52 @@ func TestAssessWebRTC(t *testing.T) {
 			Data:   &model.WebRTCLeakData{PublicIPs: []string{ctV6}},
 		}
 		scanSvc.refineWebRTCPrivacy(ctx, &pa, wReq, usVPNv4, exitIntel)
-		if pa.WebRTC.Status != "danger" || pa.WebRTC.MatchesExitIP || len(pa.WebRTC.LeakedIPs) != 1 || pa.WebRTC.LeakedIPs[0] != ctV6 {
-			t.Fatalf("got homepage webrtc = %+v, want danger with %q", pa.WebRTC, ctV6)
+		if pa.WebRTC.Status != "danger" || pa.WebRTC.MatchesExitIP || len(pa.WebRTC.LeakedIPs) != 1 || pa.WebRTC.LeakedIPs[0] != ctV6 || pa.WebRTC.Reason != "public-leak" {
+			t.Fatalf("got homepage webrtc = %+v, want danger/public-leak with %q", pa.WebRTC, ctV6)
+		}
+	})
+
+	t.Run("homepage_refine_marks_reverse_split_and_localizes_diagnosis", func(t *testing.T) {
+		exitIntel, _ := ipSvc.Lookup(ctx, ctV4A, LookupOptions{LocalOnly: true})
+		pa := model.PrivacyAnalysis{
+			WebRTC: model.PrivacyWebRTC{Status: "warning", LeakedIPs: []string{usVPNv4}, MatchesExitIP: true},
+			DNS:    model.PrivacyDNS{Status: "safe", MatchesExitIP: true},
+			IPv6:   model.PrivacyIPv6{Status: "safe"},
+		}
+		wReq := &model.CollectorResult[model.WebRTCLeakData]{
+			Status: "success",
+			Data:   &model.WebRTCLeakData{PublicIPs: []string{usVPNv4}},
+		}
+		scanSvc.refineWebRTCPrivacy(ctx, &pa, wReq, ctV4A, exitIntel)
+		if pa.WebRTC.Status != "danger" || pa.WebRTC.MatchesExitIP || pa.WebRTC.Reason != "reverse-split" || len(pa.WebRTC.LeakedIPs) != 1 || pa.WebRTC.LeakedIPs[0] != usVPNv4 {
+			t.Fatalf("got homepage webrtc = %+v, want danger/reverse-split with %q", pa.WebRTC, usVPNv4)
+		}
+
+		analysis := cleanAnalysis()
+		analysis.Privacy = pa
+		_, _, diagZH, _ := scoreForScenario(analysis, exitIntel, ScenarioStrict)
+		foundZH := false
+		for _, item := range diagZH {
+			if item.Code == "WEBRTC_LEAK" && strings.Contains(item.Text, "反向分流") {
+				foundZH = true
+			}
+		}
+		if !foundZH {
+			t.Fatalf("expected ZH reverse-split diagnosis, got %+v", diagZH)
+		}
+
+		projEN := ProjectScanResponse(&model.ScanResponse{
+			Analysis:  analysis,
+			Diagnosis: diagZH,
+		}, "en")
+		foundEN := false
+		for _, item := range projEN.Diagnosis {
+			if item.Code == "WEBRTC_LEAK" && strings.Contains(item.Text, "reverse split-tunnel") {
+				foundEN = true
+			}
+		}
+		if !foundEN {
+			t.Fatalf("expected EN reverse-split diagnosis, got %+v", projEN.Diagnosis)
 		}
 	})
 }

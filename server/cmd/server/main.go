@@ -11,6 +11,7 @@ import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/gofiber/fiber/v2/middleware/recover"
+	"github.com/redis/go-redis/v9"
 
 	"detect-radar/internal/adapter"
 	"detect-radar/internal/cache"
@@ -29,6 +30,7 @@ type Services struct {
 	Consistency *service.ConsistencyService
 	DNS         *service.DNSService
 	DNSTap      *service.DNSTapService
+	STUN        *service.STUNService
 	Reputation  *service.ReputationService
 	RTTProbes   *service.RTTProbeStore
 	Journal     *service.Journal
@@ -37,6 +39,7 @@ type Services struct {
 type Infrastructure struct {
 	RedisCache *cache.RedisCache
 	SQLiteDB   *database.SQLiteDB
+	Catalog    *service.NetworkCatalog
 }
 
 func main() {
@@ -89,7 +92,9 @@ func main() {
 	consistencyService := service.NewConsistencyService()
 	reputationService := service.NewReputationService(cfg.Reputation)
 	dnsService := service.NewDNSService(cfg.DNS, ipIntelService, journal)
+	dnsService.SetCatalog(infra.Catalog)
 	dnsTapService := service.NewDNSTapService(cfg.DNS.Domain, dnsService)
+	stunService := service.NewSTUNService()
 	rttProbes := service.NewRTTProbeStore()
 
 	services := &Services{
@@ -98,6 +103,7 @@ func main() {
 		Reputation:  reputationService,
 		DNS:         dnsService,
 		DNSTap:      dnsTapService,
+		STUN:        stunService,
 		RTTProbes:   rttProbes,
 		Scan:        service.NewScanService(ipIntelService, consistencyService, reputationService, cfg.RTT.ServerLat, cfg.RTT.ServerLon, journal),
 		Journal:     journal,
@@ -112,6 +118,11 @@ func main() {
 	if cfg.DNS.DNSTapAddr != "" {
 		if err := dnsTapService.Start(cfg.DNS.DNSTapAddr); err != nil {
 			log.Printf("警告：启动 DNSTap 服务失败：%v", err)
+		}
+	}
+	if cfg.STUN.Addr != "" {
+		if err := stunService.Start(cfg.STUN.Addr); err != nil {
+			log.Printf("警告：启动 STUN 服务失败：%v", err)
 		}
 	}
 
@@ -148,6 +159,9 @@ func main() {
 	log.Println("正在关闭服务……")
 	if services.DNSTap != nil {
 		services.DNSTap.Stop()
+	}
+	if services.STUN != nil {
+		services.STUN.Stop()
 	}
 	if err := app.Shutdown(); err != nil {
 		log.Fatal("服务关闭失败：", err)
@@ -248,10 +262,33 @@ func initInfrastructure(cfg *config.Config) *Infrastructure {
 			cfg.SQLite.Path, stats["hosting_providers"], stats["hosting_keywords"])
 	}
 
+	var catalogRepo *repository.CatalogRepository
+	if infra.SQLiteDB != nil {
+		catalogRepo = repository.NewCatalogRepository(infra.SQLiteDB.DB())
+	}
+	var redisClient *redis.Client
+	if infra.RedisCache != nil {
+		redisClient = infra.RedisCache.Client()
+	}
+	catalog, err := service.NewNetworkCatalog(catalogRepo, redisClient, cfg.SQLite.SeedPath)
+	if err != nil {
+		log.Printf("警告：初始化网络目录失败：%v", err)
+	} else if catalog != nil {
+		infra.Catalog = catalog
+		service.SetDefaultCatalog(catalog)
+		catalog.Start()
+		cstats := catalog.Stats()
+		log.Printf("已初始化网络目录（ASN：%d，接入网：%d，别名：%d，公共 DNS：%d，地名：%d）",
+			cstats["asn_count"], cstats["access_asn_count"], cstats["alias_count"], cstats["public_dns_count"], cstats["geo_name_count"])
+	}
+
 	return infra
 }
 
 func cleanupInfrastructure(infra *Infrastructure) {
+	if infra.Catalog != nil {
+		infra.Catalog.Close()
+	}
 	if infra.RedisCache != nil {
 		infra.RedisCache.Close()
 	}
@@ -310,7 +347,6 @@ func initIPIntelService(cfg *config.Config, infra *Infrastructure) *service.IPIn
 		cloudIPRepo := repository.NewCloudIPRangeRepository(db)
 		providerRepo := repository.NewHostingProviderRepository(db)
 		keywordRepo := repository.NewHostingKeywordRepository(db)
-		accessASNRepo := repository.NewAccessASNRepository(db)
 
 		var err error
 		hostingDetector, err = service.NewHostingDetector(
@@ -322,7 +358,7 @@ func initIPIntelService(cfg *config.Config, infra *Infrastructure) *service.IPIn
 		if err != nil {
 			log.Printf("警告：创建机房检测器失败：%v", err)
 		} else {
-			hostingDetector.SetAccessASNRepo(accessASNRepo)
+			hostingDetector.SetCatalog(infra.Catalog)
 			stats := hostingDetector.GetStats()
 			log.Printf("已初始化机房检测器（服务商：%v，关键词：%v，接入网 ASN：%v）",
 				stats["provider_count"], stats["keyword_count"], stats["access_asn_count"])

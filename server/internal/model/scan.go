@@ -74,6 +74,7 @@ type WebRTCLeakData struct {
 type IPv6LeakData struct {
 	Leaked      bool   `json:"leaked"`
 	IPv6Address string `json:"ipv6_address"`
+	IPv4Address string `json:"ipv4_address,omitempty"`
 }
 
 type ScanNetwork struct {
@@ -211,6 +212,7 @@ type PrivacyWebRTC struct {
 	Status        string   `json:"status"`
 	LeakedIPs     []string `json:"leaked_ips"`
 	MatchesExitIP bool     `json:"matches_exit_ip"`
+	Reason        string   `json:"reason,omitempty"`
 }
 
 type PrivacyDNS struct {

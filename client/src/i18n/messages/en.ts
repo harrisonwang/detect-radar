@@ -17,7 +17,7 @@ export const en = {
     openMenu: 'Open navigation menu',
     closeMenu: 'Close navigation menu',
     switchLabel: '中文',
-    switchTitle: '切换为中文',
+    switchTitle: 'Switch to Chinese (中文)',
   },
   footer: {
     ariaLabel: 'Site links',
@@ -49,7 +49,7 @@ export const en = {
     unchanged: 'Unchanged',
     added: 'New',
     noLongerSeenCurrent: 'No longer seen in this check',
-    noLongerSeenPrevious: 'Not seen in previous check',
+    noLongerSeenPrevious: 'No longer seen in previous check',
     howItWorks: 'How it works',
     fullCriteriaLink: 'methodology',
     exitIP: 'Exit IP',
@@ -65,7 +65,7 @@ export const en = {
     imageCopiedAndSaved: 'Image copied and download started',
     imageSavedOnly: 'Download started (clipboard unavailable)',
     imageFailed: (msg: string) => `Failed to render share image: ${msg}`,
-    imageEmptyError: 'canvas.toBlob returned null',
+    imageEmptyError: 'Could not export PNG image',
     shareFooterNote: 'IP masked automatically · Rendered locally',
     lastUpdated: 'Last updated: ',
     exitType: {
@@ -126,10 +126,10 @@ export const en = {
     verdict: {
       leak: {
         headline: 'Network identity issues detected',
-        sub: 'Public IP mismatch, leak signal, or flagged exit traits were observed.',
+        sub: 'A network leak, public IP mismatch, or flagged exit IP was observed.',
       },
       contradiction: {
-        headline: 'Environment mismatches exit IP',
+        headline: 'Environment does not match exit IP',
         sub: 'Browser environment signals contradict the exit IP profile.',
       },
       unknown: {
@@ -163,11 +163,11 @@ export const en = {
     identity: {
       title: 'Network Identity',
       location: 'Location',
-      operator: 'Operator',
+      operator: 'ISP / Org',
       asn: 'ASN',
       fraudScore: 'Fraud Score',
-      fraudLow: 'Very low',
-      fraudModLow: 'Low',
+      fraudLow: 'Low',
+      fraudModLow: 'Medium',
       fraudHigh: 'High',
       fraudCritical: 'Critical',
       blacklist: 'Blocklists',
@@ -212,12 +212,17 @@ export const en = {
       autoSuspicious: 'Suspicious',
       autoNone: 'None',
       hardware: 'Hardware',
-      hardwareValue: (cores: string | number, mem: string | number, touch: number) =>
-        `${cores} cores / ${mem}GB / ${touch} touch`,
+      hardwareValue: (cores: string | number, mem: string | number, touch: number) => {
+        const coreText = `${cores} ${cores === 1 ? 'core' : 'cores'}`;
+        const memText = mem !== '?' && mem !== '' ? `${mem} GB` : '';
+        const touchText = touch === 0 ? 'No touch' : `${touch} touch ${touch === 1 ? 'pt' : 'pts'}`;
+        return [coreText, memText, touchText].filter(Boolean).join(' / ');
+      },
       webrtcNone: 'No public IP exposed',
       webrtcMatch: 'Matches exit IP',
-      webrtcMismatch: 'Mismatches exit IP',
-      ipv6Mismatch: 'Mismatches exit IP',
+      webrtcMismatch: 'Differs from exit IP',
+      webrtcReverseSplit: 'Via proxy/DC (reverse split)',
+      ipv6Mismatch: 'Bypasses exit IP',
       ipv6None: 'No IPv6 detected',
       ipv6Match: 'Matches exit IP',
       ipv6Dual: 'Dual-stack OK',
@@ -227,6 +232,11 @@ export const en = {
         title: 'WebRTC public IP differs from exit IP',
         fact: (ip?: string) => `Browser exposed an extra public IP${ip ? ` (${ip})` : ''}`,
         fix: 'Ensure your proxy covers WebRTC UDP traffic or restrict WebRTC public ICE candidates.',
+      },
+      webrtcReverseSplit: {
+        title: 'WebRTC routed via proxy/datacenter (reverse split-tunnel)',
+        fact: (ip?: string) => `This page used a direct ISP exit, while WebRTC exposed a proxy or datacenter IP${ip ? ` (${ip})` : ''}`,
+        fix: 'This page went direct while WebRTC used a proxy (reverse split-tunnel). Route this site through your proxy to test proxy leak protection, or restrict browser WebRTC public ICE candidates.',
       },
       dnsLeak: {
         title: 'DNS leak detected',
@@ -243,8 +253,8 @@ export const en = {
         fix: 'Switch to a clean exit IP.',
       },
       proxyFlag: {
-        title: (flags: string) => `IP flagged as ${flags}`,
-        fact: (flags: string) => `External intelligence sources flag this IP as ${flags}`,
+        title: (flags: string) => `Exit IP flagged (${flags})`,
+        fact: (flags: string) => `External IP intelligence sources flag this IP (${flags})`,
         fix: 'Switch to an unflagged exit.',
       },
       torExit: {
@@ -254,7 +264,7 @@ export const en = {
       },
       datacenter: {
         title: 'Exit IP belongs to a datacenter',
-        fact: (org: string) => `Operator: ${org}`,
+        fact: (org: string) => `Provider: ${org}`,
         fix: 'Use a residential or ISP exit if lower friction is required.',
       },
       openProxyPort: {
@@ -268,12 +278,12 @@ export const en = {
         fix: 'Switch to a cleaner IP.',
       },
       tzMismatch: {
-        title: 'Browser timezone mismatches IP region',
+        title: 'Browser timezone does not match IP region',
         fact: (browser: string, expected: string) => `Browser is ${browser}, while IP region expects ${expected}`,
         fix: 'Align system timezone with the exit IP location.',
       },
       langMismatch: {
-        title: 'Browser language mismatches IP country',
+        title: 'Browser language does not match IP country',
         fact: (browser: string, country: string, expected: string) =>
           `Browser prefers ${browser}, while ${country} typically uses ${expected}`,
         fix: 'Adjust preferred browser language to match the exit region.',
@@ -292,13 +302,13 @@ export const en = {
       },
       fpHooked: {
         title: (which: string) => `${which} API appears hooked`,
-        fact: (which: string) => `Native ${which} methods appear overridden (anti-fingerprinting trace)`,
-        fix: 'Prefer subtle noise over blocking or overriding native prototypes.',
+        fact: (which: string) => `Native ${which} methods appear overridden (e.g., by a privacy extension or browser shield)`,
+        fix: 'Disable or adjust privacy extensions overriding native browser APIs if strict consistency is required.',
       },
       noPlugins: {
         title: 'Empty desktop plugin list',
-        fact: 'navigator.plugins is empty on a desktop profile',
-        fix: 'Usually informational; no action needed.',
+        fact: 'navigator.plugins is empty in a desktop browser',
+        fix: 'Informational only; no action needed.',
       },
     },
     feedback: {
@@ -314,7 +324,7 @@ export const en = {
       notePlaceholder: 'Additional details (optional)',
       emailPlaceholder: 'Reply email (optional)',
       options: {
-        false_positive: 'False positive on normal network',
+        false_positive: 'False positive on a normal network',
         missed_detection: 'Proxy / VPN missed',
         data_wrong: 'Wrong location or ISP data',
         other: 'Other issue',
@@ -322,11 +332,11 @@ export const en = {
     },
     errors: {
       incomplete: 'Check incomplete',
-      network: 'Network error — check your connection and retry',
+      network: 'Network error — check your connection and try again',
       limited: 'Too many requests — please wait a moment',
-      server: 'Service temporarily unavailable — please retry later',
-      rejected: 'Request rejected — refresh the page and retry',
-      generic: 'Check failed — please retry later',
+      server: 'Service temporarily unavailable — please try again later',
+      rejected: 'Request rejected — refresh the page and try again',
+      generic: 'Check failed — please try again later',
     },
     captureProgress: (pct: number) => `Rendering image · ${pct}%`,
     shareCard: {
@@ -350,13 +360,14 @@ export const en = {
       consistencyOk: (label: string) => `${label} OK`,
       consistencyMismatch: (label: string, b: string, ip: string) => `${label} mismatch (Browser ${b} / Exit ${ip})`,
       leaksLabel: 'Leaks',
-      dnsLeakWithNames: (names: string) => `DNS leak (${names})`,
-      dnsLeakFallback: 'DNS leak (access ISP DNS)',
+      dnsLeakWithNames: (names: string) => `DNS: Leak detected (${names})`,
+      dnsLeakFallback: 'DNS: Leak detected (local ISP DNS)',
       dnsStatusLine: (val: string) => `DNS: ${val}`,
       webrtcLeak: 'WebRTC: Leak detected',
       webrtcClear: 'WebRTC: No leak',
       webrtcUnknown: 'WebRTC: Inconclusive',
       ipv6Leak: 'IPv6: Leak detected',
+      ipv6Unknown: 'IPv6: Inconclusive',
       ipv6Dual: 'IPv6: Dual-stack OK',
       ipv6Match: 'IPv6: Matches exit',
       ipv6None: 'IPv6: Not detected',
@@ -385,15 +396,15 @@ export const en = {
     publicDNSAbroadNote: 'Public DNS resolvers may legitimately sit in a different region than your exit IP.',
     verdictNote: {
       crossRegion: (names?: string) =>
-        `Observed access-ISP DNS resolvers in a different region${names ? ` (${names})` : ''}.`,
+        `Observed local ISP DNS resolvers in a different region${names ? ` (${names})` : ''}.`,
       proxyBypass: (names?: string) =>
-        `Exit IP is a datacenter/proxy, yet DNS resolved via a local access ISP${names ? ` (${names})` : ''}.`,
-      sameIspCurrent: 'Exit and DNS both belong to local access networks in the same region.',
-      sameIspPrevious: 'Exit and DNS belonged to local access networks in the same region.',
-      publicHostingCurrent: 'Only public DNS or hosting resolvers were observed; no ISP leak detected.',
-      publicHostingPrevious: 'Only public DNS or hosting resolvers were observed.',
-      noLeakedCurrent: 'No bypassing access-ISP DNS resolvers were observed.',
-      noLeakedPrevious: 'No bypassing access-ISP DNS resolvers were observed.',
+        `Exit IP belongs to a datacenter or proxy, yet DNS resolved via a local ISP${names ? ` (${names})` : ''}.`,
+      sameIspCurrent: 'Exit and DNS both belong to local ISPs in the same region.',
+      sameIspPrevious: 'Exit and DNS belonged to local ISPs in the same region.',
+      publicHostingCurrent: 'Only public DNS or datacenter resolvers were observed; no ISP leak detected.',
+      publicHostingPrevious: 'Only public DNS or datacenter resolvers were observed.',
+      noLeakedCurrent: 'No bypassing local ISP DNS resolvers were observed.',
+      noLeakedPrevious: 'No bypassing local ISP DNS resolvers were observed.',
       missingExit: 'Could not determine your exit IP or region.',
       partialSamples: 'Some probe rounds did not return DNS results.',
       unclassified: 'Some observed DNS resolvers could not be classified.',
@@ -412,27 +423,27 @@ export const en = {
       addressCount: (n: number) => `${n} IP${n === 1 ? '' : 's'}`,
       groupedAria: 'DNS resolver IPs grouped by provider',
       waitingTitle: 'Ready to test DNS',
-      waitingDesc: 'Concurrently checks your HTTPS exit IP and authoritative DNS probes.',
+      waitingDesc: 'Checks your HTTPS exit IP alongside authoritative DNS probes.',
       testingTitle: 'Testing DNS',
       testingDesc: 'Collecting your HTTPS exit IP and authoritative DNS probe traces.',
       providerUnchanged: 'Providers unchanged',
       rules: [
         'Each run generates unique random subdomains on our authoritative NS to reveal real recursive resolvers',
-        'Cross-region access-ISP resolvers, or local ISP resolvers bypassing a datacenter/proxy exit, are flagged as ',
-        'Public DNS (Cloudflare, Google, Quad9, OpenDNS, NextDNS, AliDNS, DNSPod, etc.), hosting resolvers, and same-region direct ISPs are ',
+        'Cross-region ISP resolvers, or local ISP resolvers bypassing a datacenter/proxy exit, are flagged as ',
+        'Public DNS (Cloudflare, Google, Quad9, OpenDNS, NextDNS, AliDNS, DNSPod, etc.), datacenter resolvers, and same-region direct ISPs are marked as ',
       ],
     },
     compare: {
-      removedCurrent: 'Gone: ',
-      removedPrevious: 'Gone: ',
+      removedCurrent: 'Removed: ',
+      removedPrevious: 'Removed: ',
       addedCurrent: 'Added: ',
       addedPrevious: 'Added: ',
-      attributionChanged: 'Network attribution changed',
+      attributionChanged: 'Network ownership changed',
       ipsOnlyChanged: 'Resolver IPs changed (same providers)',
       bothMissing: 'Unavailable in both checks',
-      prevMissing: 'Unavailable previously',
-      curMissingCurrent: 'Unavailable now',
-      curMissingPrevious: 'Unavailable then',
+      prevMissing: 'Previously unavailable',
+      curMissingCurrent: 'Now unavailable',
+      curMissingPrevious: 'Previously unavailable',
       exitIPChanged: 'Exit IP changed',
       sameProvidersNewIPs: 'Same DNS providers, different resolver IPs',
       identical: 'Same as previous check',
@@ -447,23 +458,23 @@ export const en = {
       resolverIdle: 'DNS Resolver',
       resolverDefault: 'Recursive Resolver',
       resolverWaiting: 'Waiting for DNS',
-      resolverUnobserved: 'No query received',
-      resolverUnknown: 'Insufficient data',
+      resolverUnobserved: 'No query seen',
+      resolverUnknown: 'Unverified',
       exitIdle: 'HTTPS Exit',
       exitDefault: 'Exit Network',
       exitFetching: 'Fetching exit IP',
       exitWaitingCompact: 'Waiting…',
       exitSuffix: 'HTTPS Exit',
-      subCollecting: (done: number, total: number, count: number) => `Round ${done}/${total} · ${count} IPs`,
-      subAssessing: (count: number) => `${count} IPs · Assessing`,
-      subProbing: (started: number, total: number) => `Probe round ${started}/${total} sent`,
-      subSuspected: 'Bypassing ISP DNS detected',
-      subClearPublic: (count: number) => (count ? `Public DNS · ${count} IPs` : 'Public DNS'),
+      subCollecting: (done: number, total: number, count: number) => `Round ${done}/${total} · ${count} IP${count === 1 ? '' : 's'}`,
+      subAssessing: (count: number) => `${count} IP${count === 1 ? '' : 's'} · Assessing`,
+      subProbing: (started: number, total: number) => `Round ${started}/${total} sent`,
+      subSuspected: 'ISP DNS bypass',
+      subClearPublic: (count: number) => (count ? `Public DNS · ${count} IP${count === 1 ? '' : 's'}` : 'Public DNS'),
       subClearCount: (count: number) => `${count} resolver IP${count === 1 ? '' : 's'}`,
-      subUnobserved: 'Blocked or timed out',
-      subUnknownCount: (count: number) => (count ? `${count} resolver IPs` : 'Missing exit or geo'),
-      statusProbing: (started: number, total: number) => `Round ${started}/${total} probing`,
-      statusCollecting: (done: number, total: number, count: number) => `Round ${done}/${total} · ${count} IPs`,
+      subUnobserved: 'Blocked / timeout',
+      subUnknownCount: (count: number) => (count ? `${count} resolver IP${count === 1 ? '' : 's'}` : 'Missing exit/geo'),
+      statusProbing: (started: number, total: number) => `Probing · ${started}/${total}`,
+      statusCollecting: (done: number, total: number, count: number) => `Round ${done}/${total} · ${count} IP${count === 1 ? '' : 's'}`,
       statusAssessing: 'Assessing…',
       verdictAssessing: 'Assessing…',
       verdictSampling: 'Sampling…',
@@ -472,7 +483,7 @@ export const en = {
       wireNoCapture: 'None',
       wireHttps: 'HTTPS',
       wireApi: 'API',
-      moreProviders: (joined: string) => `${joined}, …`,
+      moreProviders: (joined: string) => `${joined}…`,
       inspectorBrowser: 'Your Browser: sends an HTTPS exit lookup and 3 rounds of unique subdomain DNS probes in parallel',
       inspectorResolver: (title: string, sub: string) => `DNS Resolver: ${title} — ${sub}`,
       inspectorExit: (name: string, ip: string, asn?: string) => `HTTPS Exit: ${name} (${ip}${asn ? ` · ${asn}` : ''})`,
@@ -517,21 +528,49 @@ export const en = {
     verdictNote: {
       disabled: 'WebRTC is disabled in this browser; no addresses were exposed.',
       missingExit: 'Observed public WebRTC IPs, but could not fetch your exit IP for comparison.',
-      assessmentUnavailableWithCands: 'Insufficient attribution data to compare against your exit IP.',
-      assessmentUnavailableDual: 'Observed an IP on the other stack, but attribution failed to confirm whether it belongs to the same tunnel.',
-      publicLeakDiffCountry: (label: string, exitRegion: string) =>
-        `WebRTC exposed a public IP in ${label}, differing from your ${exitRegion} exit.`,
-      publicLeakDiffNet: (label: string) =>
-        `WebRTC exposed a public IP on ${label}, outside your current exit network.`,
+      assessmentUnavailableWithCands: 'Insufficient network lookup data to compare against your exit IP.',
+      assessmentUnavailableDual: 'Observed an IP on the other stack, but network lookup failed to confirm whether it belongs to the same tunnel.',
+      publicLeakDiffCountry: (region: string, provider: string, exitRegion: string) => {
+        if (region && provider) {
+          return provider.toLowerCase().startsWith(region.toLowerCase())
+            ? `WebRTC exposed a public IP on ${provider}, differing from your exit in ${exitRegion}.`
+            : `WebRTC exposed a public IP in ${region} (${provider}), differing from your exit in ${exitRegion}.`;
+        }
+        if (region) return `WebRTC exposed a public IP in ${region}, differing from your exit in ${exitRegion}.`;
+        return `WebRTC exposed a public IP on ${provider}, differing from your exit in ${exitRegion}.`;
+      },
+      publicLeakDiffNet: (region: string, provider: string) => {
+        if (provider && region) {
+          return provider.toLowerCase().startsWith(region.toLowerCase())
+            ? `WebRTC exposed a public IP on ${provider}, outside your current exit network.`
+            : `WebRTC exposed a public IP on ${provider} (${region}), outside your current exit network.`;
+        }
+        if (provider) return `WebRTC exposed a public IP on ${provider}, outside your current exit network.`;
+        return `WebRTC exposed a public IP in ${region}, outside your current exit network.`;
+      },
       publicLeakGenericNet: 'WebRTC exposed a public IP outside your current exit network.',
       publicLeakGeneric: 'WebRTC exposed a public IP that differs from your exit IP.',
+      reverseSplit: (region: string, provider: string, exitRegion: string) => {
+        const target =
+          region && provider
+            ? provider.toLowerCase().startsWith(region.toLowerCase())
+              ? `on ${provider}`
+              : `in ${region} (${provider})`
+            : provider
+              ? `on ${provider}`
+              : `in ${region}`;
+        const exitPart = exitRegion && exitRegion !== 'Unknown region' ? ` (${exitRegion})` : '';
+        return `This page went direct${exitPart} while WebRTC exposed a proxy/datacenter IP ${target} (reverse split-tunnel). Route this site through your proxy to test proxy leak protection, or restrict browser WebRTC public ICE candidates.`;
+      },
+      reverseSplitGeneric:
+        'This page went direct while WebRTC exposed a proxy/datacenter IP (reverse split-tunnel). Route this site through your proxy to test proxy leak protection, or restrict browser WebRTC public ICE candidates.',
       sameNetwork: 'WebRTC exposed another exit IP on the same ISP (common on mobile/CGNAT); no cross-network leak.',
-      dualStackSameISP: 'WebRTC exposed the other IP family (IPv4/IPv6) on the same ISP.',
-      dualStackGeneric: 'WebRTC exposed the other IP family (IPv4/IPv6) on a direct connection.',
+      dualStackSameISP: 'WebRTC exposed a dual-stack IPv4/IPv6 address on the same ISP.',
+      dualStackGeneric: 'WebRTC exposed a dual-stack IPv4/IPv6 address on a direct connection.',
       samePrefix: 'WebRTC IPv6 address shares the same /64 prefix as your exit IP (temporary privacy address).',
       localExposed: 'No extra public IP exposed (only local private addresses were seen).',
       matchesExit: 'WebRTC public IP matches your current exit IP.',
-      mdnsProtected: 'Only mDNS (*.local) candidates returned; public and LAN IPs are hidden.',
+      mdnsProtected: 'Only mDNS (*.local) candidates were returned; public and LAN IPs are hidden.',
       noCandidates: 'No WebRTC ICE candidates were observed.',
     },
     page: {
@@ -570,8 +609,8 @@ export const en = {
       testingDesc: 'Gathering browser WebRTC ICE candidates and HTTPS exit IP.',
       rules: [
         'Gathered locally in your browser; differing public IPs are checked against local databases without storing them',
-        'Public IPs from another region, another operator, or bypassing a proxy/datacenter exit are flagged as ',
-        'Same-ISP IPv4/IPv6, same /64 IPv6 prefix, and shared CGNAT exits are not leaks; to test IPv6 independently, use ',
+        'Public IPs from another region, another ISP, or bypassing a proxy/datacenter exit are flagged as ',
+        'Same-ISP IPv4/IPv6, same /64 IPv6 prefix, and shared CGNAT exits are not leaks; to test IPv6 independently, use the ',
       ],
       ipv6ToolLink: 'IPv6 Leak Test',
     },
@@ -579,8 +618,8 @@ export const en = {
       added: (list: string) => `Added ${list}`,
       removed: (list: string) => `Removed ${list}`,
       exitChanged: (prev: string, cur: string) => `${prev} → ${cur}`,
-      exitAcquired: (cur: string) => `Acquired ${cur}`,
-      exitLost: 'Unavailable now',
+      exitAcquired: (cur: string) => `Detected ${cur}`,
+      exitLost: 'Now unavailable',
       mdnsSwitched: 'Switched to mDNS (*.local)',
       mdnsReplacedLocal: 'LAN IPs hidden via mDNS (*.local)',
       identical: 'WebRTC candidates and exit IP unchanged',
@@ -590,8 +629,8 @@ export const en = {
       browserAria: 'Inspect node: Your Browser',
       stunAria: 'Inspect node: WebRTC Candidates',
       exitAria: 'Inspect node: HTTPS Exit',
-      judgeAria: 'Inspect node: Attribution Check',
-      judgeNode: 'Attribution Check',
+      judgeAria: 'Inspect node: Network Check',
+      judgeNode: 'Network Check',
       titleProbe: 'WebRTC Probe',
       titlePublic: 'WebRTC Public IP',
       titleLocal: 'WebRTC Local IP',
@@ -601,9 +640,9 @@ export const en = {
       titleIPv6: 'WebRTC IPv6',
       titleSameNet: 'Same-ISP Exit',
       subCount: (n: number) => `${n} candidate${n === 1 ? '' : 's'}`,
-      subGathering: 'Gathering ICE candidates',
+      subGathering: 'Gathering ICE…',
       subDisabled: 'No address exposed',
-      subNoCands: 'No public or local IP',
+      subNoCands: 'No ICE IPs',
       subMdns: (n: number) => `LAN hidden · ${n} mDNS`,
       subMdnsCompact: (n: number) => `Hidden · ${n}`,
       subLocalMore: (ip: string, n: number) => `${ip} +${n - 1}`,
@@ -613,10 +652,13 @@ export const en = {
       subLeakMore: (ip: string, n: number) => `${ip} +${n - 1} · Mismatch`,
       subLeakSingle: (ip: string) => `${ip} · Mismatch`,
       subLeakFallback: 'Differs from exit',
+      subReverseSplitMore: (ip: string, n: number) => `${ip} +${n - 1} · Proxy/DC`,
+      subReverseSplitSingle: (ip: string) => `${ip} · Proxy/DC`,
+      subReverseSplitFallback: 'Via proxy/DC (reverse split)',
       subDual: (ip?: string) => (ip ? `${ip} · Same ISP` : 'Same-ISP IPv4/IPv6'),
       subPrefix: (ip?: string) => (ip ? `${ip} · Same /64` : 'Same /64 IPv6'),
       subSameNet: (ip?: string) => (ip ? `${ip} · Shared exit` : 'Same-ISP shared exit'),
-      subUnavail: (ip?: string) => (ip ? `${ip} · Unverified` : 'Attribution unavailable'),
+      subUnavail: (ip?: string) => (ip ? `${ip} · Unverified` : 'Lookup failed'),
       subMissingExit: 'Exit IP missing',
       subMatch: (ip?: string) => (ip ? `${ip} · Matches exit` : 'Matches exit'),
       verdictComparing: 'Comparing…',
@@ -633,7 +675,7 @@ export const en = {
       inspectorStun: (title: string, sub: string) => `${title}: ${sub}`,
       inspectorExit: (name: string, ip: string, asn?: string) => `HTTPS Exit: ${name} (${ip}${asn ? ` · ${asn}` : ''})`,
       inspectorJudge: (vText: string, note: string) =>
-        `Attribution Check: ${vText}${note ? ` — ${note}` : ''} (same IP / /64 checked locally; differing public IPs verified via local DB without retention)`,
+        `Network Check: ${vText}${note ? ` — ${note}` : ''} (same IP and /64 prefix checked locally; differing public IPs checked against local databases without storage)`,
       ariaIdle: 'WebRTC path diagram: waiting to test browser WebRTC candidates and HTTPS exit',
       ariaBusy: 'WebRTC path diagram: concurrently probing WebRTC candidates and HTTPS exit',
       ariaResult: (sTitle: string, sSub: string, eName: string, eIP: string, vText: string) =>
@@ -673,13 +715,16 @@ export const en = {
       v4Only: 'IPv4-only connectivity detected; no IPv6 leak.',
       v6Only: 'Only IPv6 connectivity detected; no IPv4 exit observed.',
       ispBypass: (r4: string, r6: string, carrier?: string) =>
-        `IPv4 exits via ${r4}, while IPv6 connects directly via ${r6}${carrier ? ` (${carrier})` : ' access ISP'}.`,
+        `IPv4 exits in ${r4}, while IPv6 connects directly through ${carrier ? `${carrier} (${r6})` : `a local ISP in ${r6}`}.`,
       proxyBypass: (carrier?: string) =>
         `IPv4 uses a datacenter/proxy exit, while IPv6 connects directly via your local ISP${carrier ? ` (${carrier})` : ''}.`,
       domesticDual: 'Both IPv4 and IPv6 connect directly in the same region.',
       matchedDual: (region: string) => `Both IPv4 and IPv6 exit in ${region}; no leak detected.`,
       overseasSplit: (r4: string, r6: string) =>
-        `No access-ISP IPv6 leak detected (IPv4 in ${r4}, IPv6 in ${r6} — typical of split routing or WARP).`,
+        `No local ISP IPv6 leak detected (IPv4 in ${r4}, IPv6 in ${r6} — typical of split routing or WARP).`,
+      unclassifiedDual: (r4: string, r6: string) =>
+        `IPv4 exits in ${r4} and IPv6 exits in ${r6}, but the IPv6 network type is unclassified.`,
+      missingGeo: 'Missing region data for IPv4 or IPv6 exit; unable to determine leak status.',
     },
     page: {
       srRetesting: 'Re-testing IPv4 and IPv6 exits.',
@@ -694,24 +739,24 @@ export const en = {
       v6Tooltip: 'Observed via IPv6-only endpoint 6.detectradar.com',
       badgeLeak: 'ISP Bypass',
       badgeSplit: 'Split Routing',
-      errLimited: 'Rate limited — please retry shortly',
+      errLimited: 'Rate limited — please try again shortly',
       v6Unreachable: 'No IPv6 (IPv4-only network)',
       v4Unreachable: 'No IPv4 connectivity',
       unreachableShort: 'Unreachable',
       waitingTitle: 'Ready to test IPv6',
-      waitingDesc: 'Concurrently probes pure IPv4 and pure IPv6 exit endpoints.',
+      waitingDesc: 'Concurrently probes dedicated IPv4-only and IPv6-only endpoints.',
       testingTitle: 'Testing IPv6',
       testingDesc: 'Probing 4.detectradar.com (IPv4) and 6.detectradar.com (IPv6) in parallel.',
       rules: [
         'Probes dedicated IPv4-only and IPv6-only endpoints simultaneously without relying on WebRTC',
-        'IPv6 routing directly via a cross-region access ISP, or bypassing an IPv4 proxy/datacenter exit via your local ISP, is flagged as ',
-        'IPv4-only, same-region direct dual-stack, and hosting/WARP split routing are ',
+        'IPv6 routing directly via a cross-region ISP, or bypassing an IPv4 proxy/datacenter exit via your local ISP, is flagged as ',
+        'IPv4-only, IPv6-only, same-region direct dual-stack, and datacenter/WARP split routing are marked as ',
       ],
     },
     compare: {
       bothUnreachable: 'Unreachable in both checks',
       nowConnected: (ip: string) => `Connected: ${ip}`,
-      nowDisconnected: 'Unreachable now',
+      nowDisconnected: 'Now unreachable',
       changed: (prev: string, cur: string) => `${prev} → ${cur}`,
       identical: 'IPv4 and IPv6 exits unchanged',
     },
@@ -731,10 +776,10 @@ export const en = {
       v6OnlyV4: 'IPv4-only',
       verdictComparing: 'Comparing…',
       verdictBusy: 'Probing…',
-      statusInit: 'Testing IPv4 & IPv6 exits',
+      statusInit: 'Testing IPv4 & IPv6',
       statusComparing: 'Comparing stacks…',
-      statusWaitV6: 'IPv4 ready, waiting for IPv6…',
-      statusWaitV4: 'IPv6 ready, waiting for IPv4…',
+      statusWaitV6: 'Waiting for IPv6…',
+      statusWaitV4: 'Waiting for IPv4…',
       statusBoth: 'Probing IPv4 & IPv6…',
       wireV6: 'IPv6',
       wireV4: 'IPv4',
@@ -742,6 +787,7 @@ export const en = {
       inspectorBrowser: 'Your Browser: concurrently connects to 4.detectradar.com (IPv4) and 6.detectradar.com (IPv6)',
       inspectorV6: (name: string, ip: string, asn?: string) => `IPv6 Exit: ${name} (${ip}${asn ? ` · ${asn}` : ''})`,
       inspectorV6Empty: 'IPv6 Exit: unreachable (IPv4-only network)',
+      inspectorV6BothOffline: 'IPv6 Exit: could not reach 6.detectradar.com',
       inspectorV4: (name: string, ip: string, asn?: string) => `IPv4 Exit: ${name} (${ip}${asn ? ` · ${asn}` : ''})`,
       inspectorV4Empty: 'IPv4 Exit: could not reach 4.detectradar.com',
       inspectorJudge: (vText: string, note: string) => `Dual-Stack Check: ${vText}${note ? ` — ${note}` : ''}`,
@@ -766,7 +812,7 @@ export const en = {
   },
   macos: {
     heroAria: 'DetectRadar for macOS overview and download',
-    subtitle: 'See your exit IP, ISP/datacenter status, and IPv6 leak alerts right in the macOS menu bar.',
+    subtitle: 'See your exit IP, ISP/datacenter status, and IPv6 leak alerts in the macOS menu bar (app UI is currently in Chinese; IPv6 alerts focus on Mainland China).',
     downloadLabel: 'Download for macOS',
     downloadGithubAria: 'Open GitHub Releases to download DetectRadar for macOS',
     downloadDirectAria: 'Download DetectRadar for macOS disk image (.dmg)',
@@ -781,11 +827,11 @@ export const en = {
     previewGroupAria: 'Switch preview state',
     previews: {
       darkLabel: 'Dark',
-      darkAlt: 'DetectRadar for macOS dark mode preview showing exit IP, operator, and quick actions',
+      darkAlt: 'DetectRadar for macOS dark mode preview (Chinese UI) showing exit IP, ISP, and quick actions',
       lightLabel: 'Light',
-      lightAlt: 'DetectRadar for macOS light mode preview showing exit region, IP, and datacenter badge',
+      lightAlt: 'DetectRadar for macOS light mode preview (Chinese UI) showing exit region, IP, and datacenter badge',
       alertLabel: 'IPv6 Leak',
-      alertAlt: 'DetectRadar for macOS IPv6 leak alert preview showing a warning badge in the menu bar',
+      alertAlt: 'DetectRadar for macOS IPv6 leak alert preview (Chinese UI) showing a warning badge in the menu bar',
     },
     agentTag: 'Terminal Self-Check',
     agentHeading: 'Let your AI coding agent inspect terminal routing',
@@ -796,14 +842,14 @@ export const en = {
     agentCopied: 'Agent prompt copied',
     modulesTag: 'Proxy Panel Modules',
     modulesHeading: 'Surge / Stash / Loon Panel Modules',
-    modulesDesc: 'Inspect exit IP type, 30-day ASN human traffic, and IPv6 bypass directly inside your proxy client (local fast lookup).',
+    modulesDesc: 'Inspect exit IP type, 30-day ASN human traffic, and IPv6 bypass inside your proxy client (fast local lookup; module UI is currently in Chinese).',
     moduleCopyTitle: (name: string) => `Copy ${name} module URL`,
     moduleCopied: (name: string) => `${name} module URL copied`,
     copiedFallback: 'Copied',
   },
   contact: {
     title: 'Contact',
-    description: 'DetectRadar contact emails for bug reports, general inquiries, privacy requests, and abuse reports.',
+    description: 'Contact DetectRadar for detection bug reports, false-positive feedback, general inquiries, partnerships, privacy data deletion requests, and abuse reports.',
     rows: [
       { name: 'Feedback', purpose: 'Detection bug reports & suggestions', email: 'feedback@detectradar.com' },
       { name: 'General', purpose: 'Inquiries & partnerships', email: 'admin@detectradar.com' },
@@ -813,15 +859,15 @@ export const en = {
   },
   seo: {
     titleSep: ' | ',
-    defaultTitle: 'DetectRadar | Network Environment, IP Purity & Leak Test',
-    defaultDescription: 'Check your exit IP (residential vs. datacenter), timezone/language consistency, DNS/WebRTC/IPv6 leaks, and browser fingerprint with a shareable diagnostic report.',
+    defaultTitle: 'DetectRadar | IP Reputation, Leak & Fingerprint Test',
+    defaultDescription: 'Check your exit IP reputation (ISP vs. datacenter), timezone and language consistency, DNS/WebRTC/IPv6 leaks, and browser fingerprint with shareable reports.',
     defaultHomeFeatures: [
       'Browser timezone vs. exit IP timezone consistency',
       'Browser language vs. exit IP country consistency',
       'WebRTC public ICE candidate comparison against exit IP',
       'Authoritative NS + DNSTap DNS leak test',
       'Dual-stack IPv4 / IPv6 leak test',
-      'Exit IP geolocation, ASN, operator, and ISP vs. datacenter classification',
+      'Exit IP geolocation, ASN, ISP/organization, and residential vs. datacenter classification',
       'Cloudflare Radar 30-day ASN human traffic ratio',
       'Canvas, Audio, and WebGL fingerprint consistency and hook detection',
       'navigator.webdriver automation signal check',
@@ -829,8 +875,8 @@ export const en = {
     ],
     homeNoscript: 'Please enable JavaScript to run the live diagnostic.',
     dns: {
-      title: 'DNS Leak Test: Inspect Your Real DNS Resolvers & Exit IP',
-      description: 'Free online DNS leak test using an authoritative nameserver to reveal your actual DNS resolvers and compare changes across re-tests.',
+      title: 'DNS Leak Test: Check Your Real DNS Resolvers',
+      description: 'Free online DNS leak test powered by an authoritative nameserver to reveal your real recursive resolvers, catch ISP leaks, and compare changes across re-tests.',
       appName: 'DetectRadar DNS Leak Test',
       noscript: 'Please enable JavaScript to run the DNS leak test.',
       features: [
@@ -841,32 +887,32 @@ export const en = {
       ],
     },
     webrtc: {
-      title: 'WebRTC Leak Test: Check Exposed Public & Local IPs',
-      description: 'Free online WebRTC leak test comparing exposed public ICE candidates, LAN addresses, and mDNS (*.local) status against your exit IP.',
+      title: 'WebRTC Leak Test: Check Public & Local IPs',
+      description: 'Free online WebRTC leak test comparing exposed public STUN ICE candidates, LAN/CGNAT addresses, global IPv6, and mDNS (*.local) privacy against your exit IP.',
       appName: 'DetectRadar WebRTC Leak Test',
       noscript: 'Please enable JavaScript to run the WebRTC leak test.',
       features: [
-        'Gathers STUN ICE public candidates and verifies attribution against your exit IP',
-        'Detects LAN, CGNAT, Fake-IP exposure and browser mDNS (*.local) privacy masking',
+        'Gathers STUN ICE public candidates and verifies network ownership against your exit IP',
+        'Detects LAN, CGNAT, and Fake-IP exposure, plus browser mDNS (*.local) privacy masking',
         'Shows global IPv6 candidates and raw ICE protocol/type details',
         'Stores the last two runs locally in your browser for instant before/after comparison',
       ],
     },
     ipv6: {
-      title: 'IPv6 Leak Test: Compare Real IPv4 & IPv6 Exit Routing',
-      description: 'Free online IPv6 leak test probing dedicated IPv4-only and IPv6-only endpoints simultaneously to catch IPv6 ISP bypass leaks.',
+      title: 'IPv6 Leak Test: Compare IPv4 & IPv6 Exits',
+      description: 'Free online IPv6 leak test probing dedicated IPv4-only and IPv6-only endpoints simultaneously to catch ISP IPv6 bypass leaks without relying on browser WebRTC.',
       appName: 'DetectRadar IPv6 Leak Test',
       noscript: 'Please enable JavaScript to run the IPv6 leak test.',
       features: [
         'Concurrently probes dedicated IPv4-only (4.detectradar.com) and IPv6-only (6.detectradar.com) endpoints',
         'Works independently of WebRTC, even when WebRTC is completely disabled',
-        'Distinguishes ISP bypass leaks from direct dual-stack and hosting/WARP split routing',
+        'Distinguishes ISP bypass leaks from direct dual-stack and datacenter/WARP split routing',
         'Stores the last two runs locally in your browser for instant before/after comparison',
       ],
     },
     macos: {
-      title: 'DetectRadar for macOS: Menu Bar Exit IP & IPv6 Leak Monitor',
-      description: 'DetectRadarBar for macOS: see your exit IP, ISP/datacenter status, and IPv6 leak alerts in the menu bar, plus SKILL.md terminal checks for AI agents.',
+      title: 'macOS Menu Bar App: Exit IP & IPv6 Leak Monitor',
+      description: 'DetectRadarBar for macOS: view exit IP, ISP/datacenter status, and IPv6 alerts in the menu bar (Chinese UI), plus English SKILL.md CLI checks and proxy modules.',
     },
   },
 } satisfies Messages;

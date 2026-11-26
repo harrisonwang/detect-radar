@@ -20,7 +20,7 @@ import type {
   DimensionScore,
 } from "./types";
 
-import { browserExit, DNS_POLICY_VERSION, dnsVerdictNote, getDnsStatus } from "./dnsPresentation";
+import { browserExit, DNS_POLICY_VERSION, dnsProvider, dnsVerdictNote, getDnsStatus } from "./dnsPresentation";
 import { isIPv6Address, sameIP } from "./ip";
 import { maskIP } from "./ipDisplay";
 
@@ -54,7 +54,7 @@ export interface ReadoutRow {
   compare?: { browser: string; ip: string };
   meta?: {
     dnsVerdict?: DNSVerdict;
-    ipv6Kind?: "leaked" | "none" | "matches-exit" | "dual-stack";
+    ipv6Kind?: "leaked" | "none" | "matches-exit" | "dual-stack" | "unknown";
   };
 }
 
@@ -140,9 +140,13 @@ function buildIdentity(
     state = "coherent";
   }
 
-  const geoParts = [intel?.city, intel?.country_name || intel?.country].filter(
-    Boolean,
-  );
+  const primaryPlace = (intel?.city || intel?.region || "").trim();
+  const countryPlace = (intel?.country_name || intel?.country || "").trim();
+  const geoParts: string[] = [];
+  if (primaryPlace) geoParts.push(primaryPlace);
+  if (countryPlace && countryPlace.toLowerCase() !== primaryPlace.toLowerCase()) {
+    geoParts.push(countryPlace);
+  }
   const ipType = a.ip_type ?? "unknown";
 
   return {
@@ -152,7 +156,7 @@ function buildIdentity(
     countryCode:
       intel?.country && intel.country !== "LOCAL" ? intel.country : "",
     asn: intel?.asn || "—",
-    org: intel?.org || intel?.isp || "—",
+    org: dnsProvider(intel?.isp ?? "") || dnsProvider(intel?.org ?? "") || "—",
     ipType,
     status: "ready",
     usageLabel: m.common.usageType[ipType] ?? ipType,
@@ -216,12 +220,13 @@ function buildFindings(
 
   const pv = a.privacy;
   if (pv.webrtc.status === "danger") {
+    const webrtcCopy = pv.webrtc.reason === "reverse-split" ? f.webrtcReverseSplit : f.webrtcLeak;
     push({
       id: "webrtc-leak",
       severity: "leak",
-      title: f.webrtcLeak.title,
-      fact: f.webrtcLeak.fact(pv.webrtc.leaked_ips[0]),
-      fix: f.webrtcLeak.fix,
+      title: webrtcCopy.title,
+      fact: webrtcCopy.fact(pv.webrtc.leaked_ips[0]),
+      fix: webrtcCopy.fix,
     });
   }
   if (dnsVerdictState(pv.dns) === "suspected") {
@@ -413,7 +418,15 @@ function consistencyRows(
   const tzBrowser = formatTimezoneZone(tz.browser, locale);
   const tzExpected = formatTimezoneZone(tz.expected, locale);
   const langBrowser = languageName(lang.browser, locale);
-  const langExpected = languageName((lang.expected || [])[0] || "", locale);
+  const matchedExpected =
+    lang.passed && lang.browser
+      ? (lang.expected || []).find((exp) => {
+          const b = lang.browser.toLowerCase();
+          const e = exp.toLowerCase();
+          return b === e || b.startsWith(`${e}-`);
+        })
+      : undefined;
+  const langExpected = languageName(matchedExpected || (lang.expected || [])[0] || "", locale);
   return [
     {
       key: "timezone",
@@ -453,32 +466,41 @@ function leakRows(a: ScanAnalysis, exit: DNSExit | null, locale: Locale): Readou
         : "unknown";
   const dnsState = dnsVerdictState(pv.dns);
   const ipv6State: SignalState =
-    pv.ipv6.status === "danger" ? "leak" : "coherent";
+    pv.ipv6.status === "danger"
+      ? "leak"
+      : pv.ipv6.status === "unknown"
+        ? "unknown"
+        : "coherent";
   const webrtcValue = (() => {
     if (pv.webrtc.status === "blocked") return r.webrtcNone;
     if (pv.webrtc.status === "safe") return r.webrtcMatch;
     const extra = pv.webrtc.leaked_ips ?? [];
     if (extra.length === 0) return r.webrtcNone;
+    if (pv.webrtc.reason === "reverse-split") return r.webrtcReverseSplit;
     return r.webrtcMismatch;
   })();
 
   const ipv6Kind: NonNullable<ReadoutRow["meta"]>["ipv6Kind"] =
     pv.ipv6.status === "danger"
       ? "leaked"
-      : !pv.ipv6.address || pv.ipv6.status === "disabled"
-        ? "none"
-        : exitIP && isIPv6Address(exitIP) && sameIP(pv.ipv6.address, exitIP)
-          ? "matches-exit"
-          : "dual-stack";
+      : pv.ipv6.status === "unknown"
+        ? "unknown"
+        : !pv.ipv6.address || pv.ipv6.status === "disabled"
+          ? "none"
+          : exitIP && isIPv6Address(exitIP) && sameIP(pv.ipv6.address, exitIP)
+            ? "matches-exit"
+            : "dual-stack";
 
   const ipv6Value =
     ipv6Kind === "leaked"
       ? r.ipv6Mismatch
-      : ipv6Kind === "none"
-        ? r.ipv6None
-        : ipv6Kind === "matches-exit"
-          ? r.ipv6Match
-          : r.ipv6Dual;
+      : ipv6Kind === "unknown"
+        ? getMessages(locale).ipv6.status.unknown
+        : ipv6Kind === "none"
+          ? r.ipv6None
+          : ipv6Kind === "matches-exit"
+            ? r.ipv6Match
+            : r.ipv6Dual;
 
   return [
     {

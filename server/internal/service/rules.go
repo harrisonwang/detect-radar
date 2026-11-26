@@ -101,6 +101,9 @@ var scoreRules = []scoreRule{
 
 	{"WEBRTC_LEAK", dimLeak, "error", func(a model.ScanAnalysis, _ *model.IPIntel) (int, string) {
 		if a.Privacy.WebRTC.Status == "danger" {
+			if a.Privacy.WebRTC.Reason == "reverse-split" {
+				return 20, "WebRTC 暴露了不同于直连出口的代理/机房公网 IP（反向分流）"
+			}
 			return 20, "WebRTC 泄露真实公网 IP，与出口 IP 不一致"
 		}
 		return 0, ""
@@ -262,10 +265,11 @@ func buildDimensions(a model.ScanAnalysis, intel *model.IPIntel, rawPenalty map[
 
 	pv := a.Privacy
 	dnsUncertain := pv.DNS.Status == "blocked" || pv.DNS.Status == "unknown"
+	ipv6Uncertain := pv.IPv6.Status == "unknown"
 	leakChecks := []bool{
 		pv.WebRTC.Status != "danger",
 		pv.DNS.Status != "danger" && !dnsUncertain,
-		pv.IPv6.Status != "danger",
+		pv.IPv6.Status != "danger" && !ipv6Uncertain,
 	}
 	leakPassed := 0
 	for _, passed := range leakChecks {
@@ -277,7 +281,7 @@ func buildDimensions(a model.ScanAnalysis, intel *model.IPIntel, rawPenalty map[
 	switch {
 	case pv.WebRTC.Status == "danger" || pv.DNS.Status == "danger" || pv.IPv6.Status == "danger":
 		leakState = "leak"
-	case pv.WebRTC.Status == "warning" || dnsUncertain:
+	case pv.WebRTC.Status == "warning" || dnsUncertain || ipv6Uncertain:
 		leakState = "unknown"
 	}
 

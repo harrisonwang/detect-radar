@@ -120,35 +120,8 @@ func canonicalCarrier(intel *model.IPIntel) string {
 	if intel == nil {
 		return ""
 	}
-	for _, raw := range []string{intel.ISP, intel.Org} {
-		s := strings.ToLower(strings.TrimSpace(raw))
-		if s == "" {
-			continue
-		}
-		switch {
-		case strings.Contains(s, "电信") || strings.Contains(s, "china telecom") || strings.Contains(s, "chinanet"):
-			return "china-telecom"
-		case strings.Contains(s, "移动") || strings.Contains(s, "china mobile") || strings.Contains(s, "cmnet"):
-			return "china-mobile"
-		case strings.Contains(s, "联通") || strings.Contains(s, "china unicom") || strings.Contains(s, "cncgroup"):
-			return "china-unicom"
-		case strings.Contains(s, "广电") || strings.Contains(s, "china broadnet") || strings.Contains(s, "cbn"):
-			return "china-broadnet"
-		case strings.Contains(s, "comcast") || strings.Contains(s, "xfinity"):
-			return "comcast"
-		case strings.Contains(s, "t-mobile"):
-			return "t-mobile"
-		case strings.Contains(s, "verizon"):
-			return "verizon"
-		case strings.Contains(s, "at&t") || strings.Contains(s, "att "):
-			return "att"
-		case strings.Contains(s, "softbank"):
-			return "softbank"
-		case strings.Contains(s, "kddi"):
-			return "kddi"
-		case strings.Contains(s, "ntt"):
-			return "ntt"
-		}
+	if cat := DefaultCatalog(); cat != nil {
+		return cat.CarrierGroup(intel)
 	}
 	return ""
 }
@@ -157,7 +130,7 @@ func isHostingOrProxyIntel(intel *model.IPIntel) bool {
 	return intel != nil && (intel.HasProxy() || intel.IsHosting || intel.InferUsageType() == "hosting")
 }
 
-func webrtcNetworkInfo(ip string, intel *model.IPIntel, relation string) WebRTCNetworkInfo {
+func webrtcNetworkInfo(ip string, intel *model.IPIntel, relation string, lang string) WebRTCNetworkInfo {
 	info := WebRTCNetworkInfo{
 		IP:       util.CanonicalIP(ip),
 		Relation: relation,
@@ -165,10 +138,20 @@ func webrtcNetworkInfo(ip string, intel *model.IPIntel, relation string) WebRTCN
 	if intel == nil {
 		return info
 	}
+	projected := ProjectIPIntel(intel, lang)
 	info.Country = geoBucket(intel)
-	network := strings.TrimSpace(intel.ISP)
+	network := strings.TrimSpace(projected.ISP)
 	if network == "" || strings.EqualFold(network, "unknown") {
-		network = strings.TrimSpace(intel.Org)
+		network = strings.TrimSpace(projected.Org)
+	}
+	if cat := DefaultCatalog(); cat != nil {
+		if localized := cat.LocalizeNetwork(network, intel.ASN, lang); localized != "" {
+			network = localized
+		} else if lang == "en" && containsCJK(network) {
+			network = ""
+		}
+	} else if lang == "en" && containsCJK(network) {
+		network = ProjectISP(network, "en")
 	}
 	info.Network = network
 	info.ASN = formatDisplayASN(intel.ASN)
@@ -248,6 +231,10 @@ func classifyWebRTCCandidate(exitAddr netip.Addr, exitIntel *model.IPIntel, cand
 }
 
 func AssessWebRTC(ctx context.Context, ipIntel *IPIntelService, exitIP string, exitIntel *model.IPIntel, rawPublicIPs []string) *WebRTCAssessmentResult {
+	return AssessWebRTCWithLang(ctx, ipIntel, exitIP, exitIntel, rawPublicIPs, "zh")
+}
+
+func AssessWebRTCWithLang(ctx context.Context, ipIntel *IPIntelService, exitIP string, exitIntel *model.IPIntel, rawPublicIPs []string, lang string) *WebRTCAssessmentResult {
 	canonicalExit := util.CanonicalIP(exitIP)
 	exitAddr, exitErr := netip.ParseAddr(canonicalExit)
 
@@ -284,7 +271,7 @@ func AssessWebRTC(ctx context.Context, ipIntel *IPIntelService, exitIP string, e
 				exitIntel, _ = ipIntel.Lookup(lookupCtx, canonicalExit, LookupOptions{LocalOnly: true})
 				cancel()
 			}
-			exitInfo := webrtcNetworkInfo(canonicalExit, exitIntel, "")
+			exitInfo := webrtcNetworkInfo(canonicalExit, exitIntel, "", lang)
 			res.Exit = &exitInfo
 		}
 		res.Verdict.State = "clear"
@@ -307,12 +294,13 @@ func AssessWebRTC(ctx context.Context, ipIntel *IPIntelService, exitIP string, e
 	if exitIntel == nil && ipIntel != nil {
 		exitIntel, _ = ipIntel.Lookup(lookupCtx, canonicalExit, LookupOptions{LocalOnly: true})
 	}
-	exitInfo := webrtcNetworkInfo(canonicalExit, exitIntel, "")
+	exitInfo := webrtcNetworkInfo(canonicalExit, exitIntel, "", lang)
 	res.Exit = &exitInfo
 
 	hasSamePrefix := false
 	hasDualStack := false
 	hasSameNetwork := false
+	allSuspectsProxyOrHosting := true
 
 	for _, candIP := range publicIPs {
 		candAddr, err := netip.ParseAddr(candIP)
@@ -321,12 +309,12 @@ func AssessWebRTC(ctx context.Context, ipIntel *IPIntelService, exitIP string, e
 		}
 		candAddr = candAddr.Unmap()
 		if candAddr == exitAddr.Unmap() {
-			res.Candidates = append(res.Candidates, webrtcNetworkInfo(candIP, exitIntel, "matches-exit"))
+			res.Candidates = append(res.Candidates, webrtcNetworkInfo(candIP, exitIntel, "matches-exit", lang))
 			continue
 		}
 		if sameIPv6Prefix64Addr(candAddr, exitAddr) {
 			hasSamePrefix = true
-			res.Candidates = append(res.Candidates, webrtcNetworkInfo(candIP, exitIntel, "same-prefix"))
+			res.Candidates = append(res.Candidates, webrtcNetworkInfo(candIP, exitIntel, "same-prefix", lang))
 			continue
 		}
 
@@ -335,10 +323,13 @@ func AssessWebRTC(ctx context.Context, ipIntel *IPIntelService, exitIP string, e
 			candIntel, _ = ipIntel.Lookup(lookupCtx, candIP, LookupOptions{LocalOnly: true})
 		}
 		relation := classifyWebRTCCandidate(exitAddr, exitIntel, candAddr, candIntel)
-		res.Candidates = append(res.Candidates, webrtcNetworkInfo(candIP, candIntel, relation))
+		res.Candidates = append(res.Candidates, webrtcNetworkInfo(candIP, candIntel, relation, lang))
 		switch relation {
 		case "leak":
 			res.Verdict.SuspectIPs = append(res.Verdict.SuspectIPs, candIP)
+			if !isHostingOrProxyIntel(candIntel) {
+				allSuspectsProxyOrHosting = false
+			}
 		case "same-network":
 			hasSameNetwork = true
 		case "dual-stack":
@@ -351,7 +342,11 @@ func AssessWebRTC(ctx context.Context, ipIntel *IPIntelService, exitIP string, e
 	switch {
 	case len(res.Verdict.SuspectIPs) > 0:
 		res.Verdict.State = "leaked"
-		res.Verdict.Reason = "public-leak"
+		if exitIntel != nil && !isHostingOrProxyIntel(exitIntel) && allSuspectsProxyOrHosting {
+			res.Verdict.Reason = "reverse-split"
+		} else {
+			res.Verdict.Reason = "public-leak"
+		}
 	case hasSameNetwork:
 		res.Verdict.State = "clear"
 		res.Verdict.Reason = "same-network"

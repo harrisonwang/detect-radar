@@ -9,9 +9,6 @@
     active?: boolean;
     onCopyPromo?: (code: string) => void;
     onStart?: () => void;
-    onCopyText?: () => void;
-    onScreenshot?: () => void;
-    shareReady?: boolean;
   }
   const FINDING_LINKS: Record<string, string> = {
     'dns-leak': '/dns-leak-test/',
@@ -19,16 +16,7 @@
     'ipv6-leak': '/ipv6-leak-test/',
   };
 
-  let {
-    report,
-    isScanning = false,
-    active = false,
-    onCopyPromo,
-    onStart,
-    onCopyText,
-    onScreenshot,
-    shareReady = false,
-  }: Props = $props();
+  let { report, isScanning = false, active = false, onCopyPromo, onStart }: Props = $props();
 
   const SEV: Record<Severity, { color: string; soft: string; label: string; icon: string }> = {
     leak: { color: 'var(--leak)', soft: 'var(--leak-soft)', label: '暴露', icon: 'fa-triangle-exclamation' },
@@ -54,30 +42,12 @@
   {:else if report}
     <div class="flex flex-col flex-1 scan-settle">
     <!-- 判定 -->
-    <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-      <div class="flex items-start gap-3 min-w-0">
-        <span class="dot mt-2" style="background:{stateVar(report.verdict.state)}; --_soft:{stateSoft(report.verdict.state)}"></span>
-        <div class="min-w-0">
-          <p class="text-xl md:text-2xl font-bold text-white leading-snug">{report.verdict.headline}</p>
-          <p class="text-sm text-(--slate-400) mt-1.5 leading-relaxed max-w-xl">{report.verdict.sub}</p>
-        </div>
+    <div class="flex items-start gap-3">
+      <span class="dot mt-2" style="background:{stateVar(report.verdict.state)}; --_soft:{stateSoft(report.verdict.state)}"></span>
+      <div>
+        <p class="text-xl md:text-2xl font-bold text-white leading-snug">{report.verdict.headline}</p>
+        <p class="text-sm text-(--slate-400) mt-1.5 leading-relaxed max-w-xl">{report.verdict.sub}</p>
       </div>
-      {#if shareReady && (onCopyText || onScreenshot)}
-        <div class="diagnosis-actions pl-5 sm:pl-0">
-          {#if onCopyText}
-            <button type="button" class="share-pill" onclick={onCopyText}>
-              <i class="fa-regular fa-copy" aria-hidden="true"></i>
-              <span>复制文字</span>
-            </button>
-          {/if}
-          {#if onScreenshot}
-            <button type="button" class="share-pill" onclick={onScreenshot}>
-              <i class="fa-regular fa-image" aria-hidden="true"></i>
-              <span>保存图片</span>
-            </button>
-          {/if}
-        </div>
-      {/if}
     </div>
 
     <!-- 暴露项 -->

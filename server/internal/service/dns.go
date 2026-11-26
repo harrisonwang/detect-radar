@@ -125,13 +125,17 @@ func dnsExit(intel *model.IPIntel) *dnsassessment.Exit {
 	if strings.TrimSpace(network) == "" || strings.EqualFold(strings.TrimSpace(network), "unknown") {
 		network = intel.Org
 	}
-	exit := &dnsassessment.Exit{IP: intel.IP, Country: intel.Country, Network: network, ASN: intel.ASN}
+	country := geoBucket(intel)
+	if country == "" {
+		country = intel.Country
+	}
+	exit := &dnsassessment.Exit{IP: intel.IP, Country: country, Network: network, ASN: formatDisplayASN(intel.ASN)}
 	switch {
 	case intel.IsVPN || intel.IsProxy || intel.IsTor:
 		exit.Type = "proxy"
-	case intel.InferUsageType() == "hosting":
+	case intel.IsHosting || intel.InferUsageType() == "hosting":
 		exit.Type = "hosting"
-	case intel.IsMobile || intel.UsageTypeRaw == "mobile" || intel.UsageTypeRaw == "residential":
+	case intel.IsMobile || intel.UsageTypeRaw == "mobile" || intel.UsageTypeRaw == "residential" || intel.InferUsageType() == "isp":
 		exit.Type = "access"
 	}
 	return exit
@@ -276,7 +280,9 @@ func (s *DNSService) getGeoInfo(ip string) geoInfo {
 	if s.ipIntel != nil {
 		intel, err := s.ipIntel.Lookup(context.Background(), ip, LookupOptions{LocalOnly: true})
 		if err == nil && intel != nil {
-			if intel.Country != "" {
+			if bucket := geoBucket(intel); bucket != "" {
+				geo.Country = bucket
+			} else if intel.Country != "" {
 				geo.Country = intel.Country
 			}
 			if intel.ISP != "" {
@@ -284,11 +290,11 @@ func (s *DNSService) getGeoInfo(ip string) geoInfo {
 			} else if intel.Org != "" {
 				geo.ISP = intel.Org
 			}
-			geo.ASN = intel.ASN
+			geo.ASN = formatDisplayASN(intel.ASN)
 			switch {
-			case intel.InferUsageType() == "hosting":
+			case intel.IsHosting || intel.InferUsageType() == "hosting":
 				geo.NetworkType = "hosting"
-			case intel.IsMobile || intel.UsageTypeRaw == "residential" || intel.UsageTypeRaw == "mobile":
+			case intel.IsMobile || intel.UsageTypeRaw == "residential" || intel.UsageTypeRaw == "mobile" || intel.InferUsageType() == "isp":
 				geo.NetworkType = "access"
 			}
 		}

@@ -1,19 +1,27 @@
+import { countryName, getMessages, joinList, type Locale } from '../i18n';
 import { canonicalIP } from './ip';
-import { countryName } from './region';
 import type { DNSExit, DNSVerdict, IPIntel } from './types';
 
-export const DNS_POLICY_VERSION = 2;
+export const DNS_POLICY_VERSION = 3;
 
-export const dnsStatus = {
-  suspected: { title: '泄露', color: 'var(--leak)', soft: 'var(--leak-soft)' },
-  clear: { title: '未泄露', color: 'var(--sig)', soft: 'var(--sig-soft)' },
-  unknown: { title: '无法判断', color: 'var(--unknown)', soft: 'var(--unknown-soft)' },
-  unobserved: { title: '无 DNS 结果', color: 'var(--unknown)', soft: 'var(--unknown-soft)' },
-};
+export function getDnsStatus(locale: Locale = 'zh-CN') {
+  const s = getMessages(locale).dns.status;
+  return {
+    suspected: { title: s.suspected, color: 'var(--leak)', soft: 'var(--leak-soft)' },
+    clear: { title: s.clear, color: 'var(--sig)', soft: 'var(--sig-soft)' },
+    unknown: { title: s.unknown, color: 'var(--unknown)', soft: 'var(--unknown-soft)' },
+    unobserved: { title: s.unobserved, color: 'var(--unknown)', soft: 'var(--unknown-soft)' },
+  };
+}
 
-export function dnsRegion(code: string): string {
-  if (code === 'LOCAL') return '本地网络';
-  return /^[A-Z]{2}$/.test(code) && code !== 'XX' && code !== 'ZZ' ? countryName(code) : '地区未知';
+export const dnsStatus = getDnsStatus('zh-CN');
+
+export function dnsRegion(code: string, locale: Locale = 'zh-CN'): string {
+  const m = getMessages(locale);
+  if (code === 'LOCAL') return m.common.localNetwork;
+  return /^[A-Z]{2}$/.test(code) && code !== 'XX' && code !== 'ZZ'
+    ? countryName(code, locale)
+    : m.common.unknownRegion;
 }
 
 export function dnsProvider(name: string): string {
@@ -22,19 +30,25 @@ export function dnsProvider(name: string): string {
     /(?:\d{1,3}[.-]){3}\d{1,3}|[0-9a-f]*:[0-9a-f]*:/i.test(label) ? '' : label;
 }
 
-const providerAliases = new Map([
+const providerAliasesZH = new Map([
   ['chinanet', '中国电信'],
   ['chinanet backbone', '中国电信'],
   ['china telecom', '中国电信'],
+  ['中国电信', '中国电信'],
   ['电信', '中国电信'],
   ['cmnet', '中国移动'],
   ['china mobile', '中国移动'],
   ['china mobile communications group co ltd', '中国移动'],
   ['中国移动通信', '中国移动'],
+  ['中国移动', '中国移动'],
   ['移动', '中国移动'],
   ['china unicom', '中国联通'],
   ['china unicom backbone', '中国联通'],
+  ['中国联通', '中国联通'],
   ['联通', '中国联通'],
+  ['china broadnet', '中国广电'],
+  ['中国广电', '中国广电'],
+  ['广电', '中国广电'],
   ['comcast cable communications llc', 'Comcast'],
   ['comcast', 'Comcast'],
   ['xfinity', 'Comcast'],
@@ -47,47 +61,111 @@ const providerAliases = new Map([
   ['dmit cloud services', 'DMIT'],
   ['anexia internetdienstleistungs gmbh', 'Anexia'],
 ]);
-const accessProviders = new Set(['中国电信', '中国移动', '中国联通', 'Comcast']);
 
-export function dnsProviderName(value: string): string {
+const providerAliasesEN = new Map([
+  ['chinanet', 'China Telecom'],
+  ['chinanet backbone', 'China Telecom'],
+  ['china telecom', 'China Telecom'],
+  ['中国电信', 'China Telecom'],
+  ['电信', 'China Telecom'],
+  ['cmnet', 'China Mobile'],
+  ['china mobile', 'China Mobile'],
+  ['china mobile communications group co ltd', 'China Mobile'],
+  ['中国移动通信', 'China Mobile'],
+  ['中国移动', 'China Mobile'],
+  ['移动', 'China Mobile'],
+  ['china unicom', 'China Unicom'],
+  ['china unicom backbone', 'China Unicom'],
+  ['中国联通', 'China Unicom'],
+  ['联通', 'China Unicom'],
+  ['china broadnet', 'China Broadnet'],
+  ['中国广电', 'China Broadnet'],
+  ['广电', 'China Broadnet'],
+  ['comcast cable communications llc', 'Comcast'],
+  ['comcast', 'Comcast'],
+  ['xfinity', 'Comcast'],
+  ['cloudflarenet', 'Cloudflare'],
+  ['cloudflare inc', 'Cloudflare'],
+  ['cloudflare', 'Cloudflare'],
+  ['google llc', 'Google'],
+  ['google public dns', 'Google'],
+  ['google', 'Google'],
+  ['dmit cloud services', 'DMIT'],
+  ['anexia internetdienstleistungs gmbh', 'Anexia'],
+]);
+
+const accessProviders = new Set(['China Telecom', 'China Mobile', 'China Unicom', 'China Broadnet', 'Comcast']);
+
+export function dnsProviderName(value: string, locale: Locale = 'zh-CN'): string {
   const name = dnsProvider(value);
   const key = name.toLowerCase().replace(/[.,]/g, '').replace(/[-\s]+/g, ' ');
-  return providerAliases.get(key) ?? name;
+  const map = locale === 'en' ? providerAliasesEN : providerAliasesZH;
+  return map.get(key) ?? name;
 }
 
 export function dnsExitType(exit: DNSExit): DNSExit['type'] {
-  return exit.type ?? (accessProviders.has(dnsProviderName(exit.network)) ? 'access' : undefined);
+  return exit.type ?? (accessProviders.has(dnsProviderName(exit.network, 'en')) ? 'access' : undefined);
 }
 
-export function exitTypeLabel(type: DNSExit['type']): string {
+export function exitTypeLabel(type: DNSExit['type'], locale: Locale = 'zh-CN'): string {
+  const labels = getMessages(locale).common.exitType;
   switch (type) {
-    case 'proxy': return '代理特征';
-    case 'hosting': return '机房 IP';
-    case 'access': return '普通网络';
+    case 'proxy': return labels.proxy;
+    case 'hosting': return labels.hosting;
+    case 'access': return labels.access;
     default: return '';
   }
 }
 
-export function dnsVerdictNote(verdict: DNSVerdict | undefined): string {
+export function dnsVerdictNote(
+  verdict: DNSVerdict | undefined,
+  tense: 'current' | 'previous' = 'current',
+  locale: Locale = 'zh-CN',
+): string {
   if (!verdict) return '';
+  const cur = tense === 'current';
+  const n = getMessages(locale).dns.verdictNote;
   switch (verdict.reason) {
-    case 'mainland-carrier':
-      return `出口 IP 在海外，测到了${verdict.networks?.join('、') || '国内运营商'}的 DNS。`;
+    case 'cross-region-isp':
+    case 'mainland-carrier': {
+      const names = verdict.networks?.map((x) => dnsProviderName(x, locale)).filter(Boolean) ?? [];
+      return n.crossRegion(names.length ? joinList(names, locale) : undefined);
+    }
+    case 'proxy-isp-bypass': {
+      const names = verdict.networks?.map((x) => dnsProviderName(x, locale)).filter(Boolean) ?? [];
+      return n.proxyBypass(names.length ? joinList(names, locale) : undefined);
+    }
+    case 'same-isp-exit':
     case 'domestic-exit':
-      return '出口 IP 在中国大陆，本次 DNS 归属未见异常。';
+      return cur ? n.sameIspCurrent : n.sameIspPrevious;
+    case 'public-or-hosting-only':
+      return cur ? n.publicHostingCurrent : n.publicHostingPrevious;
+    case 'no-leaked-isp':
     case 'no-mainland-carrier':
-      return '本次未测到国内运营商 DNS。';
+      return cur ? n.noLeakedCurrent : n.noLeakedPrevious;
     case 'missing-exit':
-      return '未获取出口 IP 或归属地。';
+      return n.missingExit;
     case 'partial-samples':
-      return '部分测试未收到 DNS 结果。';
+      return n.partialSamples;
     case 'unclassified-resolver':
-      return '部分 DNS 的网络归属不明确。';
+      return n.unclassified;
     case 'assessment-unavailable':
-      return '判定服务暂时连不上。';
+      return n.unavailable;
     default:
       return '';
   }
+}
+
+export function isLiveResolverSuspect(
+  exit: DNSExit | null | undefined,
+  resolver: { country?: string; asn?: string; network_type?: string },
+): boolean {
+  if (!exit?.country || resolver.network_type !== 'access' || !resolver.country) return false;
+  const exitASN = (exit.asn ?? '').trim().toUpperCase();
+  const rASN = (resolver.asn ?? '').trim().toUpperCase();
+  if (exitASN && rASN && exitASN === rASN) return false;
+  if (resolver.country.toUpperCase() !== exit.country.toUpperCase()) return true;
+  return exit.type === 'proxy' || exit.type === 'hosting';
 }
 
 function formatASN(raw: string | undefined): string | undefined {

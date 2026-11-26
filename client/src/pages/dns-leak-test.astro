@@ -1,33 +1,5 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import DNSCheckPage from '../components/DNSCheckPage.svelte';
-import ReportBackdrop from '../components/ReportBackdrop.svelte';
-import SiteFooter from '../components/SiteFooter.svelte';
-
-const dnsFeatures = [
-  '自建权威 DNS 实时捕获当前连接实际使用的 DNS 服务器出口 IP',
-  '按运营商、公共 DNS 与归属国家/地区自动分组展示',
-  '区分国内运营商 DNS 泄露与公共 DNS 正常分流',
-  '同一浏览器内保留最近两次记录，方便修改网络或 DNS 后对比变化',
-];
+import DNSLeakView from '../views/DNSLeakView.astro';
 ---
 
-<Layout
-  title="DNS 泄露检测：查看出口 IP 与实际使用的 DNS"
-  canonical="/dns-leak-test/"
-  ogImage="/og-dns.png"
-  description="在线查看当前出口 IP 与实际使用的 DNS 服务器归属地，排查 DNS 泄露，修改网络或 DNS 后可再次检测对比变化。"
-  pageType="tool"
-  appName="DetectRadar DNS 泄露检测"
-  featureList={dnsFeatures}
-  dateModified="2026-11-25"
->
-  <div class="min-h-screen bg-space-950 scan-grid flex flex-col relative">
-    <ReportBackdrop />
-    <DNSCheckPage client:load />
-    <noscript>
-      <p class="report-main pt-0 text-sm text-(--slate-300)">请启用 JavaScript 后再检测 DNS。</p>
-    </noscript>
-    <SiteFooter />
-  </div>
-</Layout>
+<DNSLeakView locale="zh-CN" />

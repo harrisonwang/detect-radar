@@ -195,6 +195,7 @@ type FPAudioAnalysis struct {
 
 type FPWebGLAnalysis struct {
 	Status         string `json:"status"`
+	MismatchCode   string `json:"mismatch_code,omitempty"`
 	MismatchReason string `json:"mismatch_reason,omitempty"`
 	VendorMatchsUA bool   `json:"vendor_matches_ua"`
 }
@@ -227,6 +228,8 @@ type PrivacyIPv6 struct {
 
 type AutomationAnalysis struct {
 	WebdriverDetected bool     `json:"webdriver_detected"`
+	NoDesktopPlugins  bool     `json:"no_desktop_plugins,omitempty"`
+	HookedMethods     []string `json:"hooked_methods,omitempty"`
 	AutomationTraces  []string `json:"automation_traces"`
 	OverallStatus     string   `json:"overall_status"`
 }

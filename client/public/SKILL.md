@@ -6,6 +6,7 @@ description: 用 DetectRadar 免费接口排查终端出口 IP（IPv4/IPv6）、
 # DetectRadar 终端自检指南（SKILL.md）
 
 给具备终端执行能力的 AI 助手（Antigravity、Claude Code、Codex、OpenClaw 等）直接照着跑，不用装任何客户端，全接口免鉴权。
+English version: https://detectradar.com/en/SKILL.md
 
 - **能测什么**：当前终端的出口 IP（IPv4 / IPv6）、地区/运营商/ASN、宽带还是机房、所属 ASN 近 30 天人类流量占比、实际使用的 DNS 服务器。
 - **测不到什么**：不能查任意第三方 IP；也测不到浏览器里的 WebRTC、时区/语言一致性和指纹。
@@ -41,7 +42,7 @@ curl --noproxy '*' -sS -m 5 https://detectradar.com/api/v1/ip
 - `curl: (28) Operation timed out` → 终端连接超时（未走代理被阻断，或节点不通）。
 - `curl: (6) Could not resolve host` → 终端 DNS 解析失败。
 
-### 3. 查终端 DNS 泄露（仅怀疑 DNS 漏回国内时才跑）
+### 3. 查终端 DNS 泄露（仅怀疑 DNS 绕过代理时才跑）
 
 每次生成一次性随机子域，不受旧缓存影响：
 
@@ -54,7 +55,7 @@ dig +short "r1.${domain}" >/dev/null && sleep 2
 curl -sS -m 5 "https://detectradar.com/api/v1/leaks/dns/${id}"
 ```
 
-说明：单跑这 3 步时返回的 `assessment.state` 会是 `unknown`（未绑定出口）。拿 `dns_servers` 对照第 2 步的出口国家判断，或把 `{ exit, resolvers }` 发给 `POST https://detectradar.com/api/v1/leaks/dns/assessment` 拿标准结论。
+说明：单跑这 3 步时返回的 `assessment.state` 会是 `unknown`（未绑定出口）。拿 `dns_servers` 对照第 2 步的出口归属判断，或把 `{ exit, resolvers }` 发给 `POST https://detectradar.com/api/v1/leaks/dns/assessment` 拿标准结论。
 
 ---
 
@@ -65,8 +66,8 @@ curl -sS -m 5 "https://detectradar.com/api/v1/leaks/dns/${id}"
 | `usage_type` | 只有三个值：`isp`（普通宽带/移动）、`hosting`（机房/云服务器）、`unknown`（未知）；**没有** `datacenter` |
 | `human_ratio` | Cloudflare Radar 近 30 天**所属 ASN 网段**的人类流量占比（`0–100`）；只作网段参考，**不是单个 IP 的评分**；没返回说明该网段暂无数据 |
 | `is_vpn` / `is_proxy` | 默认走本地快查（`tier` 不含 `L3`），值为 `false` 只表示本地未标记，别说成“绝对不是代理”。确需深查再加 `?deep=true`（受全站每日配额限制，超限自动回退本地） |
-| **DNS 泄露** | **唯一判泄露条件**：出口在海外（`country != "CN"`）**且**抓到中国大陆宽带运营商 DNS（`country == "CN"` 且 `network_type == "access"`）。国内直连，以及阿里/DNSPod/Cloudflare/Google/AdGuard/Quad9/NextDNS 等公共 DNS 和常规机房 DNS，**均不算泄露** |
-| **IPv6 泄露** | **唯一判泄露条件**：IPv4 在中国大陆以外，**且** IPv6 落在中国大陆非机房运营商网段。注意 `ip2region` 会把港澳台标成 `country: "CN"`，必须结合 `region` 排除港澳台与海外分流节点 |
+| **DNS 泄露** | **判泄露条件（Policy v3）**：抓到与出口不同地区（大陆与港澳台分开算）的接入网运营商 DNS（`network_type == "access"`），**或**当前为机房/代理出口却抓到不同 ASN 的同地区接入网运营商 DNS。同地区直连，以及 Cloudflare/Google/Quad9/OpenDNS/NextDNS/Control D/AdGuard/Mullvad/阿里/DNSPod 等公共 DNS 和常规机房 DNS，**均不算泄露** |
+| **IPv6 泄露** | **判泄露条件**：IPv6 经跨地区（大陆与港澳台分开算）接入网运营商直连，**或** IPv4 为机房/代理出口而 IPv6 经不同 ASN 的同地区接入网运营商直连。仅 IPv4、同地区直连双栈以及机房/WARP 双栈分流**均不算泄露** |
 
 ---
 

@@ -5,6 +5,7 @@ export type ScanScenario = 'strict' | 'daily';
 export interface DiagnosisItem {
   status: 'success' | 'warning' | 'error';
   text: string;
+  code?: string;
 }
 
 export interface NetworkIdentity {
@@ -90,6 +91,7 @@ export interface FingerprintAnalysis {
   audio: { status: 'native' | 'blocked' | 'unknown'; is_hooked: boolean };
   webgl: {
     status: 'match' | 'mismatch' | 'unknown';
+    mismatch_code?: string;
     mismatch_reason?: string;
     vendor_matches_ua: boolean;
   };
@@ -128,6 +130,8 @@ export interface ConsistencyChecks {
 
 export interface AutomationAnalysis {
   webdriver_detected: boolean;
+  no_desktop_plugins?: boolean;
+  hooked_methods?: string[];
   automation_traces: string[];
   overall_status: 'safe' | 'suspicious' | 'detected';
 }

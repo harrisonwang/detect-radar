@@ -75,7 +75,7 @@ config.yaml
 
 # Compiled server binary (Makefile: go build -o detect-radar)
 /server/detect-radar
-docs/
+/docs/
 testdata/
 
 *_test.go

@@ -1,0 +1,35 @@
+---
+title: "服务条款"
+h1: "服务条款"
+description: "DetectRadar 服务条款：本工具提供网络身份与环境一致性的检测与信息呈现，仅供参考；不隐藏身份、不是 VPN / 代理，也不保证你不被平台关联或封号。"
+canonical: "/terms/"
+locale: "zh-CN"
+pageType: "static"
+dateModified: "2026-11-21"
+---
+
+使用 DetectRadar 即表示你已阅读并同意本条款。
+
+## 服务性质
+
+DetectRadar 提供的是网络身份与环境一致性的检测与信息呈现，仅供参考。它不隐藏你的身份、不改写指纹，不是 VPN 或代理。
+
+## 不作任何保证
+
+- 检测未见异常不等于你在任何平台上是安全的、或不会被关联。平台风控是我们无法观测的黑盒，本工具只呈现它这一侧可检测的事实。
+- 我们不保证检测结果的绝对准确、完整或实时，也不对你基于本工具做出的任何决策或由此产生的后果负责。
+- 第三方数据（如黑名单、开放端口、欺诈评分）由外部来源提供，我们不为其准确性背书。
+
+## 可接受使用
+
+你应确保对被检测的网络环境拥有合法使用权，并遵守所在地法律及相关平台的条款。你对自己使用本工具的行为负责。
+
+与本站有关的滥用或侵权举报，请联系 <a class="wrap-break-word" href="mailto:abuse@detectradar.com">abuse@detectradar.com</a>。
+
+## 知识产权
+
+DetectRadar 的名称、界面与内容归其所有者所有，未经许可不得用于商业性再分发。
+
+## 变更与联系
+
+条款更新会在本页公布。一般咨询：<a class="wrap-break-word" href="mailto:admin@detectradar.com">admin@detectradar.com</a>。

@@ -1,4 +1,4 @@
-
+import { getMessages, joinList, type Locale } from '../i18n';
 import { canonicalIP, sameIP, sameIPv6Prefix64 } from './ip';
 import { maskIP } from './ipDisplay';
 import type { DNSExit } from './types';
@@ -49,6 +49,7 @@ function font(size: number, weight = 400, family = SANS): string {
 }
 
 function truncate(ctx: CanvasRenderingContext2D, value: string, maxW: number): string {
+  if (maxW <= 12) return '…';
   if (ctx.measureText(value).width <= maxW) return value;
   let cut = value;
   while (cut.length > 1 && ctx.measureText(`${cut}…`).width > maxW) {
@@ -183,29 +184,38 @@ function drawHeader(ctx: CanvasRenderingContext2D, subtitle: string, timeMs: num
   drawText(ctx, formatStamp(timeMs), W - PAD, y + 12, { font: font(12, 400, MONO), color: C.slate600, align: 'right' });
 }
 
-function drawFooter(ctx: CanvasRenderingContext2D, urlText: string) {
+function drawFooter(ctx: CanvasRenderingContext2D, urlText: string, locale: Locale) {
   const fy = H - PAD + 14;
   dot(ctx, PAD + 4, fy, C.radar, C.sigSoft, 3.5);
   drawText(ctx, urlText, PAD + 18, fy, { font: font(14.5, 600, MONO), color: C.slate200 });
-  drawText(ctx, 'IP 已自动脱敏 · 本地生成', W - PAD, fy, { font: font(12.5), color: C.slate500, align: 'right' });
+  drawText(ctx, getMessages(locale).common.shareFooterNote, W - PAD, fy, {
+    font: font(12.5),
+    color: C.slate500,
+    align: 'right',
+  });
 }
 
 function drawExitColumn(
   ctx: CanvasRenderingContext2D,
   lx: number,
   midY: number,
+  maxW: number,
   exit: DNSExit | null,
   exitNetworkName: string,
   exitRegion: string,
   exitTypeLabel: string,
+  locale: Locale,
 ) {
-  drawText(ctx, '出口 IP', lx, midY + 28, { font: font(13, 500), color: C.slate400 });
+  const c = getMessages(locale).common;
+  drawText(ctx, c.exitIP, lx, midY + 28, { font: font(13, 500), color: C.slate400 });
   if (exit?.ip) {
-    drawText(ctx, `${exitNetworkName}  ${exitRegion}`, lx, midY + 62, {
+    ctx.font = font(16, 600);
+    drawText(ctx, truncate(ctx, `${exitNetworkName}  ${exitRegion}`, maxW), lx, midY + 62, {
       font: font(16, 600),
       color: C.slate200,
     });
-    drawText(ctx, maskIP(exit.ip), lx, midY + 104, {
+    ctx.font = font(28, 700, MONO);
+    drawText(ctx, truncate(ctx, maskIP(exit.ip), maxW), lx, midY + 104, {
       font: font(28, 700, MONO),
       color: C.white,
     });
@@ -217,7 +227,7 @@ function drawExitColumn(
       drawText(ctx, exit.asn, mx, midY + 146, { font: font(12.5, 400, MONO), color: C.slate400 });
     }
   } else {
-    drawText(ctx, '未获取出口 IP', lx, midY + 72, { font: font(15), color: C.slate400 });
+    drawText(ctx, c.unavailable, lx, midY + 72, { font: font(15), color: C.slate400 });
   }
 }
 
@@ -262,6 +272,7 @@ function drawWireBadge(
 }
 
 interface FlowDiamondSpec {
+  browserLabel: string;
   upperColor: string;
   upperTopFill: string;
   upperGlow: string;
@@ -274,7 +285,7 @@ interface FlowDiamondSpec {
   upperRightBadge?: string;
   lowerExitLabel: string;
   lowerExitIP: string;
-  lowerExitSubSuffix?: string;
+  lowerExitSubSuffix: string;
   lowerHalted?: boolean;
   lowerLeftBadge: string;
   lowerRightBadge?: string;
@@ -317,8 +328,8 @@ function drawFlowDiamondStage(
   const cy = y + h / 2;
   const mx = x + w / 2;
   const ax = x + w - 150;
-  const ry = y + 66;
-  const ey = y + h - 68;
+  const ry = y + 78;
+  const ey = y + h - 66;
 
   ctx.save();
   ctx.lineWidth = 2.4;
@@ -380,7 +391,7 @@ function drawFlowDiamondStage(
   drawPolygon(ctx, [[bx - 24, cy + 6], [bx + 2, cy + 18], [bx + 2, cy + 22], [bx - 24, cy + 10]], '#141e30', '#334155');
   drawPolygon(ctx, [[bx - 24, cy + 6], [bx - 24, cy - 20], [bx, cy - 32], [bx, cy - 6]], '#0f172a', '#64748b');
   drawPolygon(ctx, [[bx - 21, cy + 3], [bx - 21, cy - 17], [bx - 3, cy - 26], [bx - 3, cy - 6]], '#0f2942');
-  drawText(ctx, '你的浏览器', bx, cy + 38, { font: font(12, 600), color: C.slate200, align: 'center' });
+  drawText(ctx, spec.browserLabel, bx, cy + 38, { font: font(12, 600), color: C.slate200, align: 'center' });
 
   ctx.fillStyle = spec.upperGlow;
   ctx.beginPath();
@@ -401,7 +412,7 @@ function drawFlowDiamondStage(
   ctx.fill();
 
   ctx.font = font(12.5, 600);
-  drawText(ctx, truncate(ctx, spec.upperTitle, 240), mx, ry - 46, {
+  drawText(ctx, truncate(ctx, spec.upperTitle, 260), mx, ry - 56, {
     font: font(12.5, 600),
     color: spec.upperTitleColor,
     align: 'center',
@@ -409,7 +420,7 @@ function drawFlowDiamondStage(
   const upperSubIsIP = /^(?:\d{1,3}\.){2}|^[0-9a-fA-F]{1,4}:/.test(spec.upperSub);
   const upperSubFont = font(11, 400, upperSubIsIP ? MONO : SANS);
   ctx.font = upperSubFont;
-  drawText(ctx, truncate(ctx, spec.upperSub, 240), mx, ry - 30, {
+  drawText(ctx, truncate(ctx, spec.upperSub, 260), mx, ry - 41, {
     font: upperSubFont,
     color: spec.upperSubColor,
     align: 'center',
@@ -423,12 +434,12 @@ function drawFlowDiamondStage(
   drawPolygon(ctx, [[mx - 21, ey - 16], [mx, ey - 6], [mx, ey + 18], [mx - 21, ey + 8]], '#182234', '#334155');
   drawPolygon(ctx, [[mx, ey - 6], [mx + 21, ey - 16], [mx + 21, ey + 8], [mx, ey + 18]], '#0b1220', '#1e293b');
   ctx.font = font(12.5, 600);
-  drawText(ctx, truncate(ctx, spec.lowerExitLabel, 240), mx, ey + 34, {
+  drawText(ctx, truncate(ctx, spec.lowerExitLabel, 260), mx, ey + 34, {
     font: font(12.5, 600),
     color: C.white,
     align: 'center',
   });
-  drawText(ctx, `${spec.lowerExitIP} · ${spec.lowerExitSubSuffix ?? '网页出口'}`, mx, ey + 50, {
+  drawText(ctx, `${spec.lowerExitIP} · ${spec.lowerExitSubSuffix}`, mx, ey + 50, {
     font: font(11, 400, MONO),
     color: C.slate400,
     align: 'center',
@@ -473,6 +484,7 @@ function drawVerdictBand(
   soft: string,
   title: string,
   note: string,
+  locale: Locale,
 ) {
   const vg = ctx.createLinearGradient(PAD, cardY, PAD + cardW * 0.66, cardY + 102);
   vg.addColorStop(0, soft);
@@ -485,7 +497,7 @@ function drawVerdictBand(
   ctx.fillRect(PAD, cardY, cardW, 102);
   ctx.restore();
 
-  drawText(ctx, '本次检测', PAD + 28, cardY + 24, { font: font(12.5, 500), color: C.slate400 });
+  drawText(ctx, getMessages(locale).common.thisScan, PAD + 28, cardY + 24, { font: font(12.5, 500), color: C.slate400 });
   dot(ctx, PAD + 34, cardY + 52, color, soft, 5);
   drawText(ctx, title, PAD + 50, cardY + 52, { font: font(22, 700), color: C.white });
   ctx.font = font(14);
@@ -495,13 +507,19 @@ function drawVerdictBand(
   });
 }
 
-async function toPngBlob(canvas: HTMLCanvasElement): Promise<Blob> {
+async function toPngBlob(canvas: HTMLCanvasElement, locale: Locale): Promise<Blob> {
+  const errMsg = getMessages(locale).common.imageEmptyError;
   return await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('canvas.toBlob 返回空'))), 'image/png');
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error(errMsg))), 'image/png');
   });
 }
 
-export async function saveShareImage(blob: Blob, prefix: string): Promise<string> {
+export async function saveShareImage(
+  blob: Blob,
+  prefix: string,
+  locale: Locale = 'zh-CN',
+): Promise<string> {
+  const c = getMessages(locale).common;
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
@@ -519,7 +537,7 @@ export async function saveShareImage(blob: Blob, prefix: string): Promise<string
     ]);
   } catch {
   }
-  return clipboardOk ? '分享图已复制并弹出下载' : '已弹出下载窗口（剪贴板权限未开）';
+  return clipboardOk ? c.imageCopiedAndSaved : c.imageSavedOnly;
 }
 
 export interface DNSShareProviderRow {
@@ -540,6 +558,7 @@ export interface DNSShareCardInput {
   exitTypeLabel: string;
   providers: DNSShareProviderRow[];
   resolverCount: number;
+  locale?: Locale;
 }
 
 const DNS_VERDICT_PALETTE: Record<DNSShareCardInput['verdictState'], { color: string; soft: string; glow: string }> = {
@@ -551,6 +570,11 @@ const DNS_VERDICT_PALETTE: Record<DNSShareCardInput['verdictState'], { color: st
 
 export async function renderDNSShareCard(data: DNSShareCardInput): Promise<Blob> {
   if (document.fonts?.ready) await document.fonts.ready;
+  const locale: Locale = data.locale ?? 'zh-CN';
+  const m = getMessages(locale);
+  const fl = m.dns.flow;
+  const pg = m.dns.page;
+  const sh = m.dns.share;
 
   const canvas = document.createElement('canvas');
   canvas.width = W * SCALE;
@@ -559,7 +583,7 @@ export async function renderDNSShareCard(data: DNSShareCardInput): Promise<Blob>
   ctx.scale(SCALE, SCALE);
 
   drawBackground(ctx);
-  drawHeader(ctx, 'DNS 泄露检测报告', data.time);
+  drawHeader(ctx, sh.cardSubtitle, data.time);
 
   const pal = DNS_VERDICT_PALETTE[data.verdictState];
   const unobserved = data.verdictState === 'unobserved';
@@ -567,20 +591,24 @@ export async function renderDNSShareCard(data: DNSShareCardInput): Promise<Blob>
     ? data.providers.filter((p) => p.suspect).map((p) => p.name)
     : data.providers.map((p) => p.name);
   const resUnique = [...new Set((resNames.length ? resNames : data.providers.map((p) => p.name)).filter(Boolean))];
+  const topNames = joinList(resUnique.slice(0, 2), locale);
   const upperTitle = unobserved
-    ? '权威 NS 未收到查询'
+    ? fl.resolverUnobserved
     : resUnique.length
-      ? `${resUnique.slice(0, 2).join('、')}${resUnique.length > 2 ? ' 等' : ''}`
-      : '归属信息不足';
+      ? resUnique.length > 2
+        ? fl.moreProviders(topNames)
+        : topNames
+      : fl.resolverUnknown;
   const upperSub = data.verdictState === 'suspected'
-    ? '命中境内运营商 DNS'
+    ? fl.subSuspected
     : data.verdictState === 'clear'
-      ? `已采样 ${data.resolverCount} 个地址`
+      ? fl.subClearCount(data.resolverCount)
       : unobserved
-        ? '请求被拦截或超时'
-        : `${data.resolverCount} 个地址`;
+        ? fl.subUnobserved
+        : pg.addressCount(data.resolverCount);
 
   drawFlowDiamondStage(ctx, PAD, 102, W - PAD * 2, 250, {
+    browserLabel: fl.browserNode,
     upperColor: pal.color,
     upperTopFill: data.verdictState === 'suspected' ? '#5c1922' : data.verdictState === 'clear' ? '#12402b' : '#293548',
     upperGlow: pal.glow,
@@ -589,14 +617,15 @@ export async function renderDNSShareCard(data: DNSShareCardInput): Promise<Blob>
     upperTitleColor: data.verdictState === 'suspected' ? '#fca5a5' : C.white,
     upperSub,
     upperSubColor: data.verdictState === 'suspected' ? C.leak : C.slate400,
-    upperLeftBadge: 'DNS 递归',
-    upperRightBadge: unobserved ? '无捕获' : '权威查询',
-    lowerExitLabel: data.exit?.ip ? `${data.exitNetworkName} · ${data.exitRegion}` : '未获取出口 IP',
+    upperLeftBadge: fl.wireDns,
+    upperRightBadge: unobserved ? fl.wireNoCapture : fl.wireAuth,
+    lowerExitLabel: data.exit?.ip ? `${data.exitNetworkName} · ${data.exitRegion}` : m.common.unavailable,
     lowerExitIP: data.exit?.ip ? maskIP(data.exit.ip) : '—',
-    lowerLeftBadge: 'HTTPS',
-    lowerRightBadge: 'API',
+    lowerExitSubSuffix: fl.exitSuffix,
+    lowerLeftBadge: fl.wireHttps,
+    lowerRightBadge: fl.wireApi,
     rightColor: pal.color,
-    rightTitle: 'DetectRadar 服务端',
+    rightTitle: fl.authorityNode,
     rightSub: data.verdictTitle,
   });
 
@@ -604,7 +633,7 @@ export async function renderDNSShareCard(data: DNSShareCardInput): Promise<Blob>
   const cardW = W - PAD * 2;
   const cardH = H - cardY - PAD - 28;
   panel(ctx, PAD, cardY, cardW, cardH);
-  drawVerdictBand(ctx, cardY, cardW, pal.color, pal.soft, data.verdictTitle, data.note);
+  drawVerdictBand(ctx, cardY, cardW, pal.color, pal.soft, data.verdictTitle, data.note, locale);
 
   const midY = cardY + 102;
   const splitX = PAD + 420;
@@ -617,19 +646,19 @@ export async function renderDNSShareCard(data: DNSShareCardInput): Promise<Blob>
   ctx.lineTo(splitX, cardY + cardH);
   ctx.stroke();
 
-  drawExitColumn(ctx, PAD + 28, midY, data.exit, data.exitNetworkName, data.exitRegion, data.exitTypeLabel);
+  drawExitColumn(ctx, PAD + 28, midY, splitX - PAD - 56, data.exit, data.exitNetworkName, data.exitRegion, data.exitTypeLabel, locale);
 
   const rx = splitX + 28;
   const rightW = PAD + cardW - 28 - rx;
   drawText(ctx, 'DNS', rx, midY + 28, { font: font(13, 500), color: C.slate400 });
-  drawText(ctx, `${data.resolverCount} 个地址`, rx + rightW, midY + 28, {
+  drawText(ctx, pg.addressCount(data.resolverCount), rx + rightW, midY + 28, {
     font: font(12.5, 400, MONO),
     color: C.slate400,
     align: 'right',
   });
 
   if (data.providers.length === 0) {
-    drawText(ctx, '未收到 DNS 解析记录', rx, midY + 72, { font: font(14), color: C.slate400 });
+    drawText(ctx, sh.noRecords, rx, midY + 72, { font: font(14), color: C.slate400 });
   } else {
     const shown = data.providers.slice(0, 4);
     shown.forEach((p, idx) => {
@@ -646,14 +675,17 @@ export async function renderDNSShareCard(data: DNSShareCardInput): Promise<Blob>
         dot(ctx, nx + 4, rowY, C.leak, 'transparent', 3);
         nx += 14;
       }
-      const tag = p.type === 'public' ? '公共 DNS' : p.type === 'access' ? '运营商 DNS' : '';
+      const tag = p.type === 'public' ? pg.tagPublic : p.type === 'access' ? pg.tagAccess : '';
+      ctx.font = font(11.5, 500, MONO);
       const tagW = tag ? ctx.measureText(tag).width + 24 : 0;
       ctx.font = font(15, 600);
-      const nameStr = truncate(ctx, p.name, rightW - (nx - rx) - tagW - 80);
+      const nameStr = truncate(ctx, p.name, rightW - (nx - rx) - tagW - 96);
       drawText(ctx, nameStr, nx, rowY, { font: font(15, 600), color: p.suspect ? C.leak : C.slate200 });
       const nw = ctx.measureText(nameStr).width;
       if (p.regions) {
-        drawText(ctx, p.regions, nx + nw + 10, rowY, { font: font(13), color: C.slate400 });
+        ctx.font = font(13);
+        const regMaxW = Math.max(40, rightW - (nx - rx) - nw - tagW - 18);
+        drawText(ctx, truncate(ctx, p.regions, regMaxW), nx + nw + 10, rowY, { font: font(13), color: C.slate400 });
       }
       if (tag) {
         ctx.font = font(11.5, 500, MONO);
@@ -662,15 +694,15 @@ export async function renderDNSShareCard(data: DNSShareCardInput): Promise<Blob>
       }
     });
     if (data.providers.length > shown.length) {
-      drawText(ctx, `… 另有 ${data.providers.length - shown.length} 家解析服务商`, rx, cardY + cardH - 18, {
+      drawText(ctx, sh.moreProviders(data.providers.length - shown.length), rx, cardY + cardH - 18, {
         font: font(12),
         color: C.slate500,
       });
     }
   }
 
-  drawFooter(ctx, 'detectradar.com/dns-leak-test/');
-  return toPngBlob(canvas);
+  drawFooter(ctx, locale === 'en' ? 'detectradar.com/en/dns-leak-test/' : 'detectradar.com/dns-leak-test/', locale);
+  return toPngBlob(canvas, locale);
 }
 
 export interface WebRTCShareCardInput {
@@ -689,6 +721,7 @@ export interface WebRTCShareCardInput {
   localIPs: { ip: string; scope: string }[];
   mdnsCount: number;
   ipv6Global: string | null;
+  locale?: Locale;
 }
 
 const WEBRTC_VERDICT_PALETTE: Record<WebRTCVerdictState, { color: string; soft: string; glow: string }> = {
@@ -697,62 +730,68 @@ const WEBRTC_VERDICT_PALETTE: Record<WebRTCVerdictState, { color: string; soft: 
   unknown: { color: C.unknown, soft: C.unknownSoft, glow: 'rgba(148, 163, 184, 0.12)' },
 };
 
-function webrtcUpperCopy(data: WebRTCShareCardInput): { title: string; sub: string } {
+function webrtcUpperCopy(data: WebRTCShareCardInput, locale: Locale): { title: string; sub: string } {
+  const fl = getMessages(locale).webrtc.flow;
   switch (data.verdictReason) {
     case 'disabled':
-      return { title: 'WebRTC 已禁用', sub: '未暴露任何地址' };
+      return { title: fl.titleDisabled, sub: fl.subDisabled };
     case 'no-candidates':
-      return { title: '未测到 WebRTC 地址', sub: '未返回公网或内网 IP' };
+      return { title: fl.titleNoCands, sub: fl.subNoCands };
     case 'mdns-protected':
-      return { title: 'mDNS (*.local)', sub: `已隐藏内网 IP · ${data.mdnsCount} 个` };
+      return { title: fl.titleMdns, sub: fl.subMdns(data.mdnsCount) };
     case 'local-exposed':
       return {
-        title: 'WebRTC 内网地址',
-        sub: data.localIPs[0] ? `${maskIP(data.localIPs[0].ip)} · 本机内网` : '仅读取到本机内网',
+        title: fl.titleLocal,
+        sub: data.localIPs[0] ? fl.subLocalSingle(maskIP(data.localIPs[0].ip)) : fl.subLocalFallback,
       };
     case 'public-leak': {
       const ip = data.suspectIPs[0] ?? data.publicIPs[0];
       return {
-        title: 'WebRTC 公网 IP',
-        sub: ip ? `${maskIP(ip)} · 与出口不同` : '与出口不同',
+        title: fl.titlePublic,
+        sub: ip ? fl.subLeakSingle(maskIP(ip)) : fl.subLeakFallback,
       };
     }
     case 'dual-stack':
       return {
-        title: 'WebRTC 公网 IP',
-        sub: data.publicIPs[0] ? `${maskIP(data.publicIPs[0])} · 同运营商` : '同运营商 IPv4/IPv6',
+        title: fl.titlePublic,
+        sub: fl.subDual(data.publicIPs[0] ? maskIP(data.publicIPs[0]) : undefined),
       };
     case 'same-prefix':
       return {
-        title: 'WebRTC IPv6 地址',
-        sub: data.publicIPs[0] ? `${maskIP(data.publicIPs[0])} · 同网段 IPv6` : '同网段 IPv6',
+        title: fl.titleIPv6,
+        sub: fl.subPrefix(data.publicIPs[0] ? maskIP(data.publicIPs[0]) : undefined),
       };
     case 'same-network':
       return {
-        title: 'WebRTC 同网出口',
-        sub: data.publicIPs[0] ? `${maskIP(data.publicIPs[0])} · 共享出口` : '同运营商共享出口',
+        title: fl.titleSameNet,
+        sub: fl.subSameNet(data.publicIPs[0] ? maskIP(data.publicIPs[0]) : undefined),
       };
     case 'assessment-unavailable':
       return {
-        title: 'WebRTC 公网 IP',
-        sub: data.publicIPs[0] ? `${maskIP(data.publicIPs[0])} · 归属待核对` : '暂未完成归属核对',
+        title: fl.titlePublic,
+        sub: fl.subUnavail(data.publicIPs[0] ? maskIP(data.publicIPs[0]) : undefined),
       };
     case 'missing-exit':
       return {
-        title: 'WebRTC 公网 IP',
-        sub: data.publicIPs[0] ? maskIP(data.publicIPs[0]) : '未获取出口 IP',
+        title: fl.titlePublic,
+        sub: data.publicIPs[0] ? maskIP(data.publicIPs[0]) : fl.subMissingExit,
       };
     case 'matches-exit':
     default:
       return {
-        title: 'WebRTC 公网 IP',
-        sub: data.publicIPs[0] ? `${maskIP(data.publicIPs[0])} · 与出口一致` : '与出口一致',
+        title: fl.titlePublic,
+        sub: fl.subMatch(data.publicIPs[0] ? maskIP(data.publicIPs[0]) : undefined),
       };
   }
 }
 
 export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise<Blob> {
   if (document.fonts?.ready) await document.fonts.ready;
+  const locale: Locale = data.locale ?? 'zh-CN';
+  const m = getMessages(locale);
+  const fl = m.webrtc.flow;
+  const pg = m.webrtc.page;
+  const sh = m.webrtc.share;
 
   const canvas = document.createElement('canvas');
   canvas.width = W * SCALE;
@@ -761,7 +800,7 @@ export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise
   ctx.scale(SCALE, SCALE);
 
   drawBackground(ctx);
-  drawHeader(ctx, 'WebRTC 泄露检测报告', data.time);
+  drawHeader(ctx, sh.cardSubtitle, data.time);
 
   const pal = WEBRTC_VERDICT_PALETTE[data.verdictState];
   const halted = !data.apiSupported || data.verdictReason === 'no-candidates';
@@ -772,9 +811,10 @@ export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise
       : !halted && data.verdictState === 'clear'
         ? '#12402b'
         : '#293548';
-  const upperCopy = webrtcUpperCopy(data);
+  const upperCopy = webrtcUpperCopy(data, locale);
 
   drawFlowDiamondStage(ctx, PAD, 102, W - PAD * 2, 250, {
+    browserLabel: fl.browserNode,
     upperColor,
     upperTopFill,
     upperGlow: halted ? 'rgba(148, 163, 184, 0.12)' : pal.glow,
@@ -783,14 +823,15 @@ export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise
     upperTitleColor: data.verdictState === 'leaked' ? '#fca5a5' : C.white,
     upperSub: upperCopy.sub,
     upperSubColor: data.verdictState === 'leaked' ? C.leak : C.slate400,
-    upperLeftBadge: 'STUN 探测',
-    upperRightBadge: halted ? '未返回' : '本地读取',
-    lowerExitLabel: data.exit?.ip ? `${data.exitNetworkName} · ${data.exitRegion}` : '未获取出口 IP',
+    upperLeftBadge: fl.wireStun,
+    upperRightBadge: halted ? fl.wireNoReturn : fl.wireLocalRead,
+    lowerExitLabel: data.exit?.ip ? `${data.exitNetworkName} · ${data.exitRegion}` : m.common.unavailable,
     lowerExitIP: data.exit?.ip ? maskIP(data.exit.ip) : '—',
-    lowerLeftBadge: 'HTTPS',
-    lowerRightBadge: 'API',
+    lowerExitSubSuffix: m.dns.flow.exitSuffix,
+    lowerLeftBadge: fl.wireHttps,
+    lowerRightBadge: fl.wireApi,
     rightColor: pal.color,
-    rightTitle: '出口归属比对',
+    rightTitle: fl.judgeNode,
     rightSub: data.verdictTitle,
   });
 
@@ -798,7 +839,7 @@ export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise
   const cardW = W - PAD * 2;
   const cardH = H - cardY - PAD - 28;
   panel(ctx, PAD, cardY, cardW, cardH);
-  drawVerdictBand(ctx, cardY, cardW, pal.color, pal.soft, data.verdictTitle, data.verdictNote);
+  drawVerdictBand(ctx, cardY, cardW, pal.color, pal.soft, data.verdictTitle, data.verdictNote, locale);
 
   const midY = cardY + 102;
   const splitX = PAD + 420;
@@ -812,7 +853,7 @@ export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise
   ctx.stroke();
 
   const lx = PAD + 28;
-  drawExitColumn(ctx, lx, midY, data.exit, data.exitNetworkName, data.exitRegion, data.exitTypeLabel);
+  drawExitColumn(ctx, lx, midY, splitX - PAD - 56, data.exit, data.exitNetworkName, data.exitRegion, data.exitTypeLabel, locale);
 
   ctx.strokeStyle = C.line;
   ctx.beginPath();
@@ -821,9 +862,9 @@ export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise
   ctx.stroke();
 
   const stats: [string, string][] = [
-    ['WebRTC 公网 IP', `${data.publicIPs.length} 个`],
-    ['本机内网地址', `${data.localIPs.length} 个`],
-    ['mDNS 隐藏地址', `${data.mdnsCount} 个`],
+    [sh.statPublic, sh.countUnit(data.publicIPs.length)],
+    [sh.statLocal, sh.countUnit(data.localIPs.length)],
+    [sh.statMdns, sh.countUnit(data.mdnsCount)],
   ];
   stats.forEach(([label, val], idx) => {
     const sy = midY + 206 + idx * 28;
@@ -838,11 +879,13 @@ export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise
 
   const pubShown = data.apiSupported ? Math.min(2, data.publicIPs.length) : 0;
   const r1Y = midY + 66;
-  drawText(ctx, '公网 IP', rx, r1Y, { font: font(14, 500), color: C.slate200 });
+  drawText(ctx, pg.publicIPLabel, rx, r1Y, { font: font(14, 500), color: C.slate200 });
   if (!data.apiSupported) {
-    chip(ctx, rx + rightW - 96, r1Y, 'WebRTC 已禁用', C.slate300, 'rgba(148,163,184,0.08)', C.line);
+    ctx.font = font(11.5, 500, MONO);
+    const cw = ctx.measureText(pg.disabledBadge).width + 16;
+    chip(ctx, rx + rightW - cw, r1Y, pg.disabledBadge, C.slate300, 'rgba(148,163,184,0.08)', C.line);
   } else if (data.publicIPs.length === 0) {
-    drawText(ctx, '未测到公网 IP', rx + rightW, r1Y, { font: font(13), color: C.slate400, align: 'right' });
+    drawText(ctx, pg.noPublicIP, rx + rightW, r1Y, { font: font(13), color: C.slate400, align: 'right' });
   } else {
     data.publicIPs.slice(0, 2).forEach((ip, idx) => {
       const canon = canonicalIP(ip);
@@ -860,15 +903,15 @@ export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise
         color: isSuspect ? C.leak : C.slate200,
       });
       const tag = isSuspect
-        ? '与出口不同'
+        ? pg.tagDifferent
         : matchesExit
-          ? '与出口一致'
+          ? pg.tagMatch
           : samePrefix
-            ? '同网段 IPv6'
+            ? pg.tagSamePrefix
             : data.verdictReason === 'dual-stack'
-              ? '同运营商'
+              ? pg.tagSameISP
               : data.verdictReason === 'same-network'
-                ? '共享出口'
+                ? pg.tagSharedExit
                 : '';
       if (tag) {
         ctx.font = font(11.5, 500, MONO);
@@ -895,16 +938,16 @@ export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise
 
   const localShown = data.apiSupported ? Math.min(2, data.localIPs.length) : 0;
   const r2Y = sep1Y + 30;
-  drawText(ctx, '内网地址', rx, r2Y, { font: font(14, 500), color: C.slate200 });
+  drawText(ctx, pg.localAddrLabel, rx, r2Y, { font: font(14, 500), color: C.slate200 });
   if (!data.apiSupported) {
-    drawText(ctx, '接口已禁用', rx + rightW, r2Y, { font: font(13), color: C.slate400, align: 'right' });
+    drawText(ctx, pg.apiDisabled, rx + rightW, r2Y, { font: font(13), color: C.slate400, align: 'right' });
   } else if (data.localIPs.length === 0 && data.mdnsCount > 0) {
-    const label = 'mDNS 已隐藏（*.local）';
+    const label = pg.mdnsHidden;
     ctx.font = font(11.5, 500, MONO);
     const cw = ctx.measureText(label).width + 16;
     chip(ctx, rx + rightW - cw, r2Y, label, C.sig, C.sigSoft, 'rgba(74,222,128,0.35)');
   } else if (data.localIPs.length === 0) {
-    drawText(ctx, '未暴露', rx + rightW, r2Y, { font: font(13), color: C.slate400, align: 'right' });
+    drawText(ctx, pg.localNotExposed, rx + rightW, r2Y, { font: font(13), color: C.slate400, align: 'right' });
   } else {
     data.localIPs.slice(0, 2).forEach((item, idx) => {
       const iy = r2Y + 28 + idx * 24;
@@ -923,7 +966,7 @@ export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise
   ctx.stroke();
 
   const r3Y = sep2Y + 30;
-  drawText(ctx, 'IPv6 地址', rx, r3Y, { font: font(14, 500), color: C.slate200 });
+  drawText(ctx, pg.ipv6AddrLabel, rx, r3Y, { font: font(14, 500), color: C.slate200 });
   if (data.ipv6Global) {
     drawText(ctx, maskIP(data.ipv6Global), rx + rightW, r3Y, {
       font: font(14, 500, MONO),
@@ -931,15 +974,15 @@ export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise
       align: 'right',
     });
   } else {
-    drawText(ctx, data.apiSupported ? '未测到全局 IPv6' : '禁用 WebRTC 时跳过', rx + rightW, r3Y, {
+    drawText(ctx, data.apiSupported ? pg.ipv6None : sh.ipv6SkippedCard, rx + rightW, r3Y, {
       font: font(13),
       color: C.slate400,
       align: 'right',
     });
   }
 
-  drawFooter(ctx, 'detectradar.com/webrtc-leak-test/');
-  return toPngBlob(canvas);
+  drawFooter(ctx, locale === 'en' ? 'detectradar.com/en/webrtc-leak-test/' : 'detectradar.com/webrtc-leak-test/', locale);
+  return toPngBlob(canvas, locale);
 }
 
 export interface IPv6ShareCardInput {
@@ -956,6 +999,7 @@ export interface IPv6ShareCardInput {
   v6NetworkName: string;
   v6Region: string;
   v6TypeLabel: string;
+  locale?: Locale;
 }
 
 const IPV6_VERDICT_PALETTE: Record<IPv6VerdictState, { color: string; soft: string; glow: string }> = {
@@ -968,20 +1012,25 @@ function drawStackColumn(
   ctx: CanvasRenderingContext2D,
   x: number,
   midY: number,
+  maxW: number,
   heading: string,
   exit: StackExit | null,
   networkName: string,
   region: string,
   typeLabel: string,
+  locale: Locale,
   opts: { accent?: string; statusChip?: { label: string; color: string; soft: string; border: string }; emptyText: string },
 ) {
+  const sh = getMessages(locale).ipv6.share;
   drawText(ctx, heading, x, midY + 28, { font: font(13, 500), color: C.slate400 });
   if (exit?.ip) {
-    drawText(ctx, `${networkName}  ${region}`, x, midY + 62, {
+    ctx.font = font(16, 600);
+    drawText(ctx, truncate(ctx, `${networkName}  ${region}`, maxW), x, midY + 62, {
       font: font(16, 600),
       color: C.slate200,
     });
-    drawText(ctx, maskIP(exit.ip), x, midY + 104, {
+    ctx.font = font(26, 700, MONO);
+    drawText(ctx, truncate(ctx, maskIP(exit.ip), maxW), x, midY + 104, {
       font: font(26, 700, MONO),
       color: opts.accent ?? C.white,
     });
@@ -996,7 +1045,7 @@ function drawStackColumn(
       drawText(ctx, exit.asn, mx, midY + 146, { font: font(12.5, 400, MONO), color: C.slate400 });
     }
     if (typeof exit.latencyMs === 'number') {
-      drawText(ctx, `探测耗时 ${exit.latencyMs} ms`, x, midY + 186, {
+      drawText(ctx, sh.probeLatency(exit.latencyMs), x, midY + 186, {
         font: font(12.5, 400, MONO),
         color: C.slate500,
       });
@@ -1008,6 +1057,11 @@ function drawStackColumn(
 
 export async function renderIPv6ShareCard(data: IPv6ShareCardInput): Promise<Blob> {
   if (document.fonts?.ready) await document.fonts.ready;
+  const locale: Locale = data.locale ?? 'zh-CN';
+  const m = getMessages(locale);
+  const fl = m.ipv6.flow;
+  const pg = m.ipv6.page;
+  const sh = m.ipv6.share;
 
   const canvas = document.createElement('canvas');
   canvas.width = W * SCALE;
@@ -1016,7 +1070,7 @@ export async function renderIPv6ShareCard(data: IPv6ShareCardInput): Promise<Blo
   ctx.scale(SCALE, SCALE);
 
   drawBackground(ctx);
-  drawHeader(ctx, 'IPv6 泄露检测报告', data.time);
+  drawHeader(ctx, sh.cardSubtitle, data.time);
 
   const pal = IPV6_VERDICT_PALETTE[data.verdictState];
   const v6Halted = !data.v6?.ip;
@@ -1030,12 +1084,13 @@ export async function renderIPv6ShareCard(data: IPv6ShareCardInput): Promise<Blo
 
   const upperTitle = data.v6?.ip
     ? `${data.v6NetworkName} · ${data.v6Region}`
-    : 'IPv6 未连通';
+    : fl.v6Disconnected;
   const upperSub = data.v6?.ip
-    ? `${maskIP(data.v6.ip)}${data.verdictState === 'leaked' ? ' · 旁路直连' : ''}`
-    : '仅连通 IPv4 网络';
+    ? `${maskIP(data.v6.ip)}${data.verdictState === 'leaked' ? sh.cardLeakSuffix : ''}`
+    : sh.cardV6OnlyV4;
 
   drawFlowDiamondStage(ctx, PAD, 102, W - PAD * 2, 250, {
+    browserLabel: fl.browserNode,
     upperColor,
     upperTopFill,
     upperGlow: v6Halted ? 'rgba(148, 163, 184, 0.12)' : data.verdictState === 'leaked' ? C.leakSoft : C.sigSoft,
@@ -1044,16 +1099,16 @@ export async function renderIPv6ShareCard(data: IPv6ShareCardInput): Promise<Blo
     upperTitleColor: data.verdictState === 'leaked' ? '#fca5a5' : C.white,
     upperSub,
     upperSubColor: data.verdictState === 'leaked' ? C.leak : C.slate400,
-    upperLeftBadge: 'IPv6 探测',
-    upperRightBadge: v6Halted ? '未连通' : '6.detectradar',
-    lowerExitLabel: data.v4?.ip ? `${data.v4NetworkName} · ${data.v4Region}` : 'IPv4 未连通',
+    upperLeftBadge: fl.wireV6,
+    upperRightBadge: v6Halted ? fl.wireDisconnected : '6.detectradar',
+    lowerExitLabel: data.v4?.ip ? `${data.v4NetworkName} · ${data.v4Region}` : fl.v4Disconnected,
     lowerExitIP: data.v4?.ip ? maskIP(data.v4.ip) : '—',
-    lowerExitSubSuffix: 'IPv4 出口',
+    lowerExitSubSuffix: pg.v4Label,
     lowerHalted: !data.v4?.ip,
-    lowerLeftBadge: 'IPv4 探测',
-    lowerRightBadge: data.v4?.ip ? '4.detectradar' : '未连通',
+    lowerLeftBadge: fl.wireV4,
+    lowerRightBadge: data.v4?.ip ? '4.detectradar' : fl.wireDisconnected,
     rightColor: pal.color,
-    rightTitle: '双栈归属比对',
+    rightTitle: sh.cardJudgeTitle,
     rightSub: data.verdictTitle,
   });
 
@@ -1061,7 +1116,7 @@ export async function renderIPv6ShareCard(data: IPv6ShareCardInput): Promise<Blo
   const cardW = W - PAD * 2;
   const cardH = H - cardY - PAD - 28;
   panel(ctx, PAD, cardY, cardW, cardH);
-  drawVerdictBand(ctx, cardY, cardW, pal.color, pal.soft, data.verdictTitle, data.verdictNote);
+  drawVerdictBand(ctx, cardY, cardW, pal.color, pal.soft, data.verdictTitle, data.verdictNote, locale);
 
   const midY = cardY + 102;
   const splitX = PAD + cardW / 2;
@@ -1074,23 +1129,26 @@ export async function renderIPv6ShareCard(data: IPv6ShareCardInput): Promise<Blo
   ctx.lineTo(splitX, cardY + cardH);
   ctx.stroke();
 
+  const colMaxW = cardW / 2 - 56;
   drawStackColumn(
     ctx,
     PAD + 28,
     midY,
-    'IPv4 出口',
+    colMaxW,
+    pg.v4Label,
     data.v4,
     data.v4NetworkName,
     data.v4Region,
     data.v4TypeLabel,
-    { emptyText: '未连通 IPv4' },
+    locale,
+    { emptyText: pg.v4Unreachable },
   );
 
   const v6Chip = data.v6?.ip
     ? data.verdictState === 'leaked'
-      ? { label: '境内直连', color: C.leak, soft: C.leakSoft, border: 'rgba(248,113,113,0.35)' }
+      ? { label: pg.badgeLeak, color: C.leak, soft: C.leakSoft, border: 'rgba(248,113,113,0.35)' }
       : data.verdictReason === 'overseas-split'
-        ? { label: '双栈分流', color: C.sig, soft: C.sigSoft, border: 'rgba(74,222,128,0.35)' }
+        ? { label: pg.badgeSplit, color: C.sig, soft: C.sigSoft, border: 'rgba(74,222,128,0.35)' }
         : undefined
     : undefined;
 
@@ -1098,18 +1156,20 @@ export async function renderIPv6ShareCard(data: IPv6ShareCardInput): Promise<Blo
     ctx,
     splitX + 28,
     midY,
-    'IPv6 出口',
+    colMaxW,
+    pg.v6Label,
     data.v6,
     data.v6NetworkName,
     data.v6Region,
     data.v6TypeLabel,
+    locale,
     {
       accent: data.verdictState === 'leaked' ? C.leak : C.white,
       statusChip: v6Chip,
-      emptyText: '未连通 IPv6（仅 IPv4 网络）',
+      emptyText: pg.v6Unreachable,
     },
   );
 
-  drawFooter(ctx, 'detectradar.com/ipv6-leak-test/');
-  return toPngBlob(canvas);
+  drawFooter(ctx, locale === 'en' ? 'detectradar.com/en/ipv6-leak-test/' : 'detectradar.com/ipv6-leak-test/', locale);
+  return toPngBlob(canvas, locale);
 }

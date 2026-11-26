@@ -1,4 +1,12 @@
-
+import {
+  countryName,
+  formatTimezoneZone,
+  getMessages,
+  joinList,
+  languageName,
+  localePath,
+  type Locale,
+} from "../i18n";
 import type { AllCollectorResults } from "./collectors/types";
 import type {
   ScanResponse,
@@ -12,7 +20,7 @@ import type {
   DimensionScore,
 } from "./types";
 
-import { browserExit, DNS_POLICY_VERSION, dnsVerdictNote, dnsStatus } from "./dnsPresentation";
+import { browserExit, DNS_POLICY_VERSION, dnsVerdictNote, getDnsStatus } from "./dnsPresentation";
 import { isIPv6Address, sameIP } from "./ip";
 import { maskIP } from "./ipDisplay";
 
@@ -37,12 +45,17 @@ export interface ReportGroup {
 }
 
 export interface ReadoutRow {
+  key: string;
   label: string;
   value: string;
   state: SignalState;
   href?: string;
   hint?: string;
   compare?: { browser: string; ip: string };
+  meta?: {
+    dnsVerdict?: DNSVerdict;
+    ipv6Kind?: "leaked" | "none" | "matches-exit" | "dual-stack";
+  };
 }
 
 export interface IdentityReadout {
@@ -52,6 +65,8 @@ export interface IdentityReadout {
   countryCode: string;
   asn: string;
   org: string;
+  ipType: "residential" | "mobile" | "datacenter" | "unknown";
+  status: "loading" | "ready";
   usageLabel: string;
   state: SignalState;
   confidence?: number;
@@ -96,93 +111,6 @@ export interface ReportModel {
   };
 }
 
-const USAGE_LABEL: Record<string, string> = {
-  residential: "普通网络",
-  mobile: "移动网络",
-  datacenter: "机房 IP",
-  unknown: "类型未定",
-};
-
-const LANG_NAME: Record<string, string> = {
-  zh: "简体中文",
-  "zh-tw": "繁体中文",
-  "zh-hk": "繁体中文",
-  en: "英语",
-  ja: "日语",
-  ko: "韩语",
-  fr: "法语",
-  de: "德语",
-  es: "西班牙语",
-  pt: "葡萄牙语",
-  ru: "俄语",
-  it: "意大利语",
-  vi: "越南语",
-  th: "泰语",
-  id: "印尼语",
-  ms: "马来语",
-  hi: "印地语",
-};
-function langName(code: string): string {
-  if (!code) return "未知";
-  const c = code.toLowerCase();
-  return LANG_NAME[c] || LANG_NAME[c.split("-")[0]] || code;
-}
-
-const CN_NUM = [
-  "零",
-  "一",
-  "二",
-  "三",
-  "四",
-  "五",
-  "六",
-  "七",
-  "八",
-  "九",
-  "十",
-  "十一",
-  "十二",
-  "十三",
-];
-function offsetToZone(mins: number): string {
-  if (mins === 0) return "零时区";
-  const abs = Math.abs(mins);
-  const h = Math.floor(abs / 60);
-  const m = abs % 60;
-  const hz = CN_NUM[h] ?? String(h);
-  const dir = mins > 0 ? "东" : "西";
-  return m === 0 ? `${dir}${hz}区` : `${dir}${hz}区${m}分`;
-}
-
-function tzToZone(tz: string): string {
-  if (!tz || tz === "unknown" || tz === "-") return "未知";
-  if (tz === "UTC" || tz === "GMT" || tz === "Z") return "零时区";
-  const m = tz.match(/^([+-])(\d{2}):?(\d{2})$/);
-  if (m) {
-    const mins =
-      (parseInt(m[2], 10) * 60 + parseInt(m[3], 10)) * (m[1] === "-" ? -1 : 1);
-    return offsetToZone(mins);
-  }
-  try {
-    const name =
-      new Intl.DateTimeFormat("en-US", {
-        timeZone: tz,
-        timeZoneName: "longOffset",
-      })
-        .formatToParts(new Date())
-        .find((p) => p.type === "timeZoneName")?.value || "";
-    const mm = name.match(/GMT([+-])(\d{1,2})(?::(\d{2}))?/);
-    if (mm) {
-      const mins =
-        (parseInt(mm[2], 10) * 60 + parseInt(mm[3] || "0", 10)) *
-        (mm[1] === "-" ? -1 : 1);
-      return offsetToZone(mins);
-    }
-  } catch {
-  }
-  return tz;
-}
-
 function normalizeHumanRatio(v?: number): number | undefined {
   if (typeof v !== "number" || !Number.isFinite(v)) return undefined;
   return Math.max(0, Math.min(100, v));
@@ -191,7 +119,9 @@ function normalizeHumanRatio(v?: number): number | undefined {
 function buildIdentity(
   a: IdentityAnalysis,
   intel: IPIntel | undefined,
+  locale: Locale,
 ): IdentityReadout {
+  const m = getMessages(locale);
   const present = !!(intel && intel.ip && intel.country !== "LOCAL");
   const flags: string[] = [];
   if (intel?.is_vpn) flags.push("VPN");
@@ -213,16 +143,19 @@ function buildIdentity(
   const geoParts = [intel?.city, intel?.country_name || intel?.country].filter(
     Boolean,
   );
+  const ipType = a.ip_type ?? "unknown";
 
   return {
     ip: intel?.ip || "",
     masked: maskIP(intel?.ip || ""),
-    geo: geoParts.join(" · ") || "未知位置",
+    geo: geoParts.join(" · ") || m.common.unknownLocation,
     countryCode:
       intel?.country && intel.country !== "LOCAL" ? intel.country : "",
     asn: intel?.asn || "—",
     org: intel?.org || intel?.isp || "—",
-    usageLabel: USAGE_LABEL[a.ip_type] ?? a.ip_type,
+    ipType,
+    status: "ready",
+    usageLabel: m.common.usageType[ipType] ?? ipType,
     state,
     confidence: intel?.confidence,
     tier: intel?.tier,
@@ -244,21 +177,15 @@ const GROUP_ORDER: ReportGroup["key"][] = [
   "environment",
 ];
 
-const GROUP_LABEL: Record<ReportGroup["key"], string> = {
-  identity: "网络身份",
-  consistency: "环境一致性",
-  leak: "DNS/IP 泄露",
-  environment: "环境指纹",
-};
-
-function buildGroups(dims: DimensionScore[]): ReportGroup[] {
+function buildGroups(dims: DimensionScore[], locale: Locale): ReportGroup[] {
+  const labels = getMessages(locale).home.groups;
   const byKey = new Map(dims.map((d) => [d.key, d]));
   return GROUP_ORDER.map((key) => {
     const d = byKey.get(key);
     if (!d) {
       return {
         key,
-        label: GROUP_LABEL[key],
+        label: labels[key],
         score: 60,
         state: "unknown" as SignalState,
         passed: 0,
@@ -268,7 +195,7 @@ function buildGroups(dims: DimensionScore[]): ReportGroup[] {
     const state = d.state as SignalState;
     return {
       key,
-      label: d.label || GROUP_LABEL[key],
+      label: labels[key],
       score: d.score,
       state,
       passed: d.passed,
@@ -277,36 +204,42 @@ function buildGroups(dims: DimensionScore[]): ReportGroup[] {
   });
 }
 
-function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScenario): Finding[] {
+function buildFindings(
+  a: ScanAnalysis,
+  id: IdentityReadout,
+  scenario: ScanScenario,
+  locale: Locale,
+): Finding[] {
+  const f = getMessages(locale).home.findings;
   const F: Finding[] = [];
-  const push = (f: Finding) => F.push(f);
+  const push = (item: Finding) => F.push(item);
 
   const pv = a.privacy;
   if (pv.webrtc.status === "danger") {
     push({
       id: "webrtc-leak",
       severity: "leak",
-      title: "WebRTC 公网地址与出口 IP 不一致",
-      fact: `网页可获取额外公网地址${pv.webrtc.leaked_ips[0] ? `（${pv.webrtc.leaked_ips[0]}）` : ""}`,
-      fix: "检查代理是否覆盖 WebRTC，或关闭浏览器 WebRTC 公网候选。",
+      title: f.webrtcLeak.title,
+      fact: f.webrtcLeak.fact(pv.webrtc.leaked_ips[0]),
+      fix: f.webrtcLeak.fix,
     });
   }
   if (dnsVerdictState(pv.dns) === "suspected") {
     push({
       id: "dns-leak",
       severity: "leak",
-      title: "DNS 泄露",
-      fact: dnsVerdictNote(pv.dns.assessment),
-      fix: "在 DNS 泄露检测页复测，核对测到的解析网络。",
+      title: f.dnsLeak.title,
+      fact: dnsVerdictNote(pv.dns.assessment, "current", locale),
+      fix: f.dnsLeak.fix,
     });
   }
   if (pv.ipv6.status === "danger") {
     push({
       id: "ipv6-leak",
       severity: "leak",
-      title: "IPv6 与出口 IP 不一致",
-      fact: `检测到全局 IPv6 地址${pv.ipv6.address ? `（${pv.ipv6.address}）` : ""}`,
-      fix: "在 IPv6 泄露检测页复测，检查代理是否接管 IPv6 或在路由层关闭 IPv6 直连。",
+      title: f.ipv6Leak.title,
+      fact: f.ipv6Leak.fact(pv.ipv6.address),
+      fix: f.ipv6Leak.fix,
     });
   }
 
@@ -314,28 +247,29 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
     push({
       id: "blacklist",
       severity: "leak",
-      title: "出口 IP 命中黑名单",
-      fact: `命中 ${id.blacklist.join("、")}`,
-      fix: "立即更换出口 IP。",
+      title: f.blacklist.title,
+      fact: f.blacklist.fact(joinList(id.blacklist, locale)),
+      fix: f.blacklist.fix,
     });
   }
   const proxyFlags = id.flags;
   if (proxyFlags.length > 0) {
+    const joinedFlags = proxyFlags.join(" / ");
     push({
       id: "proxy-flag",
       severity: "leak",
-      title: `IP 被标记为 ${proxyFlags.join(" / ")}`,
-      fact: `第三方数据源将该 IP 标记为 ${proxyFlags.join(" / ")}`,
-      fix: "更换未被标记的网络出口。",
+      title: f.proxyFlag.title(joinedFlags),
+      fact: f.proxyFlag.fact(joinedFlags),
+      fix: f.proxyFlag.fix,
     });
   }
   if (a.identity.is_tor_exit) {
     push({
       id: "tor-exit",
       severity: "leak",
-      title: "出口为 Tor 出口节点",
-      fact: "该 IP 在公开的 Tor 出口列表中",
-      fix: "改用普通网络出口。",
+      title: f.torExit.title,
+      fact: f.torExit.fact,
+      fix: f.torExit.fix,
     });
   }
   if (
@@ -347,27 +281,27 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
     push({
       id: "datacenter",
       severity: "caution",
-      title: "出口为机房 IP",
-      fact: `服务商 ${id.org}`,
-      fix: "如需更高可信度，改用更稳定的网络出口。",
+      title: f.datacenter.title,
+      fact: f.datacenter.fact(id.org),
+      fix: f.datacenter.fix,
     });
   }
   if (a.identity.open_proxy_port) {
     push({
       id: "open-proxy-port",
       severity: "contradiction",
-      title: "IP 开放代理端口",
-      fact: "扫描到该 IP 开放了常见代理端口",
-      fix: "关闭对外代理端口，或更换 IP。",
+      title: f.openProxyPort.title,
+      fact: f.openProxyPort.fact,
+      fix: f.openProxyPort.fix,
     });
   }
   if (a.identity.fraud_score > 50) {
     push({
       id: "fraud-score",
       severity: "caution",
-      title: `IP 欺诈评分偏高（${a.identity.fraud_score}/100）`,
-      fact: `第三方数据源给出的欺诈评分为 ${a.identity.fraud_score}`,
-      fix: "更换信誉更好的 IP。",
+      title: f.fraudScore.title(a.identity.fraud_score),
+      fact: f.fraudScore.fact(a.identity.fraud_score),
+      fix: f.fraudScore.fix,
     });
   }
 
@@ -376,19 +310,30 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
     push({
       id: "tz-mismatch",
       severity: "contradiction",
-      title: "浏览器时区与 IP 归属地冲突",
-      fact: `浏览器时区为${tzToZone(tz.browser)}，IP 归属地时区为${tzToZone(tz.expected)}`,
-      fix: "把系统时区改成与 IP 归属地一致。",
+      title: f.tzMismatch.title,
+      fact: f.tzMismatch.fact(
+        formatTimezoneZone(tz.browser, locale),
+        formatTimezoneZone(tz.expected, locale),
+      ),
+      fix: f.tzMismatch.fix,
     });
   }
   const lang = a.consistency.language;
   if (scenario === "strict" && !lang.passed) {
+    const ipCountryDisplay =
+      lang.ip_country && /^[A-Z]{2}$/i.test(lang.ip_country)
+        ? countryName(lang.ip_country, locale)
+        : lang.ip_country || "?";
     push({
       id: "lang-mismatch",
       severity: "contradiction",
-      title: "系统语言与 IP 国家不匹配",
-      fact: `浏览器语言 ${langName(lang.browser)}，IP 国家（${lang.ip_country || "?"}）当地常用 ${langName((lang.expected || [])[0] || "")}`,
-      fix: "把浏览器首选语言调成 IP 归属地对应语言。",
+      title: f.langMismatch.title,
+      fact: f.langMismatch.fact(
+        languageName(lang.browser, locale),
+        ipCountryDisplay,
+        languageName((lang.expected || [])[0] || "", locale),
+      ),
+      fix: f.langMismatch.fix,
     });
   }
   const fp = a.fingerprint;
@@ -396,20 +341,26 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
     push({
       id: "webdriver",
       severity: "leak",
-      title: "检测到自动化控制标记",
-      fact: "navigator.webdriver = true，暴露了自动化控制",
-      fix: "使用未打标的浏览器或反检测方案。",
+      title: f.webdriver.title,
+      fact: f.webdriver.fact,
+      fix: f.webdriver.fix,
     });
   }
   if (fp.webgl.status === "mismatch") {
+    const mismatchFact =
+      fp.webgl.mismatch_code === "apple_d3d_nvidia"
+        ? f.webglMismatch.appleD3dNvidia
+        : fp.webgl.mismatch_code === "ios_angle"
+          ? f.webglMismatch.iosAngle
+          : locale === "zh-CN" && fp.webgl.mismatch_reason
+            ? fp.webgl.mismatch_reason
+            : f.webglMismatch.fallback;
     push({
       id: "webgl-mismatch",
       severity: "contradiction",
-      title: "显卡信息与系统冲突",
-      fact:
-        fp.webgl.mismatch_reason ||
-        "显卡信息与操作系统 / 硬件声明物理上不可能共存",
-      fix: "确保显卡信息与声称的系统、硬件逻辑一致。",
+      title: f.webglMismatch.title,
+      fact: mismatchFact,
+      fix: f.webglMismatch.fix,
     });
   }
   if (scenario === "strict" && (fp.canvas.is_hooked || fp.audio.is_hooked)) {
@@ -422,22 +373,22 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
     push({
       id: "fp-hooked",
       severity: "caution",
-      title: `${which} 指纹被篡改`,
-      fact: `${which} 的原生方法被改写（反指纹工具痕迹）`,
-      fix: "指纹保护改用 noise 模式，避免完全屏蔽。",
+      title: f.fpHooked.title(which),
+      fact: f.fpHooked.fact(which),
+      fix: f.fpHooked.fix,
     });
   }
-  for (const t of a.automation.automation_traces) {
-    if (/plugins_length/.test(t)) {
-      push({
-        id: "no-plugins",
-        severity: "info",
-        title: "桌面浏览器无插件",
-        fact: "桌面浏览器插件列表为空，偏离常见环境",
-        fix: "通常无需处理。",
-      });
-      break;
-    }
+  if (
+    a.automation.no_desktop_plugins ||
+    a.automation.automation_traces.some((t) => /plugins_length/.test(t))
+  ) {
+    push({
+      id: "no-plugins",
+      severity: "info",
+      title: f.noPlugins.title,
+      fact: f.noPlugins.fact,
+      fix: f.noPlugins.fix,
+    });
   }
 
   const rank: Record<Severity, number> = {
@@ -449,25 +400,36 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
   return F.sort((x, y) => rank[x.severity] - rank[y.severity]);
 }
 
-function consistencyRows(a: ScanAnalysis, scenario: ScanScenario): ReadoutRow[] {
+function consistencyRows(
+  a: ScanAnalysis,
+  scenario: ScanScenario,
+  locale: Locale,
+): ReadoutRow[] {
+  const r = getMessages(locale).home.readout;
   const tz = a.consistency.timezone;
   const lang = a.consistency.language;
   const tzUnknown = ["unknown", "-", ""].includes(tz.expected);
   const daily = scenario === "daily";
+  const tzBrowser = formatTimezoneZone(tz.browser, locale);
+  const tzExpected = formatTimezoneZone(tz.expected, locale);
+  const langBrowser = languageName(lang.browser, locale);
+  const langExpected = languageName((lang.expected || [])[0] || "", locale);
   return [
     {
-      label: "时区",
-      value: `${tzToZone(tz.browser)} ↔ ${tzToZone(tz.expected)}`,
+      key: "timezone",
+      label: r.timezone,
+      value: `${tzBrowser} ↔ ${tzExpected}`,
       state: tzUnknown ? "unknown" : tz.passed ? "coherent" : daily ? "unknown" : "contradiction",
-      compare: { browser: tzToZone(tz.browser), ip: tzToZone(tz.expected) },
+      compare: { browser: tzBrowser, ip: tzExpected },
     },
     {
-      label: "语言",
-      value: `${langName(lang.browser)} ↔ ${langName((lang.expected || [])[0] || "")}`,
+      key: "language",
+      label: r.language,
+      value: `${langBrowser} ↔ ${langExpected}`,
       state: lang.passed ? "coherent" : daily ? "unknown" : "contradiction",
       compare: {
-        browser: langName(lang.browser),
-        ip: langName((lang.expected || [])[0] || ""),
+        browser: langBrowser,
+        ip: langExpected,
       },
     },
   ];
@@ -478,7 +440,9 @@ function dnsVerdictState(dns: ScanAnalysis["privacy"]["dns"]): DNSVerdict["state
   return dns.status === "blocked" ? "unobserved" : "unknown";
 }
 
-function leakRows(a: ScanAnalysis, exit: DNSExit | null): ReadoutRow[] {
+function leakRows(a: ScanAnalysis, exit: DNSExit | null, locale: Locale): ReadoutRow[] {
+  const r = getMessages(locale).home.readout;
+  const dnsLabels = getDnsStatus(locale);
   const pv = a.privacy;
   const exitIP = exit?.ip ?? "";
   const webrtcState: SignalState =
@@ -491,44 +455,57 @@ function leakRows(a: ScanAnalysis, exit: DNSExit | null): ReadoutRow[] {
   const ipv6State: SignalState =
     pv.ipv6.status === "danger" ? "leak" : "coherent";
   const webrtcValue = (() => {
-    if (pv.webrtc.status === "blocked") return "未检测到公网地址";
-    if (pv.webrtc.status === "safe") return "与出口 IP 一致";
+    if (pv.webrtc.status === "blocked") return r.webrtcNone;
+    if (pv.webrtc.status === "safe") return r.webrtcMatch;
     const extra = pv.webrtc.leaked_ips ?? [];
-    if (extra.length === 0) return "未检测到公网地址";
-    return "公网地址与出口 IP 不一致";
+    if (extra.length === 0) return r.webrtcNone;
+    return r.webrtcMismatch;
   })();
 
-  const ipv6Value = (() => {
-    if (pv.ipv6.status === "danger") return "IPv6 与出口 IP 不一致";
-    if (!pv.ipv6.address || pv.ipv6.status === "disabled")
-      return "未检测到 IPv6";
-    if (
-      exitIP &&
-      isIPv6Address(exitIP) &&
-      sameIP(pv.ipv6.address, exitIP)
-    )
-      return "与出口 IP 一致";
-    return "检测到 IPv6 双栈";
-  })();
+  const ipv6Kind: NonNullable<ReadoutRow["meta"]>["ipv6Kind"] =
+    pv.ipv6.status === "danger"
+      ? "leaked"
+      : !pv.ipv6.address || pv.ipv6.status === "disabled"
+        ? "none"
+        : exitIP && isIPv6Address(exitIP) && sameIP(pv.ipv6.address, exitIP)
+          ? "matches-exit"
+          : "dual-stack";
+
+  const ipv6Value =
+    ipv6Kind === "leaked"
+      ? r.ipv6Mismatch
+      : ipv6Kind === "none"
+        ? r.ipv6None
+        : ipv6Kind === "matches-exit"
+          ? r.ipv6Match
+          : r.ipv6Dual;
 
   return [
     {
+      key: "webrtc",
       label: "WebRTC",
       value: webrtcValue,
       state: webrtcState,
     },
     {
+      key: "dns",
       label: "DNS",
-      value: dnsStatus[dnsState].title,
+      value: dnsLabels[dnsState].title,
       state: dnsState === "suspected" ? "leak" : dnsState === "clear" ? "coherent" : "unknown",
-      href: dnsState === "suspected" ? "/dns-leak-test/" : undefined,
-      hint: pv.dns.assessment?.policy_version === DNS_POLICY_VERSION ? dnsVerdictNote(pv.dns.assessment) : undefined,
+      href: dnsState === "suspected" ? localePath("/dns-leak-test/", locale) : undefined,
+      hint:
+        pv.dns.assessment?.policy_version === DNS_POLICY_VERSION
+          ? dnsVerdictNote(pv.dns.assessment, "current", locale)
+          : undefined,
+      meta: { dnsVerdict: pv.dns.assessment },
     },
     {
+      key: "ipv6",
       label: "IPv6",
       value: ipv6Value,
       state: ipv6State,
-      href: pv.ipv6.status === "danger" ? "/ipv6-leak-test/" : undefined,
+      href: pv.ipv6.status === "danger" ? localePath("/ipv6-leak-test/", locale) : undefined,
+      meta: { ipv6Kind },
     },
   ];
 }
@@ -537,19 +514,22 @@ function environmentRows(
   a: ScanAnalysis,
   c: AllCollectorResults,
   scenario: ScanScenario,
+  locale: Locale,
 ): ReadoutRow[] {
+  const r = getMessages(locale).home.readout;
   const fp = a.fingerprint;
   const nav = c.environment.navigator?.data;
   const daily = scenario === "daily";
   return [
     {
-      label: "显卡",
+      key: "webgl",
+      label: r.gpu,
       value:
         fp.webgl.status === "mismatch"
-          ? "与系统冲突"
+          ? r.gpuMismatch
           : fp.webgl.status === "match"
-            ? "与系统相符"
-            : "无法比对",
+            ? r.gpuMatch
+            : r.gpuUnknown,
       state:
         fp.webgl.status === "mismatch"
           ? "contradiction"
@@ -558,22 +538,25 @@ function environmentRows(
             : "unknown",
     },
     {
-      label: "Canvas 指纹",
-      value: fp.canvas.is_hooked ? "被篡改" : "正常",
+      key: "canvas",
+      label: r.canvas,
+      value: fp.canvas.is_hooked ? r.fpHooked : r.fpNormal,
       state: fp.canvas.is_hooked ? (daily ? "unknown" : "contradiction") : "coherent",
     },
     {
-      label: "Audio 指纹",
-      value: fp.audio.is_hooked ? "被篡改" : "正常",
+      key: "audio",
+      label: r.audio,
+      value: fp.audio.is_hooked ? r.fpHooked : r.fpNormal,
       state: fp.audio.is_hooked ? (daily ? "unknown" : "contradiction") : "coherent",
     },
     {
-      label: "自动化",
+      key: "automation",
+      label: r.automation,
       value: a.automation.webdriver_detected
-        ? "检测到控制标记"
+        ? r.autoDetected
         : a.automation.overall_status === "suspicious"
-          ? "有可疑痕迹"
-          : "未检测到",
+          ? r.autoSuspicious
+          : r.autoNone,
       state: a.automation.webdriver_detected
         ? "leak"
         : a.automation.overall_status === "suspicious"
@@ -581,8 +564,13 @@ function environmentRows(
           : "coherent",
     },
     {
-      label: "硬件",
-      value: `${nav?.hardwareConcurrency ?? "?"} 核 / ${nav?.deviceMemory ?? "?"}GB / ${nav?.maxTouchPoints ?? 0} 触控点`,
+      key: "hardware",
+      label: r.hardware,
+      value: r.hardwareValue(
+        nav?.hardwareConcurrency ?? "?",
+        nav?.deviceMemory ?? "?",
+        nav?.maxTouchPoints ?? 0,
+      ),
       state: "coherent",
     },
   ];
@@ -608,52 +596,55 @@ function buildRTT(a: ScanAnalysis): RTTReadout | undefined {
   return out;
 }
 
-function buildVerdict(groups: ReportGroup[], scenario: ScanScenario): ReportModel["verdict"] {
+function buildVerdict(
+  groups: ReportGroup[],
+  scenario: ScanScenario,
+  locale: Locale,
+): ReportModel["verdict"] {
+  const v = getMessages(locale).home.verdict;
   const has = (s: SignalState) => groups.some((g) => g.state === s);
   if (has("leak")) {
     return {
       state: "leak",
-      headline: "网络身份存在异常",
-      sub: "存在公网地址不一致或环境特征被标记的风险。",
+      headline: v.leak.headline,
+      sub: v.leak.sub,
     };
   }
   if (has("contradiction")) {
     return {
       state: "contradiction",
-      headline: "环境特征与 IP 冲突",
-      sub: "网络身份与环境特征对不上，可能被识别为异常环境。",
+      headline: v.contradiction.headline,
+      sub: v.contradiction.sub,
     };
   }
   const unknownHeavy = groups.filter((g) => g.state === "unknown").length >= 2;
   if (unknownHeavy) {
     return {
       state: "unknown",
-      headline: "部分项无法判定",
-      sub: "关键信号缺失或处于灰区，暂时无法给出确定结论。",
+      headline: v.unknown.headline,
+      sub: v.unknown.sub,
     };
   }
   return {
     state: "coherent",
-    headline: "未检测到明显异常",
-    sub:
-      scenario === "daily"
-        ? "未发现网络泄露或高危出口特征。"
-        : "网络身份与环境特征基本一致。",
+    headline: v.coherent.headline,
+    sub: scenario === "daily" ? v.coherent.subDaily : v.coherent.subStrict,
   };
 }
 
 export function buildReport(
   resp: ScanResponse,
   collectors: AllCollectorResults,
+  locale: Locale = "zh-CN",
 ): ReportModel {
   const a = resp.analysis;
   const scenario: ScanScenario = resp.scenario === "daily" ? "daily" : "strict";
-  const groups = buildGroups(resp.dimensions ?? []);
-  const identity = buildIdentity(a.identity, resp.server_data.ip_intel);
+  const groups = buildGroups(resp.dimensions ?? [], locale);
+  const identity = buildIdentity(a.identity, resp.server_data.ip_intel, locale);
   const exit = resp.server_data.ip_intel ? browserExit(resp.server_data.ip_intel) : null;
   const idGroup = groups.find((g) => g.key === "identity");
   if (idGroup) identity.state = idGroup.state;
-  const verdict = buildVerdict(groups, scenario);
+  const verdict = buildVerdict(groups, scenario, locale);
 
   return {
     scenario,
@@ -662,10 +653,10 @@ export function buildReport(
     verdict,
     groups,
     identity,
-    findings: buildFindings(a, identity, scenario),
-    consistency: consistencyRows(a, scenario),
-    leaks: leakRows(a, exit),
-    environment: environmentRows(a, collectors, scenario),
+    findings: buildFindings(a, identity, scenario, locale),
+    consistency: consistencyRows(a, scenario, locale),
+    leaks: leakRows(a, exit, locale),
+    environment: environmentRows(a, collectors, scenario, locale),
     rtt: buildRTT(a),
     meta: {
       scanId: resp.scan_id,

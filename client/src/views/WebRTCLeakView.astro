@@ -1,0 +1,35 @@
+---
+import Layout from '../layouts/Layout.astro';
+import WebRTCCheckPage from '../components/WebRTCCheckPage.svelte';
+import ReportBackdrop from '../components/ReportBackdrop.svelte';
+import SiteFooter from '../components/SiteFooter.svelte';
+import { getMessages, localePath, type Locale } from '../i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const m = getMessages(locale);
+---
+
+<Layout
+  title={m.seo.webrtc.title}
+  canonical={localePath('/webrtc-leak-test/', locale)}
+  locale={locale}
+  ogImage={locale === 'en' ? '/og-webrtc-en.png' : '/og-webrtc.png'}
+  description={m.seo.webrtc.description}
+  pageType="tool"
+  appName={m.seo.webrtc.appName}
+  featureList={m.seo.webrtc.features}
+  dateModified="2026-11-26"
+>
+  <div class="min-h-screen bg-space-950 scan-grid flex flex-col relative">
+    <ReportBackdrop />
+    <WebRTCCheckPage client:load {locale} />
+    <noscript>
+      <p class="report-main pt-0 text-sm text-(--slate-300)">{m.seo.webrtc.noscript}</p>
+    </noscript>
+    <SiteFooter {locale} />
+  </div>
+</Layout>

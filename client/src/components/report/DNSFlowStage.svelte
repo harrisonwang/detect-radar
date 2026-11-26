@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
+  import { getMessages, joinList, type Locale } from '../../i18n';
   import type { DNSProgress } from '../../lib/dnsCheck';
-  import { dnsProviderName, dnsRegion } from '../../lib/dnsPresentation';
+  import { dnsProviderName, dnsRegion, isLiveResolverSuspect } from '../../lib/dnsPresentation';
   import { maskIP } from '../../lib/ipDisplay';
   import type { DNSExit } from '../../lib/types';
 
@@ -18,6 +19,7 @@
   type Pt = readonly [number, number];
 
   interface Props {
+    locale?: Locale;
     exit: DNSExit | null;
     verdictState: VerdictState;
     providers: DNSFlowProviderSummary[];
@@ -29,6 +31,7 @@
   }
 
   let {
+    locale = 'zh-CN',
     exit,
     verdictState,
     providers,
@@ -38,6 +41,9 @@
     liveProgress = null,
     hasResult = false,
   }: Props = $props();
+
+  let m = $derived(getMessages(locale));
+  let fl = $derived(m.dns.flow);
 
   let httpsT = $state(1);
   let httpsActive = $state(false);
@@ -116,6 +122,14 @@
     exit: [262, 152],
     authority: [170, 254],
   };
+
+  function pillWidth(label: string, minW = 38): number {
+    let w = 16;
+    for (const ch of label) {
+      w += /[\u3000-\u9fff]/.test(ch) ? 10 : 6.1;
+    }
+    return Math.max(minW, Math.ceil(w));
+  }
 
   function pointAlong(pts: readonly Pt[], rawT: number): { x: number; y: number } {
     const t = Math.max(0, Math.min(1, rawT));
@@ -288,15 +302,10 @@
   let activeProviders = $derived.by<DNSFlowProviderSummary[]>(() => {
     if (busy && liveProgress) {
       return liveProgress.resolvers.map((r) => ({
-        name: dnsProviderName(r.isp) || r.isp || '递归解析器',
+        name: dnsProviderName(r.isp, locale) || r.isp || fl.resolverDefault,
         country: r.country,
         type: r.network_type,
-        suspect: Boolean(
-          activeExit?.country &&
-          activeExit.country !== 'CN' &&
-          r.country === 'CN' &&
-          r.network_type === 'access',
-        ),
+        suspect: isLiveResolverSuspect(activeExit, r),
         count: 1,
       }));
     }
@@ -308,6 +317,7 @@
   );
 
   let effectiveVerdict = $derived<VerdictState>(busy ? 'unknown' : verdictState);
+  let isUnobservedBranch = $derived(!busy && effectiveVerdict === 'unobserved');
 
   $effect(() => {
     const reduced = prefersReducedMotion();
@@ -455,13 +465,13 @@
 
   let exitName = $derived(
     activeExit?.ip
-      ? `${dnsProviderName(activeExit.network) || '出口网络'} · ${dnsRegion(activeExit.country)}`
+      ? `${dnsProviderName(activeExit.network, locale) || fl.exitDefault} · ${dnsRegion(activeExit.country, locale)}`
       : isIdle
-        ? '网页出口'
-        : '正在获取出口 IP',
+        ? fl.exitIdle
+        : fl.exitFetching,
   );
   let exitDisplayIP = $derived(
-    activeExit?.ip ? (revealExit ? activeExit.ip : maskIP(activeExit.ip)) : isIdle ? '待检测' : '…',
+    activeExit?.ip ? (revealExit ? activeExit.ip : maskIP(activeExit.ip)) : isIdle ? m.common.idle : '…',
   );
 
   let providerSummaryText = $derived.by(() => {
@@ -473,17 +483,17 @@
       .map((p) => p.name)
       .filter(Boolean);
     const unique = [...new Set(picked)];
-    if (!unique.length) return '递归解析器';
-    const joined = unique.slice(0, 2).join('、');
-    return unique.length > 2 ? `${joined} 等` : joined;
+    if (!unique.length) return fl.resolverDefault;
+    const joined = joinList(unique.slice(0, 2), locale);
+    return unique.length > 2 ? fl.moreProviders(joined) : joined;
   });
 
   let resolverTitle = $derived.by(() => {
-    if (isIdle) return 'DNS 解析器';
-    if (busy && activeResolverCount === 0) return '等待 DNS 回溯';
-    if (!busy && effectiveVerdict === 'unobserved') return '权威 NS 未收到查询';
+    if (isIdle) return fl.resolverIdle;
+    if (busy && activeResolverCount === 0) return fl.resolverWaiting;
+    if (!busy && effectiveVerdict === 'unobserved') return fl.resolverUnobserved;
     if (!busy && effectiveVerdict === 'unknown') {
-      return activeProviders.length ? providerSummaryText : '归属信息不足';
+      return activeProviders.length ? providerSummaryText : fl.resolverUnknown;
     }
     const regionCode =
       effectiveVerdict === 'suspected'
@@ -491,31 +501,31 @@
         : activeProviders.length === 1 || busy
           ? activeProviders[0]?.country
           : '';
-    return regionCode ? `${providerSummaryText} · ${dnsRegion(regionCode)}` : providerSummaryText;
+    return regionCode ? `${providerSummaryText} · ${dnsRegion(regionCode, locale)}` : providerSummaryText;
   });
 
   let resolverSub = $derived.by(() => {
-    if (isIdle) return '待检测';
+    if (isIdle) return m.common.idle;
     if (busy) {
       if (liveProgress?.phase === 'collecting') {
-        return `已回传 ${liveProgress.completedRounds}/${liveProgress.totalRounds} 轮 · ${activeResolverCount} 个地址`;
+        return fl.subCollecting(liveProgress.completedRounds, liveProgress.totalRounds, activeResolverCount);
       }
       if (liveProgress?.phase === 'assessing') {
-        return `已采样 ${activeResolverCount} 个地址 · 评估中`;
+        return fl.subAssessing(activeResolverCount);
       }
       const started = Math.max(1, liveProgress?.startedRounds ?? 1);
       const total = liveProgress?.totalRounds ?? 3;
-      return `第 ${started}/${total} 轮随机探针已发出`;
+      return fl.subProbing(started, total);
     }
-    if (effectiveVerdict === 'suspected') return '命中境内运营商 DNS';
+    if (effectiveVerdict === 'suspected') return fl.subSuspected;
     if (effectiveVerdict === 'clear') {
       if (activeProviders.length > 0 && activeProviders.every((p) => p.type === 'public')) {
-        return activeResolverCount ? `公共 DNS · ${activeResolverCount} 个地址` : '公共 DNS';
+        return fl.subClearPublic(activeResolverCount);
       }
-      return `已采样 ${activeResolverCount} 个地址`;
+      return fl.subClearCount(activeResolverCount);
     }
-    if (effectiveVerdict === 'unobserved') return '请求被拦截或权威超时';
-    return activeResolverCount ? `共 ${activeResolverCount} 个解析地址` : '缺出口或解析归属';
+    if (effectiveVerdict === 'unobserved') return fl.subUnobserved;
+    return fl.subUnknownCount(activeResolverCount);
   });
 
   let dnsAccent = $derived(
@@ -529,8 +539,6 @@
           ? 'var(--sig)'
           : 'var(--unknown)',
   );
-
-  let isUnobservedBranch = $derived(!busy && effectiveVerdict === 'unobserved');
 
   let activeDnsDesktopPts = $derived(isUnobservedBranch ? DESKTOP_DNS_HALT : DESKTOP_DNS);
   let activeDnsMobilePts = $derived(isUnobservedBranch ? MOBILE_DNS_HALT : MOBILE_DNS);
@@ -562,56 +570,55 @@
     (busy && (liveProgress?.phase === 'assessing' || (liveProgress?.phase === 'collecting' && dnsT > 0.94))),
   );
 
+  let verdictTitleText = $derived(
+    isIdle
+      ? m.common.idle
+      : busy
+        ? liveProgress?.phase === 'assessing'
+          ? fl.verdictAssessing
+          : fl.verdictSampling
+        : m.dns.status[effectiveVerdict],
+  );
+
   let inspectorInfo = $derived.by(() => {
     if (!selectedNode) return null;
     switch (selectedNode) {
       case 'browser':
-        return '你的浏览器：并发向 DetectRadar 发起 HTTPS 出口查询与 3 轮随机子域 DNS 探针';
+        return fl.inspectorBrowser;
       case 'resolver':
-        return `DNS 解析器：${resolverTitle} — ${resolverSub}`;
+        return fl.inspectorResolver(resolverTitle, resolverSub);
       case 'exit':
-        return `网页出口：${exitName}（${exitDisplayIP}${activeExit?.asn ? ` · ${activeExit.asn}` : ''}）`;
+        return fl.inspectorExit(exitName, exitDisplayIP, activeExit?.asn);
       case 'authority':
-        return 'DetectRadar 服务端：主站 API 记录你的 HTTPS 出口 IP，自建权威 NS 通过 DNSTap 记录来访递归解析器，二者交叉比对得出判定';
+        return fl.inspectorAuthority;
     }
   });
-
-  let verdictTitleText = $derived(
-    isIdle
-      ? '待检测'
-      : busy
-        ? liveProgress?.phase === 'assessing'
-          ? '交叉比对中…'
-          : '并发采样中…'
-        : effectiveVerdict === 'suspected'
-          ? '泄露'
-          : effectiveVerdict === 'clear'
-            ? '未泄露'
-            : effectiveVerdict === 'unobserved'
-              ? '无 DNS 结果'
-              : '无法判断',
-  );
 
   let statusText = $derived.by(() => {
     if (!busy) return '';
     if (!liveProgress || liveProgress.phase === 'probing') {
       const started = Math.max(1, liveProgress?.startedRounds ?? 1);
       const total = liveProgress?.totalRounds ?? 3;
-      return `第 ${started}/${total} 轮采样中`;
+      return fl.statusProbing(started, total);
     }
     if (liveProgress.phase === 'collecting') {
-      return `已回传 ${liveProgress.completedRounds}/${liveProgress.totalRounds} 轮 · ${liveProgress.resolvers.length} 地址`;
+      return fl.statusCollecting(liveProgress.completedRounds, liveProgress.totalRounds, liveProgress.resolvers.length);
     }
-    return '交叉比对中…';
+    return fl.statusAssessing;
   });
 
   let ariaSummary = $derived(
     isIdle
-      ? 'DNS 流量路径图：等待开始检测当前浏览器的 DNS 解析出口与 HTTPS 网页出口'
+      ? fl.ariaIdle
       : busy && !hasResult
-        ? 'DNS 流量路径图：正在并发检测当前浏览器的 DNS 解析出口与 HTTPS 网页出口'
-        : `DNS 实测流量路径图：DNS 解析器为 ${resolverTitle}（${resolverSub}）；HTTPS 网页出口为 ${exitName}（${exitDisplayIP}）；判定：${verdictTitleText}`,
+        ? fl.ariaBusy
+        : fl.ariaResult(resolverTitle, resolverSub, exitName, exitDisplayIP, verdictTitleText),
   );
+
+  let wireDnsLabel = $derived(fl.wireDns);
+  let wireAuthLabel = $derived(isUnobservedBranch ? fl.wireNoCapture : fl.wireAuth);
+  let wireDnsW = $derived(pillWidth(wireDnsLabel, 44));
+  let wireAuthW = $derived(pillWidth(wireAuthLabel, 48));
 </script>
 
 {#snippet isoNodes(prefix: string, pos: Record<NodeId, Pt>, compact: boolean)}
@@ -620,7 +627,7 @@
     class="dfs-node-hit"
     role="button"
     tabindex="0"
-    aria-label="查看节点：你的浏览器"
+    aria-label={fl.browserAria}
     onclick={() => toggleNode('browser')}
     onkeydown={(e) => handleNodeKey(e, 'browser')}
     transform={`translate(${b[0]}, ${b[1]})`}
@@ -638,7 +645,7 @@
     <line x1="-18" y1="-12" x2="-7" y2="-17" stroke="var(--radar-400)" stroke-width="1.3" stroke-linecap="round" opacity="0.9" />
     <line x1="-18" y1="-8" x2="-10" y2="-12" stroke="#94a3b8" stroke-width="1.1" stroke-linecap="round" opacity="0.65" />
     <circle cx="0" cy="14" r="28" fill="transparent" />
-    <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#e2e8f0" font-size={compact ? 11.5 : 12} font-weight="600">你的浏览器</text>
+    <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#e2e8f0" font-size={compact ? 11.5 : 12} font-weight="600">{fl.browserNode}</text>
   </g>
 
   {@const res = pos.resolver}
@@ -646,7 +653,7 @@
     class="dfs-node-hit"
     role="button"
     tabindex="0"
-    aria-label="查看节点：DNS 解析器"
+    aria-label={fl.resolverAria}
     onclick={() => toggleNode('resolver')}
     onkeydown={(e) => handleNodeKey(e, 'resolver')}
     transform={`translate(${res[0]}, ${res[1]})`}
@@ -709,7 +716,7 @@
         font-size="11.5"
         font-weight="600"
       >
-        {truncateText(resolverTitle, 15)}
+        {truncateText(resolverTitle, 16)}
       </text>
       <text
         x="0"
@@ -718,7 +725,7 @@
         fill={!busy && effectiveVerdict === 'suspected' ? '#f87171' : '#94a3b8'}
         font-size="10.5"
       >
-        {truncateText(resolverSub, 16)}
+        {truncateText(resolverSub, 18)}
       </text>
     {:else}
       <text
@@ -729,7 +736,7 @@
         font-size="12"
         font-weight="600"
       >
-        {truncateText(resolverTitle, 24)}
+        {truncateText(resolverTitle, 28)}
       </text>
       <text
         x="0"
@@ -738,7 +745,7 @@
         fill={!busy && effectiveVerdict === 'suspected' ? '#f87171' : '#94a3b8'}
         font-size="10.5"
       >
-        {truncateText(resolverSub, 26)}
+        {truncateText(resolverSub, 30)}
       </text>
     {/if}
   </g>
@@ -748,7 +755,7 @@
     class="dfs-node-hit"
     role="button"
     tabindex="0"
-    aria-label="查看节点：网页出口"
+    aria-label={fl.exitAria}
     onclick={() => toggleNode('exit')}
     onkeydown={(e) => handleNodeKey(e, 'exit')}
     transform={`translate(${ex[0]}, ${ex[1]})`}
@@ -768,11 +775,11 @@
     <line x1="-16" y1="6" x2="-4" y2="12" stroke="#64748b" stroke-width="1.4" stroke-linecap="round" opacity="0.55" />
     <circle cx="0" cy="0" r="30" fill="transparent" />
     {#if compact}
-      <text x="0" y="36" text-anchor="middle" fill="#f8fafc" font-size="11.5" font-weight="600">{truncateText(exitName, 14)}</text>
-      <text x="0" y="51" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeExit?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{activeExit?.ip ? exitDisplayIP : isIdle ? '待检测' : '等待响应'}</text>
+      <text x="0" y="36" text-anchor="middle" fill="#f8fafc" font-size="11.5" font-weight="600">{truncateText(exitName, 16)}</text>
+      <text x="0" y="51" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeExit?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{activeExit?.ip ? exitDisplayIP : isIdle ? m.common.idle : fl.exitWaitingCompact}</text>
     {:else}
-      <text x="0" y="38" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="600">{truncateText(exitName, 22)}</text>
-      <text x="0" y="53" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeExit?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{activeExit?.ip ? `${exitDisplayIP} · 网页出口` : isIdle ? '待检测' : '网页出口'}</text>
+      <text x="0" y="38" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="600">{truncateText(exitName, 26)}</text>
+      <text x="0" y="53" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeExit?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{activeExit?.ip ? `${exitDisplayIP} · ${fl.exitSuffix}` : isIdle ? m.common.idle : fl.exitSuffix}</text>
     {/if}
   </g>
 
@@ -781,7 +788,7 @@
     class="dfs-node-hit"
     role="button"
     tabindex="0"
-    aria-label="查看节点：DetectRadar 服务端"
+    aria-label={fl.authorityAria}
     onclick={() => toggleNode('authority')}
     onkeydown={(e) => handleNodeKey(e, 'authority')}
     transform={`translate(${au[0]}, ${au[1]})`}
@@ -812,7 +819,7 @@
     <circle cx="0" cy="-8" r="4.5" fill={dnsAccent} opacity="0.95" />
     <path d="M 0 -22 V -16 M 0 0 V 6 M -14 -8 H -8 M 8 -8 H 14" stroke={dnsAccent} stroke-width="1.5" stroke-linecap="round" />
     <circle cx="0" cy="0" r="32" fill="transparent" />
-    <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#f8fafc" font-size={compact ? 11.5 : 12} font-weight="600">DetectRadar 服务端</text>
+    <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#f8fafc" font-size={compact ? 11.5 : 12} font-weight="600">{fl.authorityNode}</text>
     <text x="0" y={compact ? 48 : 53} text-anchor="middle" fill={dnsAccent} font-size="10.5" font-weight="600">
       {verdictTitleText}
     </text>
@@ -905,22 +912,22 @@
       />
 
       <g transform="translate(252, 106)" opacity="0.88">
-        <rect x="-28" y="-9.5" width="56" height="19" rx="9.5" fill="#050d1d" stroke={dnsAccent} stroke-opacity="0.4" />
-        <text x="0" y="3.2" text-anchor="middle" fill="#cbd5e1" font-size="9.5" font-family="'JetBrains Mono', ui-monospace, monospace">DNS 递归</text>
+        <rect x={-wireDnsW / 2} y="-9.5" width={wireDnsW} height="19" rx="9.5" fill="#050d1d" stroke={dnsAccent} stroke-opacity="0.4" />
+        <text x="0" y="3.2" text-anchor="middle" fill="#cbd5e1" font-size="9.5" font-family="'JetBrains Mono', ui-monospace, monospace">{wireDnsLabel}</text>
       </g>
       <g transform="translate(508, 106)" opacity="0.88">
-        <rect x="-28" y="-9.5" width="56" height="19" rx="9.5" fill="#050d1d" stroke="rgba(148,163,184,0.28)" />
+        <rect x={-wireAuthW / 2} y="-9.5" width={wireAuthW} height="19" rx="9.5" fill="#050d1d" stroke="rgba(148,163,184,0.28)" />
         <text x="0" y="3.2" text-anchor="middle" fill="#cbd5e1" font-size="9.5" font-family="'JetBrains Mono', ui-monospace, monospace">
-          {isUnobservedBranch ? '无捕获' : '权威查询'}
+          {wireAuthLabel}
         </text>
       </g>
       <g transform="translate(252, 190)" opacity="0.88">
         <rect x="-24" y="-9.5" width="48" height="19" rx="9.5" fill="#050d1d" stroke="rgba(74,222,128,0.38)" />
-        <text x="0" y="3.2" text-anchor="middle" fill="#86efac" font-size="9.5" font-family="'JetBrains Mono', ui-monospace, monospace">HTTPS</text>
+        <text x="0" y="3.2" text-anchor="middle" fill="#86efac" font-size="9.5" font-family="'JetBrains Mono', ui-monospace, monospace">{fl.wireHttps}</text>
       </g>
       <g transform="translate(508, 190)" opacity="0.88">
         <rect x="-19" y="-9.5" width="38" height="19" rx="9.5" fill="#050d1d" stroke="rgba(74,222,128,0.28)" />
-        <text x="0" y="3.2" text-anchor="middle" fill="#86efac" font-size="9.5" font-family="'JetBrains Mono', ui-monospace, monospace">API</text>
+        <text x="0" y="3.2" text-anchor="middle" fill="#86efac" font-size="9.5" font-family="'JetBrains Mono', ui-monospace, monospace">{fl.wireApi}</text>
       </g>
 
       {#if isUnobservedBranch}
@@ -937,17 +944,7 @@
         <g transform={`translate(${httpsPosDesktop.x}, ${httpsPosDesktop.y})`} filter="url(#d-glow)">
           <rect x="-26" y="-11" width="52" height="22" rx="11" fill="var(--sig)" opacity="0.22" />
           <rect x="-24" y="-9" width="48" height="18" rx="9" fill="#071122" stroke="var(--sig)" stroke-width="1.45" />
-          <text
-            x="0"
-            y="3.3"
-            text-anchor="middle"
-            fill="#f8fafc"
-            font-size="9.5"
-            font-weight="700"
-            font-family="'JetBrains Mono', ui-monospace, monospace"
-          >
-            HTTPS
-          </text>
+          <text x="0" y="3.3" text-anchor="middle" fill="#f8fafc" font-size="9.5" font-weight="700" font-family="'JetBrains Mono', ui-monospace, monospace">HTTPS</text>
         </g>
       {/if}
 
@@ -959,17 +956,7 @@
         <g transform={`translate(${dnsPosDesktop.x}, ${dnsPosDesktop.y})`} filter="url(#d-glow)">
           <rect x="-23" y="-11" width="46" height="22" rx="11" fill={dnsAccent} opacity="0.22" />
           <rect x="-21" y="-9" width="42" height="18" rx="9" fill="#071122" stroke={dnsAccent} stroke-width="1.45" />
-          <text
-            x="0"
-            y="3.3"
-            text-anchor="middle"
-            fill="#f8fafc"
-            font-size="9.5"
-            font-weight="700"
-            font-family="'JetBrains Mono', ui-monospace, monospace"
-          >
-            DNS
-          </text>
+          <text x="0" y="3.3" text-anchor="middle" fill="#f8fafc" font-size="9.5" font-weight="700" font-family="'JetBrains Mono', ui-monospace, monospace">DNS</text>
         </g>
       {/if}
     </svg>
@@ -1026,17 +1013,7 @@
         <g transform={`translate(${httpsPosMobile.x}, ${httpsPosMobile.y})`} filter="url(#m-glow)">
           <rect x="-24" y="-10" width="48" height="20" rx="10" fill="var(--sig)" opacity="0.24" />
           <rect x="-22" y="-8" width="44" height="16" rx="8" fill="#071122" stroke="var(--sig)" stroke-width="1.4" />
-          <text
-            x="0"
-            y="3"
-            text-anchor="middle"
-            fill="#f8fafc"
-            font-size="8.8"
-            font-weight="700"
-            font-family="'JetBrains Mono', ui-monospace, monospace"
-          >
-            HTTPS
-          </text>
+          <text x="0" y="3" text-anchor="middle" fill="#f8fafc" font-size="8.8" font-weight="700" font-family="'JetBrains Mono', ui-monospace, monospace">HTTPS</text>
         </g>
       {/if}
 
@@ -1048,17 +1025,7 @@
         <g transform={`translate(${dnsPosMobile.x}, ${dnsPosMobile.y})`} filter="url(#m-glow)">
           <rect x="-21" y="-10" width="42" height="20" rx="10" fill={dnsAccent} opacity="0.24" />
           <rect x="-19" y="-8" width="38" height="16" rx="8" fill="#071122" stroke={dnsAccent} stroke-width="1.4" />
-          <text
-            x="0"
-            y="3"
-            text-anchor="middle"
-            fill="#f8fafc"
-            font-size="8.8"
-            font-weight="700"
-            font-family="'JetBrains Mono', ui-monospace, monospace"
-          >
-            DNS
-          </text>
+          <text x="0" y="3" text-anchor="middle" fill="#f8fafc" font-size="8.8" font-weight="700" font-family="'JetBrains Mono', ui-monospace, monospace">DNS</text>
         </g>
       {/if}
     </svg>
@@ -1069,7 +1036,7 @@
         <button
           type="button"
           class="text-(--slate-400) hover:text-white px-1 cursor-pointer"
-          aria-label="关闭节点详情"
+          aria-label={m.home.feedback.close}
           onclick={() => {
             selectedNode = null;
           }}

@@ -99,6 +99,14 @@ func (s *SQLiteDB) initTables() error {
 		reason VARCHAR(255) NOT NULL,
 		excluded_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
+
+	CREATE TABLE IF NOT EXISTS access_asns (
+		asn INTEGER PRIMARY KEY,
+		name TEXT NOT NULL,
+		country TEXT NOT NULL DEFAULT '',
+		network_kind TEXT NOT NULL DEFAULT 'residential',
+		source TEXT NOT NULL
+	);
 	`
 
 	_, err := s.db.Exec(schema)
@@ -116,7 +124,7 @@ func (s *SQLiteDB) Close() error {
 func (s *SQLiteDB) Stats() (map[string]int64, error) {
 	stats := make(map[string]int64)
 
-	tables := []string{"cloud_ip_ranges", "hosting_providers", "hosting_keywords", "hosting_provider_exclusions"}
+	tables := []string{"cloud_ip_ranges", "hosting_providers", "hosting_keywords", "hosting_provider_exclusions", "access_asns"}
 	for _, table := range tables {
 		var count int64
 		err := s.db.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&count)

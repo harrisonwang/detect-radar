@@ -138,12 +138,32 @@ func (a *LocalAdapter) lookupCity(ip net.IP, intel *model.IPIntel) error {
 	}
 
 	intel.Country = record.Country.IsoCode
-	intel.CountryName = getLocalizedName(record.Country.Names, "zh-CN", "en")
-
-	intel.City = getLocalizedName(record.City.Names, "zh-CN", "en")
-
+	zhCountry := getLocalizedName(record.Country.Names, "zh-CN")
+	enCountry := getLocalizedName(record.Country.Names, "en")
+	zhCity := getLocalizedName(record.City.Names, "zh-CN")
+	enCity := getLocalizedName(record.City.Names, "en")
+	var zhRegion, enRegion string
 	if len(record.Subdivisions) > 0 {
-		intel.Region = getLocalizedName(record.Subdivisions[0].Names, "zh-CN", "en")
+		zhRegion = getLocalizedName(record.Subdivisions[0].Names, "zh-CN")
+		enRegion = getLocalizedName(record.Subdivisions[0].Names, "en")
+	}
+
+	intel.CountryName = firstNonEmpty(zhCountry, enCountry)
+	intel.City = firstNonEmpty(zhCity, enCity)
+	intel.Region = firstNonEmpty(zhRegion, enRegion)
+	if zhCountry != "" || zhRegion != "" || zhCity != "" {
+		intel.GeoZH = &model.LocalizedGeo{
+			CountryName: zhCountry,
+			Region:      zhRegion,
+			City:        zhCity,
+		}
+	}
+	if enCountry != "" || enRegion != "" || enCity != "" {
+		intel.GeoEN = &model.LocalizedGeo{
+			CountryName: enCountry,
+			Region:      enRegion,
+			City:        enCity,
+		}
 	}
 
 	intel.Latitude = record.Location.Latitude
@@ -161,6 +181,15 @@ func getLocalizedName(names map[string]string, preferredLangs ...string) string 
 	for _, lang := range preferredLangs {
 		if name, ok := names[lang]; ok && name != "" {
 			return name
+		}
+	}
+	return ""
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
 		}
 	}
 	return ""

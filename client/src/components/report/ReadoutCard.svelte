@@ -1,9 +1,11 @@
 <script lang="ts">
+  import { getMessages, type Locale } from '../../i18n';
   import type { ReadoutRow, SignalState } from '../../lib/report';
   import { stateVar, stateSoft } from '../../lib/report';
   import { specialistToolFromHref, trackEvent } from '../../lib/analytics';
 
   interface Props {
+    locale?: Locale;
     title: string;
     icon: string;
     rows: ReadoutRow[];
@@ -13,7 +15,18 @@
     settled?: boolean;
     active?: boolean;
   }
-  let { title, icon, rows, state, referenceOnly = false, isScanning = false, settled = false, active = false }: Props = $props();
+  let {
+    locale = 'zh-CN',
+    title,
+    icon,
+    rows,
+    state,
+    referenceOnly = false,
+    isScanning = false,
+    settled = false,
+    active = false,
+  }: Props = $props();
+  let m = $derived(getMessages(locale));
 </script>
 
 <div class="glass-card rounded-xl p-5 h-full" class:scan-focus={active}>
@@ -23,7 +36,7 @@
       <p class="text-sm font-semibold text-white tracking-wide">{title}</p>
     </div>
     {#if referenceOnly && !isScanning && rows.length > 0}
-      <span class="text-[11px] font-mono text-(--slate-500)">仅参考</span>
+      <span class="text-[11px] font-mono text-(--slate-500)">{m.home.readout.referenceOnly}</span>
     {:else}
       <span class="dot" style="background:{stateVar(state)}; --_soft:{stateSoft(state)}"></span>
     {/if}
@@ -39,7 +52,7 @@
       {/each}
     </div>
   {:else if rows.length === 0}
-    <p class="text-sm text-(--slate-500)">待检测</p>
+    <p class="text-sm text-(--slate-500)">{m.common.idle}</p>
   {:else}
     <div class="space-y-3" class:scan-settle={settled}>
       {#each rows as r}
@@ -49,10 +62,10 @@
           <div class="text-right flex-1 min-w-0">
             {#if r.compare}
               <span class="text-sm text-(--slate-200)">
-                <span class="text-[10px] text-(--slate-500) font-mono">浏览器</span>
+                <span class="text-[10px] text-(--slate-500) font-mono">{m.home.readout.browserTag}</span>
                 {r.compare.browser}
                 <span class="text-(--slate-600) mx-0.5">↔</span>
-                <span class="text-[10px] text-(--slate-500) font-mono">IP</span>
+                <span class="text-[10px] text-(--slate-500) font-mono">{m.home.readout.ipTag}</span>
                 {r.compare.ip}
               </span>
             {:else if r.href}
@@ -68,11 +81,9 @@
             {:else}
               <span class="text-sm text-(--slate-200) tnum">{r.value}</span>
             {/if}
-
           </div>
         </div>
       {/each}
     </div>
-
   {/if}
 </div>

@@ -1,23 +1,26 @@
 <script lang="ts">
+  import { getMessages, type Locale } from '../../i18n';
   import { maskIP } from '../../lib/ipDisplay';
 
   interface Props {
+    locale?: Locale;
     ip: string;
     revealed: boolean;
     onToggleReveal?: () => void;
     onCopyFeedback?: (message: string) => void;
   }
 
-  let { ip, revealed, onToggleReveal, onCopyFeedback }: Props = $props();
+  let { locale = 'zh-CN', ip, revealed, onToggleReveal, onCopyFeedback }: Props = $props();
+  let c = $derived(getMessages(locale).common);
   let address = $derived(revealed ? ip || '—' : maskIP(ip));
-  let action = $derived(revealed ? '点击脱敏' : '点击显示完整 IP');
+  let action = $derived(revealed ? c.ipMask : c.ipReveal);
 
   async function copyIP() {
     try {
       await navigator.clipboard.writeText(ip);
-      onCopyFeedback?.('IP 已复制');
+      onCopyFeedback?.(c.ipCopied);
     } catch {
-      onCopyFeedback?.('复制失败，请检查浏览器权限');
+      onCopyFeedback?.(c.copyFailedShort);
     }
   }
 </script>
@@ -30,12 +33,17 @@
     class:text-2xl={!revealed || !ip.includes(':')}
     onclick={onToggleReveal}
     title={action}
-    aria-label={`${action}，${address}`}
+    aria-label={locale === 'en' ? `${action}, ${address}` : `${action}，${address}`}
     data-ip-display
   >{address}</button>
   {#if ip && onCopyFeedback}
-    <button type="button" class="shrink-0 text-(--slate-500) hover:text-(--radar-400) transition-colors cursor-pointer"
-      onclick={copyIP} title="复制完整 IP" aria-label="复制">
+    <button
+      type="button"
+      class="shrink-0 text-(--slate-500) hover:text-(--radar-400) transition-colors cursor-pointer"
+      onclick={copyIP}
+      title={c.copyFullIP}
+      aria-label={c.copyAction}
+    >
       <i class="fa-regular fa-copy text-sm" aria-hidden="true"></i>
     </button>
   {/if}

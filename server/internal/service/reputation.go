@@ -321,7 +321,38 @@ func dnsblPBL(zone string, addrs []string) bool {
 }
 
 func reputationRecommendation(r *model.ReputationResult) string {
+	return ReputationRecommendation(r, "zh")
+}
+
+func ReputationRecommendation(r *model.ReputationResult, lang string) string {
+	if r == nil {
+		return ""
+	}
+	if len(r.CheckedSources) == 0 && r.Level == "clean" {
+		if lang == "en" {
+			return "Reputation check disabled or invalid IP"
+		}
+		return "信誉检测未启用或 IP 无效"
+	}
 	var parts []string
+	if lang == "en" {
+		if r.OpenProxyPort {
+			parts = append(parts, "Open proxy port detected on exit IP; close the port or switch exit IP")
+		}
+		if r.BlacklistHit {
+			parts = append(parts, fmt.Sprintf("Exit IP listed on public blocklists (%s); consider switching IP", strings.Join(r.BlacklistSources, ",")))
+		}
+		if r.IsTorExit {
+			parts = append(parts, "Exit IP is a known Tor exit node")
+		}
+		if len(parts) == 0 {
+			if len(r.OpenPorts) > 0 {
+				return "Open service ports detected (server-like profile); residential IPs rarely expose public ports"
+			}
+			return "No blocklist, open proxy port, or Tor exit exposure detected"
+		}
+		return strings.Join(parts, "; ")
+	}
 	if r.OpenProxyPort {
 		parts = append(parts, "出口 IP 开放了代理端口，极易被识别为代理，建议更换出口或关闭端口")
 	}

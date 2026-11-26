@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
+  import { getMessages, type Locale } from '../../i18n';
   import { dnsProviderName } from '../../lib/dnsPresentation';
   import { maskIP } from '../../lib/ipDisplay';
   import {
@@ -13,6 +14,7 @@
   type Pt = readonly [number, number];
 
   interface Props {
+    locale?: Locale;
     v4: StackExit | null;
     v6: StackExit | null;
     verdictState: IPv6VerdictState;
@@ -24,6 +26,7 @@
   }
 
   let {
+    locale = 'zh-CN',
     v4,
     v6,
     verdictState,
@@ -33,6 +36,9 @@
     liveProgress = null,
     hasResult = false,
   }: Props = $props();
+
+  let m = $derived(getMessages(locale));
+  let fl = $derived(m.ipv6.flow);
 
   let v4T = $state(1);
   let v4Active = $state(false);
@@ -121,6 +127,14 @@
     v4: [262, 152],
     judge: [170, 254],
   };
+
+  function pillWidth(label: string, minW = 38): number {
+    let w = 16;
+    for (const ch of label) {
+      w += /[\u3000-\u9fff]/.test(ch) ? 10 : 6.1;
+    }
+    return Math.max(minW, Math.ceil(w));
+  }
 
   function pointAlong(pts: readonly Pt[], rawT: number): { x: number; y: number } {
     const t = Math.max(0, Math.min(1, rawT));
@@ -402,28 +416,36 @@
 
   let v4Name = $derived(
     activeV4?.ip
-      ? `${dnsProviderName(activeV4.network) || 'IPv4 出口'} · ${stackRegionLabel(activeV4)}`
+      ? `${dnsProviderName(activeV4.network, locale) || fl.v4Idle} · ${stackRegionLabel(activeV4, locale)}`
       : isIdle
-        ? 'IPv4 出口'
+        ? fl.v4Idle
         : busy && !v4Done
-          ? '正在探测 IPv4'
-          : 'IPv4 未连通',
+          ? fl.v4Probing
+          : fl.v4Disconnected,
   );
   let v4DisplayIP = $derived(
-    activeV4?.ip ? formatDisplayIP(activeV4.ip) : isIdle ? '待检测' : busy && !v4Done ? '…' : '未连通',
+    activeV4?.ip ? formatDisplayIP(activeV4.ip) : isIdle ? m.common.idle : busy && !v4Done ? '…' : m.ipv6.page.unreachableShort,
   );
 
   let v6Name = $derived(
     activeV6?.ip
-      ? `${dnsProviderName(activeV6.network) || 'IPv6 出口'} · ${stackRegionLabel(activeV6)}`
+      ? `${dnsProviderName(activeV6.network, locale) || fl.v6Idle} · ${stackRegionLabel(activeV6, locale)}`
       : isIdle
-        ? 'IPv6 出口'
+        ? fl.v6Idle
         : busy && !v6Done
-          ? '正在探测 IPv6'
-          : 'IPv6 未连通',
+          ? fl.v6Probing
+          : fl.v6Disconnected,
   );
   let v6DisplayIP = $derived(
-    activeV6?.ip ? formatDisplayIP(activeV6.ip) : isIdle ? '待检测' : busy && !v6Done ? '…' : '仅连通 IPv4',
+    activeV6?.ip
+      ? formatDisplayIP(activeV6.ip)
+      : isIdle
+        ? m.common.idle
+        : busy && !v6Done
+          ? '…'
+          : activeV4?.ip
+            ? fl.v6OnlyV4
+            : m.ipv6.page.unreachableShort,
   );
 
   let v6Accent = $derived(
@@ -490,60 +512,61 @@
     (busy && liveProgress?.phase === 'comparing'),
   );
 
-  let verdictTitleWord = $derived(
-    effectiveVerdict === 'leaked'
-      ? '泄露'
-      : effectiveVerdict === 'clear'
-        ? '未泄露'
-        : '无法判断',
-  );
-
   let verdictTitleText = $derived(
     isIdle
-      ? '待检测'
+      ? m.common.idle
       : busy
         ? liveProgress?.phase === 'comparing'
-          ? '比对出口归属…'
-          : '并发探测中…'
-        : verdictTitleWord,
+          ? fl.verdictComparing
+          : fl.verdictBusy
+        : m.ipv6.status[effectiveVerdict],
   );
 
   let statusText = $derived.by(() => {
     if (!busy) return '';
-    if (!liveProgress) return '正在测试 IPv4 与 IPv6 出口';
-    if (liveProgress.phase === 'comparing') return '正在比对出口归属…';
-    if (liveProgress.v4Done && !liveProgress.v6Done) return 'IPv4 已响应，等待 IPv6…';
-    if (!liveProgress.v4Done && liveProgress.v6Done) return 'IPv6 已响应，等待 IPv4…';
-    return '正在并发探测 IPv4 与 IPv6';
+    if (!liveProgress) return fl.statusInit;
+    if (liveProgress.phase === 'comparing') return fl.statusComparing;
+    if (liveProgress.v4Done && !liveProgress.v6Done) return fl.statusWaitV6;
+    if (!liveProgress.v4Done && liveProgress.v6Done) return fl.statusWaitV4;
+    return fl.statusBoth;
   });
 
   let inspectorInfo = $derived.by(() => {
     if (!selectedNode) return null;
     switch (selectedNode) {
       case 'browser':
-        return '你的浏览器：并发连接纯 IPv4（4.detectradar.com）与纯 IPv6（6.detectradar.com）';
+        return fl.inspectorBrowser;
       case 'v6':
         return activeV6?.ip
-          ? `IPv6 出口：${v6Name}（${v6DisplayIP}${activeV6.asn ? ` · ${activeV6.asn}` : ''}）`
-          : 'IPv6 出口：当前网络未连通 IPv6（仅 IPv4 网络）';
+          ? fl.inspectorV6(v6Name, v6DisplayIP, activeV6.asn)
+          : fl.inspectorV6Empty;
       case 'v4':
         return activeV4?.ip
-          ? `IPv4 出口：${v4Name}（${v4DisplayIP}${activeV4.asn ? ` · ${activeV4.asn}` : ''}）`
-          : 'IPv4 出口：未能连通 4.detectradar.com';
+          ? fl.inspectorV4(v4Name, v4DisplayIP, activeV4.asn)
+          : fl.inspectorV4Empty;
       case 'judge': {
-        const cleanNote = verdictNote ? verdictNote.replace(/。$/, '') : '';
-        return `出口归属比对：${verdictTitleText}${cleanNote && !busy ? ` — ${cleanNote}` : ''}`;
+        const cleanNote = verdictNote ? verdictNote.replace(/[。；.;]+$/, '') : '';
+        return fl.inspectorJudge(verdictTitleText, cleanNote && !busy ? cleanNote : '');
       }
     }
   });
 
   let ariaSummary = $derived(
     isIdle
-      ? 'IPv6 路径图：等待同时测试 4.detectradar.com 与 6.detectradar.com'
+      ? fl.ariaIdle
       : busy && !hasResult
-        ? 'IPv6 路径图：正在同时测试 IPv4 与 IPv6 出口'
-        : `IPv6 实测路径图：IPv4 为 ${v4Name}（${v4DisplayIP}）；IPv6 为 ${v6Name}（${v6DisplayIP}）；结论：${verdictTitleText}`,
+        ? fl.ariaBusy
+        : fl.ariaResult(v4Name, v4DisplayIP, v6Name, v6DisplayIP, verdictTitleText),
   );
+
+  let wireV6LeftLabel = $derived(fl.wireV6);
+  let wireV6RightLabel = $derived(isV6Halted ? fl.wireDisconnected : locale === 'en' ? 'AAAA' : 'AAAA 出口');
+  let wireV4LeftLabel = $derived(fl.wireV4);
+  let wireV4RightLabel = $derived(isV4Halted ? fl.wireDisconnected : locale === 'en' ? 'A Record' : 'A 出口');
+  let wireV6LeftW = $derived(pillWidth(wireV6LeftLabel, 44));
+  let wireV6RightW = $derived(pillWidth(wireV6RightLabel, 48));
+  let wireV4LeftW = $derived(pillWidth(wireV4LeftLabel, 44));
+  let wireV4RightW = $derived(pillWidth(wireV4RightLabel, 48));
 </script>
 
 {#snippet isoNodes(prefix: string, pos: Record<NodeId, Pt>, compact: boolean)}
@@ -552,7 +575,7 @@
     class="dfs-node-hit"
     role="button"
     tabindex="0"
-    aria-label="查看节点：你的浏览器"
+    aria-label={fl.browserAria}
     onclick={() => toggleNode('browser')}
     onkeydown={(e) => handleNodeKey(e, 'browser')}
     transform={`translate(${b[0]}, ${b[1]})`}
@@ -570,7 +593,7 @@
     <line x1="-18" y1="-12" x2="-7" y2="-17" stroke="var(--radar-400)" stroke-width="1.3" stroke-linecap="round" opacity="0.9" />
     <line x1="-18" y1="-8" x2="-10" y2="-12" stroke="#94a3b8" stroke-width="1.1" stroke-linecap="round" opacity="0.65" />
     <circle cx="0" cy="14" r="28" fill="transparent" />
-    <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#e2e8f0" font-size={compact ? 11.5 : 12} font-weight="600">你的浏览器</text>
+    <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#e2e8f0" font-size={compact ? 11.5 : 12} font-weight="600">{fl.browserNode}</text>
   </g>
 
   {@const n6 = pos.v6}
@@ -578,7 +601,7 @@
     class="dfs-node-hit"
     role="button"
     tabindex="0"
-    aria-label="查看节点：IPv6 出口"
+    aria-label={fl.v6Aria}
     onclick={() => toggleNode('v6')}
     onkeydown={(e) => handleNodeKey(e, 'v6')}
     transform={`translate(${n6[0]}, ${n6[1]})`}
@@ -638,7 +661,7 @@
         font-size="11.5"
         font-weight="600"
       >
-        {truncateText(v6Name, 14)}
+        {truncateText(v6Name, 16)}
       </text>
       <text
         x="0"
@@ -659,7 +682,7 @@
         font-size="12"
         font-weight="600"
       >
-        {truncateText(v6Name, 24)}
+        {truncateText(v6Name, 28)}
       </text>
       <text
         x="0"
@@ -669,7 +692,7 @@
         font-size="10.5"
         font-family={activeV6?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}
       >
-        {activeV6?.ip ? `${truncateText(v6DisplayIP, 22)} · IPv6` : truncateText(v6DisplayIP, 24)}
+        {activeV6?.ip ? `${truncateText(v6DisplayIP, 22)} · IPv6` : truncateText(v6DisplayIP, 26)}
       </text>
     {/if}
   </g>
@@ -679,7 +702,7 @@
     class="dfs-node-hit"
     role="button"
     tabindex="0"
-    aria-label="查看节点：IPv4 出口"
+    aria-label={fl.v4Aria}
     onclick={() => toggleNode('v4')}
     onkeydown={(e) => handleNodeKey(e, 'v4')}
     transform={`translate(${n4[0]}, ${n4[1]})`}
@@ -706,10 +729,10 @@
     <line x1="-16" y1="6" x2="-4" y2="12" stroke="#64748b" stroke-width="1.4" stroke-linecap="round" opacity="0.55" />
     <circle cx="0" cy="0" r="30" fill="transparent" />
     {#if compact}
-      <text x="0" y="36" text-anchor="middle" fill="#f8fafc" font-size="11.5" font-weight="600">{truncateText(v4Name, 14)}</text>
+      <text x="0" y="36" text-anchor="middle" fill="#f8fafc" font-size="11.5" font-weight="600">{truncateText(v4Name, 16)}</text>
       <text x="0" y="51" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeV4?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{truncateText(v4DisplayIP, 16)}</text>
     {:else}
-      <text x="0" y="38" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="600">{truncateText(v4Name, 22)}</text>
+      <text x="0" y="38" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="600">{truncateText(v4Name, 26)}</text>
       <text x="0" y="53" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeV4?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{activeV4?.ip ? `${v4DisplayIP} · IPv4` : v4DisplayIP}</text>
     {/if}
   </g>
@@ -719,7 +742,7 @@
     class="dfs-node-hit"
     role="button"
     tabindex="0"
-    aria-label="查看节点：出口归属比对"
+    aria-label={fl.judgeAria}
     onclick={() => toggleNode('judge')}
     onkeydown={(e) => handleNodeKey(e, 'judge')}
     transform={`translate(${jg[0]}, ${jg[1]})`}
@@ -750,7 +773,7 @@
     <circle cx="0" cy="-8" r="4.5" fill={judgeAccent} opacity="0.95" />
     <path d="M 0 -22 V -16 M 0 0 V 6 M -14 -8 H -8 M 8 -8 H 14" stroke={judgeAccent} stroke-width="1.5" stroke-linecap="round" />
     <circle cx="0" cy="0" r="32" fill="transparent" />
-    <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#f8fafc" font-size={compact ? 11.5 : 12} font-weight="600">出口归属比对</text>
+    <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#f8fafc" font-size={compact ? 11.5 : 12} font-weight="600">{fl.judgeNode}</text>
     <text x="0" y={compact ? 48 : 53} text-anchor="middle" fill={judgeAccent} font-size="10.5" font-weight="600">
       {verdictTitleText}
     </text>
@@ -849,23 +872,23 @@
       />
 
       <g transform="translate(252, 106)" opacity="0.88">
-        <rect x="-32" y="-9.5" width="64" height="19" rx="9.5" fill="#050d1d" stroke={v6Accent} stroke-opacity="0.4" />
-        <text x="0" y="3.2" text-anchor="middle" fill="#cbd5e1" font-size="9.5" font-family="'JetBrains Mono', ui-monospace, monospace">IPv6 探测</text>
+        <rect x={-wireV6LeftW / 2} y="-9.5" width={wireV6LeftW} height="19" rx="9.5" fill="#050d1d" stroke={v6Accent} stroke-opacity="0.4" />
+        <text x="0" y="3.2" text-anchor="middle" fill="#cbd5e1" font-size="9.5" font-family="'JetBrains Mono', ui-monospace, monospace">{wireV6LeftLabel}</text>
       </g>
       <g transform="translate(508, 106)" opacity="0.88">
-        <rect x="-28" y="-9.5" width="56" height="19" rx="9.5" fill="#050d1d" stroke="rgba(148,163,184,0.28)" />
+        <rect x={-wireV6RightW / 2} y="-9.5" width={wireV6RightW} height="19" rx="9.5" fill="#050d1d" stroke="rgba(148,163,184,0.28)" />
         <text x="0" y="3.2" text-anchor="middle" fill="#cbd5e1" font-size="9.5" font-family="'JetBrains Mono', ui-monospace, monospace">
-          {isV6Halted ? '未连通' : 'AAAA 出口'}
+          {wireV6RightLabel}
         </text>
       </g>
       <g transform="translate(252, 190)" opacity="0.88">
-        <rect x="-32" y="-9.5" width="64" height="19" rx="9.5" fill="#050d1d" stroke="rgba(74,222,128,0.38)" />
-        <text x="0" y="3.2" text-anchor="middle" fill="#86efac" font-size="9.5" font-family="'JetBrains Mono', ui-monospace, monospace">IPv4 探测</text>
+        <rect x={-wireV4LeftW / 2} y="-9.5" width={wireV4LeftW} height="19" rx="9.5" fill="#050d1d" stroke="rgba(74,222,128,0.38)" />
+        <text x="0" y="3.2" text-anchor="middle" fill="#86efac" font-size="9.5" font-family="'JetBrains Mono', ui-monospace, monospace">{wireV4LeftLabel}</text>
       </g>
       <g transform="translate(508, 190)" opacity="0.88">
-        <rect x="-24" y="-9.5" width="48" height="19" rx="9.5" fill="#050d1d" stroke="rgba(74,222,128,0.28)" />
+        <rect x={-wireV4RightW / 2} y="-9.5" width={wireV4RightW} height="19" rx="9.5" fill="#050d1d" stroke="rgba(74,222,128,0.28)" />
         <text x="0" y="3.2" text-anchor="middle" fill="#86efac" font-size="9.5" font-family="'JetBrains Mono', ui-monospace, monospace">
-          {isV4Halted ? '未连通' : 'A 出口'}
+          {wireV4RightLabel}
         </text>
       </g>
 
@@ -988,7 +1011,7 @@
         <button
           type="button"
           class="text-(--slate-400) hover:text-white px-1 cursor-pointer"
-          aria-label="关闭节点详情"
+          aria-label={m.home.feedback.close}
           onclick={() => {
             selectedNode = null;
           }}

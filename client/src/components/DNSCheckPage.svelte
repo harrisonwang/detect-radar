@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { getMessages, joinList, localePath, type Locale } from '../i18n';
   import AppHeader from './report/AppHeader.svelte';
   import DNSFlowStage from './report/DNSFlowStage.svelte';
   import ExitIPAddress from './report/ExitIPAddress.svelte';
@@ -8,20 +9,28 @@
   import { trackEvent } from '../lib/analytics';
   import { isAutomatedCrawler } from '../lib/crawler';
   import { dnsHistory, emptyDNSHistory, type DNSHistory } from '../lib/dnsHistory';
-  import { dnsExitType, dnsProviderName, dnsRegion, dnsStatus, dnsVerdictNote, exitTypeLabel } from '../lib/dnsPresentation';
+  import { dnsExitType, dnsProviderName, dnsRegion, dnsVerdictNote, exitTypeLabel, getDnsStatus } from '../lib/dnsPresentation';
   import { renderDNSShareCard, saveShareImage } from '../lib/toolShareCard';
   import { copyShareText, formatDNSShareText } from '../lib/shareSummary';
   import type { DNSExit } from '../lib/types';
 
-  const failures = {
-    empty: { title: dnsStatus.unobserved.title, note: '网络较慢或测试请求被拦截时，可能测不到结果。' },
-    limited: { title: '检测未完成', note: '请求过于频繁，请稍后再试。' },
-    unavailable: { title: '检测未完成', note: '检测服务暂时连不上。' },
-  };
+  interface Props {
+    locale?: Locale;
+  }
+  let { locale = 'zh-CN' }: Props = $props();
+
+  let m = $derived(getMessages(locale));
+  let statusMap = $derived(getDnsStatus(locale));
+  let failures = $derived({
+    empty: { title: m.dns.failures.emptyTitle, note: m.dns.failures.emptyNote },
+    limited: { title: m.dns.failures.failedTitle, note: m.dns.failures.limitedNote },
+    unavailable: { title: m.dns.failures.failedTitle, note: m.dns.failures.unavailableNote },
+  });
+
   let history = $state.raw<DNSHistory>(emptyDNSHistory);
   let ready = $state(false);
   let busy = $state(false);
-  let failure = $state<keyof typeof failures | null>(null);
+  let failure = $state<'empty' | 'limited' | 'unavailable' | null>(null);
   let pendingExit = $state.raw<DNSExit | null>(null);
   let liveProgress = $state.raw<DNSProgress | null>(null);
   let revealExit = $state(true);
@@ -29,17 +38,28 @@
   let toast: ReturnType<typeof ReportToast> | undefined = $state();
 
   let current = $derived(history.current);
-  let networks = $derived(current ? dnsNetworks(current) : null);
-  let providers = $derived(networks ? dnsProviderGroups(networks.values()) : []);
-  let comparison = $derived(current && history.previous && networks
-    ? compareDNS(history.previous, current, networks) : null);
+  let networks = $derived(current ? dnsNetworks(current, locale) : null);
+  let providers = $derived(networks ? dnsProviderGroups(networks.values(), locale) : []);
+  let comparison = $derived(
+    current && history.previous && networks
+      ? compareDNS(history.previous, current, networks, busy ? 'previous' : 'current', locale)
+      : null,
+  );
   let verdictState = $derived(current?.verdict?.state ?? 'unknown');
-  let status = $derived(dnsStatus[verdictState]);
-  let publicDNSAbroad = $derived(verdictState === 'clear' && current?.exit?.country
-    && providers.length > 0 && providers.every((p) => p.type === 'public')
-    && providers.some((p) => p.regions.some((r) => r.country && r.country !== current?.exit?.country)));
-  let note = $derived(publicDNSAbroad ? '公共 DNS 和出口 IP 的归属地可以不同。' : dnsVerdictNote(current?.verdict));
+  let status = $derived(statusMap[verdictState]);
+  let publicDNSAbroad = $derived(
+    verdictState === 'clear' &&
+      current?.exit?.country &&
+      providers.length > 0 &&
+      providers.every((p) => p.type === 'public') &&
+      providers.some((p) => p.regions.some((r) => r.country && r.country !== current?.exit?.country)),
+  );
   let error = $derived(failure ? failures[failure] : null);
+  let note = $derived(
+    publicDNSAbroad
+      ? m.dns.publicDNSAbroadNote
+      : dnsVerdictNote(current?.verdict, busy || error ? 'previous' : 'current', locale),
+  );
   let flowProviders = $derived(
     providers.map((p) => ({
       name: p.name,
@@ -102,63 +122,76 @@
         verdictTitle: status.title,
         note,
         exit: current.exit,
-        exitNetworkName: current.exit?.ip ? (dnsProviderName(current.exit.network) || '网络未知') : '未获取',
-        exitRegion: current.exit?.ip ? dnsRegion(current.exit.country) : '',
-        exitTypeLabel: current.exit?.ip ? exitTypeLabel(dnsExitType(current.exit)) : '',
+        exitNetworkName: current.exit?.ip
+          ? (dnsProviderName(current.exit.network, locale) || m.common.unknownNetwork)
+          : m.common.unavailable,
+        exitRegion: current.exit?.ip ? dnsRegion(current.exit.country, locale) : '',
+        exitTypeLabel: current.exit?.ip ? exitTypeLabel(dnsExitType(current.exit), locale) : '',
         providers: providers.map((p) => ({
           name: p.name,
-          regions: p.regions.map((r) => dnsRegion(r.country)).join('、'),
+          regions: joinList(p.regions.map((r) => dnsRegion(r.country, locale)), locale),
           type: p.type,
           suspect: p.suspect,
         })),
         resolverCount: current.resolvers.length,
+        locale,
       });
-      const shareMsg = await saveShareImage(blob, 'detectradar-dns');
+      const shareMsg = await saveShareImage(blob, 'detectradar-dns', locale);
       trackEvent('share-save-image', { page: 'dns' });
       toast?.show(shareMsg);
     } catch (err) {
-      toast?.show('分享图生成失败：' + (err as Error).message);
+      toast?.show(m.common.imageFailed((err as Error).message));
     } finally {
       capturing = false;
     }
   }
+
   async function handleCopyText() {
     if (!current || busy) return;
     trackEvent('share-copy-text', { page: 'dns' });
-    const text = formatDNSShareText({
-      verdictState,
-      verdictTitle: status.title,
-      verdict: current.verdict,
-      note,
-      exit: current.exit,
-      exitNetworkName: current.exit?.ip ? (dnsProviderName(current.exit.network) || '网络未知') : '未获取',
-      exitRegion: current.exit?.ip ? dnsRegion(current.exit.country) : '',
-      exitTypeLabel: current.exit?.ip ? exitTypeLabel(dnsExitType(current.exit)) : '',
-      providers: providers.map((p) => ({
-        name: p.name,
-        regions: p.regions.map((r) => dnsRegion(r.country)).join('、'),
-        type: p.type,
-        suspect: p.suspect,
-      })),
-      comparisonSummary: comparison?.summary,
-    });
-    toast?.show(await copyShareText(text));
+    const text = formatDNSShareText(
+      {
+        verdictState,
+        verdictTitle: status.title,
+        verdict: current.verdict,
+        note,
+        exit: current.exit,
+        exitNetworkName: current.exit?.ip
+          ? (dnsProviderName(current.exit.network, locale) || m.common.unknownNetwork)
+          : m.common.unavailable,
+        exitRegion: current.exit?.ip ? dnsRegion(current.exit.country, locale) : '',
+        exitTypeLabel: current.exit?.ip ? exitTypeLabel(dnsExitType(current.exit), locale) : '',
+        providers: providers.map((p) => ({
+          name: p.name,
+          regions: joinList(p.regions.map((r) => dnsRegion(r.country, locale)), locale),
+          type: p.type,
+          suspect: p.suspect,
+        })),
+        comparisonSummary: comparison?.summary,
+      },
+      locale,
+    );
+    toast?.show(await copyShareText(text, locale));
   }
 </script>
 
 {#snippet exitReadout(exit: DNSExit | null, pending: boolean, waiting = false)}
   <div class="reading">
-    <p class="field" title="你访问本站时使用的公网 IP"><i class="fa-solid fa-globe" aria-hidden="true"></i>出口 IP</p>
+    <p class="field" title={m.common.exitIPTooltip}><i class="fa-solid fa-globe" aria-hidden="true"></i>{m.common.exitIP}</p>
     {#if exit?.ip}
-      {@const networkType = exitTypeLabel(dnsExitType(exit))}
+      {@const networkType = exitTypeLabel(dnsExitType(exit), locale)}
       <div class="network-identity exit-identity">
-        <span class="network-name">{dnsProviderName(exit.network) || '网络未知'}</span>
-        <span class="region">{dnsRegion(exit.country)}</span>
+        <span class="network-name">{dnsProviderName(exit.network, locale) || m.common.unknownNetwork}</span>
+        <span class="region">{dnsRegion(exit.country, locale)}</span>
       </div>
       <div class="mt-0.5 mb-1.5">
-        <ExitIPAddress ip={exit.ip} revealed={revealExit}
+        <ExitIPAddress
+          {locale}
+          ip={exit.ip}
+          revealed={revealExit}
           onToggleReveal={() => { revealExit = !revealExit; }}
-          onCopyFeedback={(message) => toast?.show(message)} />
+          onCopyFeedback={(message) => toast?.show(message)}
+        />
       </div>
       {#if networkType || exit.asn}
         <div class="exit-meta">
@@ -167,33 +200,43 @@
         </div>
       {/if}
     {:else}
-      <p class="readout-placeholder">{pending ? '正在获取…' : waiting ? '待检测' : '未获取'}</p>
+      <p class="readout-placeholder">{pending ? m.common.fetching : waiting ? m.common.idle : m.common.unavailable}</p>
     {/if}
   </div>
 {/snippet}
 
-<AppHeader page="dns" onCopyText={handleCopyText} onScreenshot={handleScreenshot} onRescan={() => run('retest')} isScanning={!ready || busy} ready={!!current} failureText={error?.title} />
+<AppHeader
+  page="dns"
+  {locale}
+  onCopyText={handleCopyText}
+  onScreenshot={handleScreenshot}
+  onRescan={() => run('retest')}
+  isScanning={!ready || busy}
+  ready={!!current}
+  failureText={error?.title}
+/>
 
 <main class="report-main flex-1 min-w-0">
   <header class="mb-6">
-    <h1 class="report-title"><span class="text-radar">DNS</span> 泄露检测</h1>
+    <h1 class="report-title"><span class="text-radar">{m.dns.titleAccent}</span>{m.dns.titleRest}</h1>
   </header>
 
   <div role="status" class="sr-only" data-nosnippet>
-    {busy ? (current ? '正在重新检测 DNS。' : '正在检测 DNS。') : error?.title ?? (current ? status.title : '')}
+    {busy ? (current ? m.dns.page.srRetesting : m.dns.page.srTesting) : error?.title ?? (current ? status.title : '')}
   </div>
 
   <div class="diagnostic-layout">
     {#if current}
-      <section class="glass-card result-card" aria-label="DNS 检测结果" data-nosnippet>
+      <section class="glass-card result-card" aria-label={m.dns.page.resultAria} data-nosnippet>
         {#if error}
           <div class="result-notice">
             <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
-            <span>{failure === 'empty' ? '这次未测到 DNS，' : error.note}已保留上次结果。</span>
+            <span>{failure === 'empty' ? m.dns.failures.noticeEmpty : m.dns.failures.noticeOther(error.note)}</span>
           </div>
         {/if}
 
         <DNSFlowStage
+          {locale}
           exit={current.exit}
           {verdictState}
           providers={flowProviders}
@@ -204,34 +247,34 @@
           hasResult={true}
         />
         {#if busy}
-          <div class="progress-track" role="progressbar" aria-label="DNS 重新检测进度"><span></span></div>
+          <div class="progress-track" role="progressbar" aria-label={m.dns.page.retestProgressAria}><span></span></div>
         {/if}
 
         <header class="diagnosis" style:--verdict-color={status.color} style:--verdict-soft={status.soft}>
-          <p class="card-label">{busy ? '正在重新检测 · 上次结果' : error ? '上次结果' : '本次检测'}</p>
+          <p class="card-label">{busy ? m.common.retestingPrevious : error ? m.common.previousResult : m.common.thisScan}</p>
           <p class="verdict-title"><span class="dot" class:loading-dot={busy} aria-hidden="true"></span>{status.title}</p>
-          {#if note}<p class="diagnosis-note">{busy || error ? note.replace(/本次 ?/g, '') : note}</p>{/if}
+          {#if note}<p class="diagnosis-note">{note}</p>{/if}
         </header>
 
         <div class="columns" class:retesting={busy}>
           {@render exitReadout(current.exit, false)}
           <div class="reading">
             <p class="field"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i>DNS</p>
-            <ul class="network-list" aria-label="检测到的 DNS 网络">
+            <ul class="network-list" aria-label={m.dns.page.networkListAria}>
               {#each providers as provider (provider.key)}
                 <li class="network-row" class:suspect-network={provider.suspect}>
                   <div class="network-identity">
                     {#if provider.suspect}
-                      <span class="suspect-dot" aria-hidden="true"></span><span class="sr-only">泄露</span>
+                      <span class="suspect-dot" aria-hidden="true"></span><span class="sr-only">{statusMap.suspected.title}</span>
                     {/if}
                     <span class="network-name">{provider.name}</span>
-                    <span class="region">{provider.regions.map((region) => dnsRegion(region.country)).join('、')}</span>
+                    <span class="region">{joinList(provider.regions.map((region) => dnsRegion(region.country, locale)), locale)}</span>
                   </div>
                   <div class="network-tags">
                     {#if provider.type === 'public'}
-                      <span class="badge">公共 DNS</span>
+                      <span class="badge">{m.dns.page.tagPublic}</span>
                     {:else if provider.type === 'access'}
-                      <span class="badge">运营商 DNS</span>
+                      <span class="badge">{m.dns.page.tagAccess}</span>
                     {/if}
                   </div>
                 </li>
@@ -244,30 +287,30 @@
             <summary>
               <span class="summary-name">
                 <i class="chevron fa-solid fa-chevron-right" aria-hidden="true"></i>
-                DNS 地址
+                {m.dns.page.detailsTitle}
               </span>
-              <span class="address-count"><span class="font-mono">{current.resolvers.length}</span> 个地址</span>
+              <span class="address-count"><span class="font-mono">{m.dns.page.addressCount(current.resolvers.length)}</span></span>
             </summary>
             <div class="resolver-groups">
-              <ul aria-label="按服务商分组的 DNS 地址">
+              <ul aria-label={m.dns.page.groupedAria}>
                 {#each providers as provider (provider.key)}
                   <li class="resolver-provider">
                     <div class="network-identity provider-heading">
                       <span class="network-name">{provider.name}</span>
-                      {#if provider.regions.length === 1}<span class="region">{dnsRegion(provider.regions[0].country)}</span>{/if}
+                      {#if provider.regions.length === 1}<span class="region">{dnsRegion(provider.regions[0].country, locale)}</span>{/if}
                     </div>
                     <div class="region-groups">
                       {#each provider.regions as region (region.country)}
                         <div>
-                          {#if provider.regions.length > 1}<p class="region mb-1.5">{dnsRegion(region.country)}</p>{/if}
+                          {#if provider.regions.length > 1}<p class="region mb-1.5">{dnsRegion(region.country, locale)}</p>{/if}
                           <ul class="resolver-addresses">
                             {#each region.samples as resolver (resolver.ip)}
                               <li class="resolver-address">
                                 {#if current.verdict?.suspect_ips?.includes(resolver.ip)}
-                                  <span class="suspect-dot" aria-hidden="true"></span><span class="sr-only">泄露</span>
+                                  <span class="suspect-dot" aria-hidden="true"></span><span class="sr-only">{statusMap.suspected.title}</span>
                                 {/if}
                                 <span class="ip-address">{resolver.ip}</span>
-                                {#if !error && comparison?.addedIPs.has(resolver.ip)}<span class="badge new">新增</span>{/if}
+                                {#if !error && comparison?.addedIPs.has(resolver.ip)}<span class="badge new">{m.common.added}</span>{/if}
                               </li>
                             {/each}
                           </ul>
@@ -279,7 +322,7 @@
               </ul>
               {#if !error && comparison?.removedIPs.length}
                 <div class="old-addresses">
-                  <p class="region">{busy ? '上次未再测到的地址' : '本次未再测到的地址'}</p>
+                  <p class="region">{busy ? m.common.noLongerSeenPrevious : m.common.noLongerSeenCurrent}</p>
                   <ul class="resolver-addresses mt-2">
                     {#each comparison.removedIPs as ip (ip)}
                       <li class="resolver-address"><span class="ip-address">{ip}</span></li>
@@ -300,8 +343,9 @@
       </section>
     {:else}
       {@const isWaiting = ready && !busy}
-      <section class="glass-card result-card" aria-label={isWaiting ? '待检测 DNS' : '正在检测'} data-nosnippet>
+      <section class="glass-card result-card" aria-label={isWaiting ? m.dns.page.waitingTitle : m.dns.page.testingTitle} data-nosnippet>
         <DNSFlowStage
+          {locale}
           exit={pendingExit}
           verdictState="unknown"
           providers={[]}
@@ -312,21 +356,21 @@
           hasResult={false}
         />
         {#if !isWaiting}
-          <div class="progress-track" role="progressbar" aria-label="DNS 检测进度"><span></span></div>
+          <div class="progress-track" role="progressbar" aria-label={m.dns.page.progressAria}><span></span></div>
         {/if}
         <header class="diagnosis">
           {#if isWaiting}
-            <p class="verdict-title"><span class="dot" aria-hidden="true"></span>待检测 DNS</p>
-            <p class="diagnosis-note">点击开始后将并发采集网页出口与权威 DNS 回溯。</p>
+            <p class="verdict-title"><span class="dot" aria-hidden="true"></span>{m.dns.page.waitingTitle}</p>
+            <p class="diagnosis-note">{m.dns.page.waitingDesc}</p>
             <button
               type="button"
               onclick={() => run('manual')}
               class="mt-3 text-sm px-3.5 py-1.5 rounded-lg transition-colors cursor-pointer"
               style="color:var(--radar-400); background:var(--sig-soft)"
-            >开始检测</button>
+            >{m.common.startScan}</button>
           {:else}
-            <p class="verdict-title"><span class="dot loading-dot" aria-hidden="true"></span>正在检测 DNS</p>
-            <p class="diagnosis-note">正在并发采集网页出口与权威 DNS 回溯。</p>
+            <p class="verdict-title"><span class="dot loading-dot" aria-hidden="true"></span>{m.dns.page.testingTitle}</p>
+            <p class="diagnosis-note">{m.dns.page.testingDesc}</p>
           {/if}
         </header>
         <div class="columns">
@@ -334,7 +378,7 @@
           <div class="reading">
             <p class="field"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i>DNS</p>
             {#if isWaiting}
-              <p class="readout-placeholder">待检测</p>
+              <p class="readout-placeholder">{m.common.idle}</p>
             {:else}
               <div class="mt-3 h-5 w-36 rounded bg-white/8" aria-hidden="true"></div>
               <div class="mt-2 h-3 w-21 rounded bg-white/5" aria-hidden="true"></div>
@@ -349,20 +393,20 @@
         <aside class="glass-card side-card" aria-labelledby="dns-comparison-title" data-nosnippet>
           <p class="side-heading" id="dns-comparison-title">
             <i class="fa-solid fa-arrow-right-arrow-left" aria-hidden="true"></i>
-            {busy ? '上次对比' : '和上次比'}
+            {busy ? m.common.lastComparison : m.common.vsLast}
           </p>
           {#if comparison.summary}
             <p class="comparison-summary">{comparison.summary}</p>
           {:else}
             {#if comparison.previousVerdict}
               <p class="verdict-change" style:--change-color={status.color}>
-                <span class="sr-only">前次检测</span>
+                <span class="sr-only">{m.common.previousScanSr}</span>
                 {#if comparison.improved}
-                  <s>{dnsStatus[comparison.previousVerdict].title}</s>
+                  <s>{statusMap[comparison.previousVerdict].title}</s>
                 {:else}
-                  <span>{dnsStatus[comparison.previousVerdict].title}</span>
+                  <span>{statusMap[comparison.previousVerdict].title}</span>
                 {/if}
-                <i class="fa-solid fa-arrow-right" aria-hidden="true"></i><span class="sr-only">变为</span>
+                <i class="fa-solid fa-arrow-right" aria-hidden="true"></i><span class="sr-only">{m.common.changedToSr}</span>
                 <strong>{status.title}</strong>
               </p>
             {/if}
@@ -370,31 +414,33 @@
               <div><dt>DNS</dt><dd>
                 {#each comparison.dnsChanges as { prefix = '', removed = [], text = '' }}
                   <p>
-                    {busy ? prefix.replace(/^本次/, '') : prefix}{#each removed as { name, region }, index}
-                      {index > 0 ? '、' : ''}{#if region}
+                    {prefix}{#each removed as { name, region }, index}
+                      {index > 0 ? (locale === 'en' ? ', ' : '、') : ''}{#if region}
                         {name}<s>{region}</s>
                       {:else}
                         <s>{name}</s>
                       {/if}
-                    {/each}{busy ? text.replace(/^本次/, '') : text}
+                    {/each}{text}
                   </p>
                 {:else}
-                  服务商未变
+                  {m.dns.page.providerUnchanged}
                 {/each}
               </dd></div>
-              <div><dt>出口 IP</dt><dd>{(busy ? comparison.exitChange.replace(/^本次/, '当时') : comparison.exitChange) || '未变'}</dd></div>
+              <div><dt>{m.common.exitIP}</dt><dd>{comparison.exitChange || m.common.unchanged}</dd></div>
             </dl>
           {/if}
         </aside>
       {/if}
       <aside class="glass-card side-card" aria-labelledby="dns-info-title">
         <p class="side-heading" id="dns-info-title">
-          <i class="fa-solid fa-circle-info" aria-hidden="true"></i>检测说明
+          <i class="fa-solid fa-circle-info" aria-hidden="true"></i>{m.common.howItWorks}
         </p>
         <ul class="rule-note">
-          <li>每次通过自建权威 DNS 生成独立随机域名，实时识别当前浏览器使用的 DNS 服务器</li>
-          <li>出口 IP 在海外，测到<span class="nowrap">中国大陆运营商 DNS</span>，判为<strong>泄露</strong></li>
-          <li>阿里 DNS、DNSPod、Cloudflare、Google 等公共 DNS 与国内直连均判为<strong>未泄露</strong>，完整口径见 <a href="/about/#dns" class="text-(--radar-400) underline underline-offset-4">检测说明</a></li>
+          <li>{m.dns.page.rules[0]}</li>
+          <li>{m.dns.page.rules[1]}<strong>{statusMap.suspected.title}</strong></li>
+          <li>
+            {m.dns.page.rules[2]}<strong>{statusMap.clear.title}</strong>{locale === 'en' ? ' — see ' : '，完整口径见 '}<a href={localePath('/about/#dns', locale)} class="text-(--radar-400) underline underline-offset-4">{m.common.fullCriteriaLink}</a>
+          </li>
         </ul>
       </aside>
     </div>
@@ -424,12 +470,11 @@
   .rule-note { margin-top: 0.7rem; color: var(--slate-300); font-size: 0.875rem; line-height: 1.65; }
   .rule-note { list-style: disc; padding-inline-start: 1rem; }
   .rule-note li + li { margin-top: 0.375rem; }
-  .nowrap { white-space: nowrap; }
   .rule-note strong { color: var(--slate-200); font-weight: 600; }
   .change-list { margin-top: 0.875rem; display: grid; gap: 0.5rem; font-size: 0.875rem; }
   .verdict-change + .change-list { border-top: 1px solid var(--line); padding-top: 0.875rem; }
-  .change-list > div { display: grid; grid-template-columns: 3.25rem minmax(0, 1fr); align-items: baseline; gap: 0.5rem; }
-  .change-list dt { color: var(--slate-400); font-size: 0.8125rem; }
+  .change-list > div { display: grid; grid-template-columns: minmax(4rem, auto) minmax(0, 1fr); align-items: baseline; gap: 0.5rem; }
+  .change-list dt { color: var(--slate-400); font-size: 0.8125rem; white-space: nowrap; }
   .change-list dd { color: var(--slate-200); overflow-wrap: anywhere; }
   .change-list s { color: var(--slate-400); }
   .verdict-title {

@@ -160,6 +160,14 @@ func cloneIntel(src *model.IPIntel) *model.IPIntel {
 		v := *src.HumanRatio
 		cp.HumanRatio = &v
 	}
+	if src.GeoZH != nil {
+		g := *src.GeoZH
+		cp.GeoZH = &g
+	}
+	if src.GeoEN != nil {
+		g := *src.GeoEN
+		cp.GeoEN = &g
+	}
 	return &cp
 }
 
@@ -397,7 +405,12 @@ func applyHostingResult(intel *model.IPIntel, result *HostingResult) bool {
 	if result.IsHosting {
 		intel.IsHosting = true
 	} else if result.IsResidential {
-		intel.UsageTypeRaw = "residential"
+		if result.IsMobile {
+			intel.UsageTypeRaw = "mobile"
+			intel.IsMobile = true
+		} else {
+			intel.UsageTypeRaw = "residential"
+		}
 		intel.IsHosting = false
 	}
 
@@ -406,15 +419,44 @@ func applyHostingResult(intel *model.IPIntel, result *HostingResult) bool {
 
 func applyCNGeo(intel *model.IPIntel, cn *adapter.CNGeoResult) {
 	intel.Country = "CN"
+	zhGeo := &model.LocalizedGeo{CountryName: "中国"}
+	if intel.GeoZH != nil {
+		*zhGeo = *intel.GeoZH
+		if zhGeo.CountryName == "" {
+			zhGeo.CountryName = "中国"
+		}
+	}
+	enGeo := &model.LocalizedGeo{CountryName: "China"}
+	if intel.GeoEN != nil {
+		*enGeo = *intel.GeoEN
+		if enGeo.CountryName == "" {
+			enGeo.CountryName = "China"
+		}
+	}
+	intel.CountryName = "中国"
 	if cn.Province != "" {
 		intel.Region = cn.Province
+		zhGeo.Region = cn.Province
+		if enProv := translateCNProvinceEN(cn.Province); enProv != "" {
+			enGeo.Region = enProv
+		}
 	}
 	if cn.City != "" {
 		intel.City = cn.City
+		zhGeo.City = cn.City
+		if enCity := translateCNCityEN(cn.City); enCity != "" {
+			enGeo.City = enCity
+		}
 	}
 	if cn.ISP != "" {
 		intel.ISP = cn.ISP
+		zhGeo.ISP = cn.ISP
+		if enISP := translateCNISPEN(cn.ISP); enISP != "" {
+			enGeo.ISP = enISP
+		}
 	}
+	intel.GeoZH = zhGeo
+	intel.GeoEN = enGeo
 	if intel.Timezone == "" {
 		intel.Timezone = "Asia/Shanghai"
 	}
@@ -460,6 +502,39 @@ func (s *IPIntelService) merge(local, remote *model.IPIntel) *model.IPIntel {
 		remote.IP = normalized
 	} else if normalized := util.CanonicalIP(local.IP); normalized != "" {
 		remote.IP = normalized
+	}
+
+	if remote.Country == "" && local.Country != "" {
+		remote.Country = local.Country
+	}
+	sameCountry := strings.EqualFold(strings.TrimSpace(remote.Country), strings.TrimSpace(local.Country))
+
+	enGeo := &model.LocalizedGeo{
+		CountryName: remote.CountryName,
+		Region:      remote.Region,
+		City:        remote.City,
+		ISP:         remote.ISP,
+	}
+	if sameCountry && local.GeoEN != nil {
+		if enGeo.CountryName == "" {
+			enGeo.CountryName = local.GeoEN.CountryName
+		}
+		if enGeo.Region == "" {
+			enGeo.Region = local.GeoEN.Region
+		}
+		if enGeo.City == "" {
+			enGeo.City = local.GeoEN.City
+		}
+		if enGeo.ISP == "" {
+			enGeo.ISP = local.GeoEN.ISP
+		}
+	}
+	if enGeo.CountryName != "" || enGeo.Region != "" || enGeo.City != "" || enGeo.ISP != "" {
+		remote.GeoEN = enGeo
+	}
+	if sameCountry && local.GeoZH != nil {
+		g := *local.GeoZH
+		remote.GeoZH = &g
 	}
 
 	if remote.City == "" && local.City != "" {

@@ -310,6 +310,7 @@ func initIPIntelService(cfg *config.Config, infra *Infrastructure) *service.IPIn
 		cloudIPRepo := repository.NewCloudIPRangeRepository(db)
 		providerRepo := repository.NewHostingProviderRepository(db)
 		keywordRepo := repository.NewHostingKeywordRepository(db)
+		accessASNRepo := repository.NewAccessASNRepository(db)
 
 		var err error
 		hostingDetector, err = service.NewHostingDetector(
@@ -321,9 +322,10 @@ func initIPIntelService(cfg *config.Config, infra *Infrastructure) *service.IPIn
 		if err != nil {
 			log.Printf("警告：创建机房检测器失败：%v", err)
 		} else {
+			hostingDetector.SetAccessASNRepo(accessASNRepo)
 			stats := hostingDetector.GetStats()
-			log.Printf("已初始化机房检测器（服务商：%v，关键词：%v）",
-				stats["provider_count"], stats["keyword_count"])
+			log.Printf("已初始化机房检测器（服务商：%v，关键词：%v，接入网 ASN：%v）",
+				stats["provider_count"], stats["keyword_count"], stats["access_asn_count"])
 		}
 	}
 

@@ -1,4 +1,4 @@
-
+import { getMessages, type Locale } from "../i18n";
 import type { ReportModel, SignalState, Severity } from "./report";
 
 const W = 1440;
@@ -41,15 +41,18 @@ const STATE_SOFT: Record<SignalState, string> = {
   unknown: C.unknownSoft,
 };
 
-const SEV_META: Record<
+function sevMeta(locale: Locale): Record<
   Severity,
   { color: string; soft: string; label: string }
-> = {
-  leak: { color: C.leak, soft: C.leakSoft, label: "暴露" },
-  contradiction: { color: C.warn, soft: C.warnSoft, label: "冲突" },
-  caution: { color: C.warn, soft: C.warnSoft, label: "留意" },
-  info: { color: C.unknown, soft: C.unknownSoft, label: "提示" },
-};
+> {
+  const s = getMessages(locale).home.diagnosis.sev;
+  return {
+    leak: { color: C.leak, soft: C.leakSoft, label: s.leak },
+    contradiction: { color: C.warn, soft: C.warnSoft, label: s.contradiction },
+    caution: { color: C.warn, soft: C.warnSoft, label: s.caution },
+    info: { color: C.unknown, soft: C.unknownSoft, label: s.info },
+  };
+}
 
 const SANS = `Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif`;
 const MONO = `"JetBrains Mono", ui-monospace, Menlo, monospace`;
@@ -69,6 +72,7 @@ function truncate(
   text: string,
   maxW: number,
 ): string {
+  if (maxW <= 12) return "…";
   if (ctx.measureText(text).width <= maxW) return text;
   let t = text;
   while (t.length > 1 && ctx.measureText(t + "…").width > maxW)
@@ -189,7 +193,9 @@ function drawRadar(
   cx: number,
   cy: number,
   R: number,
+  locale: Locale,
 ) {
+  const shortLabels = getMessages(locale).home.radarShort;
   const groups = report.groups;
   const angle = (i: number) => ((-90 + i * 90) * Math.PI) / 180;
   const pt = (i: number, r: number) => ({
@@ -238,11 +244,12 @@ function drawRadar(
     ctx.stroke();
   });
 
-  const labelPos = groups.map((_, i) => pt(i, R + 30));
+  const labelOffset = locale === "en" ? 18 : 30;
+  const labelPos = groups.map((_, i) => pt(i, R + labelOffset));
   const anchors: CanvasTextAlign[] = ["center", "left", "center", "right"];
   groups.forEach((g, i) => {
     const p = labelPos[i];
-    text(ctx, g.label, p.x, p.y - 7, {
+    text(ctx, shortLabels[g.key] ?? g.label, p.x, p.y - 7, {
       font: font(12, 400, MONO),
       color: C.slate400,
       align: anchors[i],
@@ -257,6 +264,7 @@ function drawRadar(
 
 export interface ShareCardOptions {
   riskLabel: string;
+  locale?: Locale;
 }
 
 export async function renderShareCard(
@@ -264,6 +272,12 @@ export async function renderShareCard(
   opts: ShareCardOptions,
 ): Promise<Blob> {
   if (document.fonts?.ready) await document.fonts.ready;
+
+  const locale: Locale = opts.locale ?? "zh-CN";
+  const m = getMessages(locale);
+  const sc = m.home.shareCard;
+  const idCopy = m.home.identity;
+  const sevs = sevMeta(locale);
 
   const canvas = document.createElement("canvas");
   canvas.width = W * SCALE;
@@ -282,7 +296,7 @@ export async function renderShareCard(
   });
   text(
     ctx,
-    report.scenario === "daily" ? "网络环境检测报告 · 日常模式" : "网络环境一致性检测报告",
+    report.scenario === "daily" ? sc.subtitleDaily : sc.subtitleStrict,
     W - PAD,
     y - 10,
     {
@@ -299,8 +313,8 @@ export async function renderShareCard(
   const tierLabel =
     rawTier && rawTier !== "—"
       ? rawTier.includes("L3")
-        ? `深度核验 (${rawTier})`
-        : `本地库 (${rawTier})`
+        ? sc.tierDeep(rawTier)
+        : sc.tierLocal(rawTier)
       : "";
   const metaLine = [
     stamp,
@@ -322,13 +336,13 @@ export async function renderShareCard(
   const mainH = 462;
 
   panel(ctx, PAD, topY, leftW, mainH);
-  drawRadar(ctx, report, PAD + leftW / 2, topY + 196, 128);
-  text(ctx, "综合风险", PAD + leftW / 2 - 14, topY + mainH - 56, {
+  drawRadar(ctx, report, PAD + leftW / 2, topY + 196, locale === "en" ? 106 : 128, locale);
+  text(ctx, m.home.overallRisk, PAD + leftW / 2 - 10, topY + mainH - 56, {
     font: font(13),
     color: C.slate500,
     align: "right",
   });
-  text(ctx, opts.riskLabel, PAD + leftW / 2 - 2, topY + mainH - 56, {
+  text(ctx, opts.riskLabel, PAD + leftW / 2 + 2, topY + mainH - 56, {
     font: font(15, 600),
     color: STATE_COLOR[report.verdict.state],
     align: "left",
@@ -343,7 +357,8 @@ export async function renderShareCard(
     STATE_COLOR[report.verdict.state],
     STATE_SOFT[report.verdict.state],
   );
-  text(ctx, report.verdict.headline, vx + 22, topY + 44, {
+  ctx.font = font(24, 700);
+  text(ctx, truncate(ctx, report.verdict.headline, rightW - 80), vx + 22, topY + 44, {
     font: font(24, 700),
     color: C.white,
   });
@@ -368,12 +383,12 @@ export async function renderShareCard(
   const findings = report.findings.slice(0, 5);
   if (findings.length === 0) {
     dot(ctx, vx + 4, topY + 136, C.sig, C.sigSoft);
-    text(ctx, "未见明显异常", vx + 22, topY + 136, {
+    text(ctx, m.home.diagnosis.noIssues, vx + 22, topY + 136, {
       font: font(15),
       color: C.slate200,
     });
   } else {
-    text(ctx, "暴露项", vx, topY + 124, {
+    text(ctx, m.home.diagnosis.findingsLabel, vx, topY + 124, {
       font: font(12, 400, MONO),
       color: C.slate500,
     });
@@ -390,8 +405,8 @@ export async function renderShareCard(
     );
     findings.forEach((f, i) => {
       const fy = topY + 158 + i * 58;
-      const m = SEV_META[f.severity];
-      const cw = chip(ctx, vx, fy, m.label, m.color, m.soft);
+      const sm = sevs[f.severity];
+      const cw = chip(ctx, vx, fy, sm.label, sm.color, sm.soft);
       ctx.font = font(15, 500);
       text(
         ctx,
@@ -418,7 +433,7 @@ export async function renderShareCard(
     if (report.findings.length > findings.length) {
       text(
         ctx,
-        `… 另有 ${report.findings.length - findings.length} 项，详见完整报告`,
+        sc.moreFindings(report.findings.length - findings.length),
         vx,
         topY + mainH - 26,
         {
@@ -442,28 +457,29 @@ export async function renderShareCard(
   panel(ctx, PAD, idY, W - PAD * 2, idH);
   const idCy = idY + (rtt ? 46 : idH / 2);
   let ix = PAD + 28;
-  text(ctx, "出口 IP", ix, idCy - 25, { font: font(12), color: C.slate500 });
+  text(ctx, m.common.exitIP, ix, idCy - 25, { font: font(12), color: C.slate500 });
   ctx.font = font(26, 600, MONO);
-  const ipText = truncate(ctx, report.identity.masked || "—", 250);
+  const ipMaxW = locale === "en" ? 270 : 250;
+  const ipText = truncate(ctx, report.identity.masked || "—", ipMaxW);
   text(ctx, ipText, ix, idCy + 7, {
     font: font(26, 600, MONO),
     color: C.white,
   });
   ctx.font = font(26, 600, MONO);
-  const ipW = Math.min(Math.max(ctx.measureText(ipText).width, 200), 250);
+  const ipW = Math.min(Math.max(ctx.measureText(ipText).width, 170), ipMaxW);
   const usageBadgeState: SignalState =
     report.identity.state === "coherent" &&
-    report.identity.usageLabel.includes("机房")
+    report.identity.ipType === "datacenter"
       ? "unknown"
       : report.identity.state;
   chip(
     ctx,
-    ix + ipW + 18,
+    ix + ipW + 14,
     idCy + 3,
     report.identity.usageLabel,
     STATE_COLOR[usageBadgeState],
     STATE_SOFT[usageBadgeState],
-    13,
+    locale === "en" ? 11.5 : 13,
   );
 
   const rawAsn = (report.identity.asn ?? "").trim();
@@ -475,28 +491,38 @@ export async function renderShareCard(
         : /^\d+$/.test(rawAsn)
           ? `AS${rawAsn}`
           : rawAsn;
+  const fraudTag =
+    report.identity.fraudScore < 25
+      ? idCopy.fraudLow
+      : report.identity.fraudScore < 50
+        ? idCopy.fraudModLow
+        : report.identity.fraudScore < 75
+          ? idCopy.fraudHigh
+          : idCopy.fraudCritical;
+  const humanTag =
+    humanPct == null
+      ? ""
+      : humanPct >= 70
+        ? idCopy.humanHigh
+        : humanPct >= 40
+          ? idCopy.humanMid
+          : idCopy.humanLow;
+  const lp = locale === "en" ? " (" : "（";
+  const rp = locale === "en" ? ")" : "）";
   const cols: { label: string; value: string; color: string; mono?: boolean }[] = [
     {
-      label: "归属地",
+      label: idCopy.location,
       value:
         (report.identity.countryCode
           ? `[${report.identity.countryCode}] `
           : "") + report.identity.geo,
       color: C.slate200,
     },
-    { label: "运营商", value: report.identity.org, color: C.slate200 },
-    { label: "ASN", value: asnDisplay, color: C.slate200, mono: true },
+    { label: idCopy.operator, value: report.identity.org, color: C.slate200 },
+    { label: idCopy.asn, value: asnDisplay, color: C.slate200, mono: true },
     {
-      label: "欺诈评分",
-      value: `${report.identity.fraudScore} / 100（${
-        report.identity.fraudScore < 25
-          ? "很低"
-          : report.identity.fraudScore < 50
-            ? "较低"
-            : report.identity.fraudScore < 75
-              ? "偏高"
-              : "高危"
-      }）`,
+      label: idCopy.fraudScore,
+      value: `${report.identity.fraudScore}/100${lp}${fraudTag}${rp}`,
       color:
         report.identity.fraudScore >= 50
           ? C.leak
@@ -505,18 +531,18 @@ export async function renderShareCard(
             : C.sig,
     },
     {
-      label: "黑名单",
+      label: idCopy.blacklist,
       value: report.identity.blacklist.length
-        ? `命中 ${report.identity.blacklist.length}`
-        : "未命中",
+        ? idCopy.blacklistHit(report.identity.blacklist.length)
+        : idCopy.blacklistClean,
       color: report.identity.blacklist.length ? C.leak : C.sig,
     },
     {
-      label: "人类流量(30天)",
+      label: idCopy.humanTrafficShort,
       value:
         humanPct != null
-          ? `${fmtPct(humanPct)}%（${humanPct >= 70 ? "较高" : humanPct >= 40 ? "中等" : "偏低"}）`
-          : "暂无数据",
+          ? `${fmtPct(humanPct)}%${lp}${humanTag}${rp}`
+          : idCopy.humanNoData,
       color:
         humanPct == null
           ? C.slate500
@@ -527,9 +553,9 @@ export async function renderShareCard(
               : C.leak,
     },
   ];
-  const colsX = PAD + 430;
+  const colsX = PAD + (locale === "en" ? 452 : 430);
   const colsTotal = W - PAD - 28 - colsX;
-  const weights = [1.35, 1.15, 0.72, 0.9, 0.62, 1.18];
+  const weights = [1.35, 1.15, 0.72, 0.92, 0.62, 1.16];
   const weightSum = weights.reduce((a, b) => a + b, 0);
   let cx = colsX;
   cols.forEach((c, i) => {
@@ -554,11 +580,11 @@ export async function renderShareCard(
     const ly = idY + 122;
     let rx = PAD + 28;
     ctx.font = font(12, 400, MONO);
-    text(ctx, "物理延迟", rx, ly, {
+    text(ctx, idCopy.rttTitle, rx, ly, {
       font: font(12, 400, MONO),
       color: C.slate500,
     });
-    rx += ctx.measureText("物理延迟").width + 30;
+    rx += ctx.measureText(idCopy.rttTitle).width + 30;
 
     const item = (label: string, v: number) => {
       ctx.font = font(13);
@@ -575,11 +601,11 @@ export async function renderShareCard(
       text(ctx, "ms", rx, ly, { font: font(11), color: C.slate600 });
       rx += ctx.measureText("ms").width + 34;
     };
-    if (rtt.clientMinMS != null) item("延迟", rtt.clientMinMS);
-    if (rtt.serverTCPMS != null) item("TCP 延迟", rtt.serverTCPMS);
-    if (rtt.deltaMS != null) item("延迟差", rtt.deltaMS);
+    if (rtt.clientMinMS != null) item(idCopy.rttLatency, rtt.clientMinMS);
+    if (rtt.serverTCPMS != null) item(idCopy.rttTcp, rtt.serverTCPMS);
+    if (rtt.deltaMS != null) item(idCopy.rttDelta, rtt.deltaMS);
 
-    text(ctx, "试运行", W - PAD - 28, ly, {
+    text(ctx, idCopy.rttBeta, W - PAD - 28, ly, {
       font: font(11),
       color: C.slate600,
       align: "right",
@@ -593,17 +619,17 @@ export async function renderShareCard(
   const detStep = 33;
   const sections = [
     {
-      title: "环境一致性",
+      title: m.home.groups.consistency,
       rows: report.consistency,
       state: report.groups[1]?.state ?? "unknown",
     },
     {
-      title: "DNS/IP 泄露",
+      title: m.home.groups.leak,
       rows: report.leaks,
       state: report.groups[2]?.state ?? "unknown",
     },
     {
-      title: "环境指纹",
+      title: m.home.groups.environment,
       rows: report.environment,
       state: report.groups[3]?.state ?? "unknown",
     },
@@ -616,7 +642,7 @@ export async function renderShareCard(
       color: C.white,
     });
     if (i === 0 && report.scenario === "daily") {
-      text(ctx, "仅参考", sx + detW - 24, detY + 32, {
+      text(ctx, m.home.readout.referenceOnly, sx + detW - 24, detY + 32, {
         font: font(11, 400, MONO),
         color: C.slate500,
         align: "right",
@@ -633,9 +659,11 @@ export async function renderShareCard(
     s.rows.slice(0, 5).forEach((r, j) => {
       const ry = detY + detStart + j * detStep;
       dot(ctx, sx + 28, ry, STATE_COLOR[r.state], STATE_SOFT[r.state]);
-      text(ctx, r.label, sx + 44, ry, { font: font(13), color: C.slate400 });
       ctx.font = font(13);
-      text(ctx, truncate(ctx, r.value, detW - 130), sx + detW - 24, ry, {
+      text(ctx, r.label, sx + 44, ry, { font: font(13), color: C.slate400 });
+      const labelW = ctx.measureText(r.label).width;
+      const valMaxW = Math.max(96, detW - 44 - labelW - 36);
+      text(ctx, truncate(ctx, r.value, valMaxW), sx + detW - 24, ry, {
         font: font(13),
         color: C.slate200,
         align: "right",
@@ -644,11 +672,11 @@ export async function renderShareCard(
   });
 
   dot(ctx, PAD + 4, H - PAD + 18, C.radar, C.sigSoft);
-  text(ctx, "detectradar.com", PAD + 18, H - PAD + 18, {
+  text(ctx, locale === "en" ? "detectradar.com/en/" : "detectradar.com", PAD + 18, H - PAD + 18, {
     font: font(15, 600, MONO),
     color: C.slate200,
   });
-  text(ctx, "核对出口 IP 与浏览器环境 · 检查 WebRTC / DNS / IPv6 泄露", W - PAD, H - PAD + 18, {
+  text(ctx, sc.footerTagline, W - PAD, H - PAD + 18, {
     font: font(12.5),
     color: C.slate500,
     align: "right",
@@ -656,7 +684,7 @@ export async function renderShareCard(
 
   return await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob(
-      (b) => (b ? resolve(b) : reject(new Error("canvas.toBlob 返回空"))),
+      (b) => (b ? resolve(b) : reject(new Error(m.common.imageEmptyError))),
       "image/png",
     );
   });

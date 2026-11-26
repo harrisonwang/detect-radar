@@ -1,0 +1,60 @@
+---
+import { getEntry, render } from 'astro:content';
+import Layout from '../layouts/Layout.astro';
+import AppHeader from '../components/report/AppHeader.svelte';
+import SiteFooter from '../components/SiteFooter.svelte';
+import { getAboutFaqs } from '../lib/seoContent';
+import { getMessages } from '../i18n';
+
+interface Props {
+  docId: string;
+}
+
+const { docId } = Astro.props;
+const entry = await getEntry('docs', docId);
+if (!entry) {
+  throw new Error(`Missing doc entry: ${docId}`);
+}
+const { Content } = await render(entry);
+const { data } = entry;
+const m = getMessages(data.locale);
+const faqs = data.hasFaqs ? getAboutFaqs(data.locale) : undefined;
+const faqHeading = data.locale === 'en' ? 'Frequently Asked Questions' : '常见问题';
+---
+
+<Layout
+  title={data.title}
+  canonical={data.canonical}
+  ogImage={data.ogImage}
+  description={data.description}
+  locale={data.locale}
+  pageType={data.pageType}
+  faqs={faqs}
+  datePublished={data.datePublished}
+  dateModified={data.dateModified}
+>
+  <div class="min-h-screen flex flex-col">
+    <AppHeader page="static" locale={data.locale} currentPath={data.canonical} />
+    <main class="flex-1 mx-auto w-full max-w-3xl px-6 py-16 prose prose-invert prose-headings:font-semibold prose-headings:scroll-mt-28 prose-a:text-(--radar-400)">
+      <h1>{data.h1}</h1>
+      <p class="not-prose -mt-3 mb-6 text-xs font-mono text-(--slate-500)">
+        {m.common.lastUpdated}<time datetime={data.dateModified}>{data.dateModified}</time>
+      </p>
+      <Content />
+      {faqs && (
+        <>
+          <h2 id="faq">{faqHeading}</h2>
+          <div class="not-prose mt-4 divide-y divide-slate-800/70 border-y border-slate-800/70">
+            {faqs.map((item) => (
+              <div class="py-4">
+                <h3 class="text-[15px] font-medium leading-6 text-(--slate-200)">{item.question}</h3>
+                <p class="mt-2 text-sm leading-7 text-(--slate-300)">{item.answer}</p>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </main>
+    <SiteFooter locale={data.locale} />
+  </div>
+</Layout>

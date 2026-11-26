@@ -9,6 +9,7 @@
   import ReadoutCard from './report/ReadoutCard.svelte';
   import FeedbackCard from './report/FeedbackCard.svelte';
 
+  import { getMessages, type Locale } from '../i18n';
   import { collectFingerprints } from '../lib/collectors/fingerprint';
   import { collectEnvironment } from '../lib/collectors/environment';
   import { collectLeaks, collectDNSLeak } from '../lib/collectors/leaks';
@@ -23,42 +24,49 @@
   import { copyShareText, formatHomeShareText } from '../lib/shareSummary';
   import type { ScanRequest, ScanScenario } from '../lib/types';
 
+  interface Props {
+    locale?: Locale;
+  }
+  let { locale = 'zh-CN' }: Props = $props();
+
+  let m = $derived(getMessages(locale));
+
   interface ScanSignals {
     collectors: AllCollectorResults;
     fpjs: Awaited<ReturnType<typeof collectFingerprintAudit>>;
   }
 
-  const EMPTY_IDENTITY: IdentityReadout = {
-    ip: '', masked: '···.···.···.···', geo: '—', countryCode: '', asn: '—', org: '—',
-    usageLabel: '检测中', state: 'unknown', flags: [], fraudScore: 0,
-    blacklist: [], openPorts: [], exposure: [], present: false,
-  };
+  let emptyIdentity = $derived<IdentityReadout>({
+    ip: '',
+    masked: '···.···.···.···',
+    geo: '—',
+    countryCode: '',
+    asn: '—',
+    org: '—',
+    ipType: 'unknown',
+    status: 'loading',
+    usageLabel: m.common.scanning,
+    state: 'unknown',
+    flags: [],
+    fraudScore: 0,
+    blacklist: [],
+    openPorts: [],
+    exposure: [],
+    present: false,
+  });
 
-  const RISK_LABEL: Record<string, string> = {
-    safe: '很低', low: '较低', medium: '中等', high: '偏高', critical: '严重',
-  };
   const SCENARIO_KEY = 'detectradar:scenario';
-  const SCENARIO_META: Record<ScanScenario, { label: string; subtitle: string }> = {
-    strict: { label: '严格模式', subtitle: '核对出口 IP、时区语言、网络泄露与浏览器指纹' },
-    daily: { label: '日常模式', subtitle: '聚焦网络泄露与高危 IP，时区、语言与普通机房仅作展示' },
-  };
 
   type ScanStage = 'identity' | 'consistency' | 'leak' | 'environment' | 'analysis' | 'complete';
   type DimensionKey = Exclude<ScanStage, 'analysis' | 'complete'>;
-  const SCAN_STAGES: { key: ScanStage; label: string }[] = [
-    { key: 'identity', label: '正在获取出口 IP' },
-    { key: 'consistency', label: '正在比对时区与语言' },
-    { key: 'leak', label: '正在检查 WebRTC、DNS、IPv6' },
-    { key: 'environment', label: '正在分析环境指纹' },
-    { key: 'analysis', label: '正在汇总检测结果' },
-  ];
+  const STAGE_ORDER: ScanStage[] = ['identity', 'consistency', 'leak', 'environment', 'analysis'];
 
-  const PLACEHOLDER_GROUPS = [
-    { key: 'identity', label: '网络身份', score: 0, state: 'unknown', passed: 0, total: 1 },
-    { key: 'consistency', label: '环境一致性', score: 0, state: 'unknown', passed: 0, total: 1 },
-    { key: 'leak', label: 'DNS/IP 泄露', score: 0, state: 'unknown', passed: 0, total: 1 },
-    { key: 'environment', label: '环境指纹', score: 0, state: 'unknown', passed: 0, total: 1 },
-  ] as const;
+  let placeholderGroups = $derived([
+    { key: 'identity' as const, label: m.home.groups.identity, score: 0, state: 'unknown' as const, passed: 0, total: 1 },
+    { key: 'consistency' as const, label: m.home.groups.consistency, score: 0, state: 'unknown' as const, passed: 0, total: 1 },
+    { key: 'leak' as const, label: m.home.groups.leak, score: 0, state: 'unknown' as const, passed: 0, total: 1 },
+    { key: 'environment' as const, label: m.home.groups.environment, score: 0, state: 'unknown' as const, passed: 0, total: 1 },
+  ]);
 
   let report = $state<ReportModel | null>(null);
   let scenario = $state<ScanScenario>('strict');
@@ -73,16 +81,14 @@
   let revealTimers: number[] = [];
   let lastSignals: ScanSignals | null = null;
 
-  let scanStageLabel = $derived(
-    SCAN_STAGES.find((stage) => stage.key === scanStage)?.label ?? '检测完成',
-  );
+  let scanStageLabel = $derived(m.home.stages[scanStage] ?? m.home.stages.complete);
   let displayStageLabel = $derived(
     isScanning
       ? scanStage === 'analysis' && dnsPending && report
-        ? '正在检查 WebRTC、DNS、IPv6'
+        ? m.home.stages.leak
         : scanStageLabel
       : dnsPending
-        ? '正在检查 WebRTC、DNS、IPv6'
+        ? m.home.stages.leak
         : '',
   );
   let activeDimension = $derived(
@@ -97,6 +103,10 @@
         : null,
   );
 
+  function riskText(level: string): string {
+    return m.home.riskLevel[level as keyof typeof m.home.riskLevel] ?? level;
+  }
+
   function resetScanProgress() {
     revealTimers.forEach((timer) => window.clearTimeout(timer));
     revealTimers = [];
@@ -108,8 +118,8 @@
   function completeStage(stage: ScanStage) {
     if (completedStages.includes(stage)) return;
     completedStages = [...completedStages, stage];
-    const next = SCAN_STAGES.find((item) => !completedStages.includes(item.key));
-    if (next) scanStage = next.key;
+    const next = STAGE_ORDER.find((key) => !completedStages.includes(key));
+    if (next) scanStage = next;
   }
 
   function revealDimension(key: DimensionKey) {
@@ -170,13 +180,14 @@
   }
 
   function friendlyError(err: unknown): string {
+    const e = m.home.errors;
     if (err instanceof api.ApiError) {
-      if (err.status === 0) return '网络异常，请检查连接后重试';
-      if (err.status === 429) return '请求过于频繁，请稍后再试';
-      if (err.status >= 500) return '服务暂时不可用，请稍后重试';
-      return '检测请求被拒绝，请刷新页面重试';
+      if (err.status === 0) return e.network;
+      if (err.status === 429) return e.limited;
+      if (err.status >= 500) return e.server;
+      return e.rejected;
     }
-    return '检测失败，请稍后重试';
+    return e.generic;
   }
 
   async function runScan(mode: 'auto' | 'manual' | 'retest' = 'retest') {
@@ -190,12 +201,12 @@
     try {
       const signals = await collectSignals(completeStage);
       lastSignals = signals;
-      const resp = await api.createScan(buildRequest(signals));
+      const resp = await api.createScan(buildRequest(signals), locale);
       const synced =
         resp.scenario && resp.scenario !== scenario
-          ? await api.getScan(resp.scan_id, scenario).catch(() => resp)
+          ? await api.getScan(resp.scan_id, scenario, locale).catch(() => resp)
           : resp;
-      report = buildReport(synced, signals.collectors);
+      report = buildReport(synced, signals.collectors, locale);
       completeStage('identity');
       queueReadyReveals();
 
@@ -223,12 +234,12 @@
       const dns = await collectDNSLeak(scanId);
       if (!report || !scanId || dns.status !== 'success' || !dns.data || dns.data.resolvers.length === 0) return;
       const targetScenario = scenario;
-      let updated = await api.getScan(scanId, targetScenario);
+      let updated = await api.getScan(scanId, targetScenario, locale);
       if (scenario !== targetScenario) {
-        updated = await api.getScan(scanId, scenario);
+        updated = await api.getScan(scanId, scenario, locale);
       }
       if (report?.meta.scanId === scanId && lastSignals) {
-        report = buildReport(updated, lastSignals.collectors);
+        report = buildReport(updated, lastSignals.collectors, locale);
       }
     } catch {
     }
@@ -249,9 +260,9 @@
 
     const token = ++scenarioSwitchToken;
     try {
-      const updated = await api.getScan(currentId, next);
+      const updated = await api.getScan(currentId, next, locale);
       if (token !== scenarioSwitchToken || report?.meta.scanId !== currentId) return;
-      report = buildReport(updated, signals.collectors);
+      report = buildReport(updated, signals.collectors, locale);
     } catch (err) {
       if (token !== scenarioSwitchToken) return;
       if (err instanceof api.ApiError && err.status === 404) {
@@ -263,9 +274,9 @@
   async function handleCopyPromo(code: string) {
     try {
       await navigator.clipboard.writeText(code);
-      showToast(`优惠码 ${code} 已复制`);
+      showToast(m.home.diagnosis.promoCopied(code));
     } catch {
-      showToast('复制失败，请检查浏览器权限');
+      showToast(m.common.copyFailedShort);
     }
   }
 
@@ -327,7 +338,8 @@
       startCaptureProgress();
       toast?.dismiss();
       const blob = await renderShareCard(report, {
-        riskLabel: RISK_LABEL[report.riskLevel] ?? report.riskLevel,
+        riskLabel: riskText(report.riskLevel),
+        locale,
       });
       captureProgress = 100;
       let clipboardOk = false;
@@ -338,9 +350,9 @@
       }
       downloadScreenshot(blob);
       trackEvent('share-save-image', { page: 'home' });
-      showToast(clipboardOk ? '分享图已复制并弹出下载' : '已弹出下载窗口（剪贴板权限未开）');
+      showToast(clipboardOk ? m.common.imageCopiedAndSaved : m.common.imageSavedOnly);
     } catch (error) {
-      showToast('分享图生成失败：' + (error as Error).message);
+      showToast(m.common.imageFailed((error as Error).message));
     } finally {
       isCapturing = false;
       stopCaptureProgress();
@@ -361,11 +373,12 @@
   async function handleCopyText() {
     if (!report || isScanning) return;
     trackEvent('share-copy-text', { page: 'home' });
-    showToast(await copyShareText(formatHomeShareText(report)));
+    showToast(await copyShareText(formatHomeShareText(report, locale), locale));
   }
 </script>
 
 <AppHeader
+  {locale}
   onCopyText={handleCopyText}
   onScreenshot={handleScreenshot}
   onRescan={() => runScan('retest')}
@@ -377,15 +390,15 @@
   <div class="mb-5 sm:mb-8 flex flex-col gap-3.5 sm:flex-row sm:items-end sm:justify-between min-w-0">
     <div class="min-w-0">
       <h1 class="report-title text-2xl sm:text-3xl md:text-4xl mb-1.5 sm:mb-2">
-        网络环境一致性检测<span class="text-(--radar-400)">雷达</span>
+        {m.home.titlePrefix}<span class="text-(--radar-400)">{m.home.titleAccent}</span>
       </h1>
-      <p class="text-sm text-(--slate-400) leading-relaxed">{SCENARIO_META[scenario].subtitle}</p>
+      <p class="text-sm text-(--slate-400) leading-relaxed">{m.home.scenarios[scenario].subtitle}</p>
     </div>
 
     <div
       class="grid grid-cols-2 w-full sm:inline-flex sm:w-auto items-center gap-1 rounded-lg border border-white/10 bg-slate-900/80 p-1 shrink-0"
       role="radiogroup"
-      aria-label="检测模式"
+      aria-label={m.home.scenarioAria}
       data-nosnippet
     >
       {#each (['strict', 'daily'] as const) as mode}
@@ -398,18 +411,19 @@
           class="px-3.5 py-1.5 rounded-md text-xs font-medium text-center whitespace-nowrap transition-colors cursor-pointer {active
             ? 'bg-slate-800 text-white shadow-sm ring-1 ring-white/10'
             : 'text-(--slate-400) hover:text-slate-200'}"
-        >{SCENARIO_META[mode].label}</button>
+        >{m.home.scenarios[mode].label}</button>
       {/each}
     </div>
   </div>
 
-    <div data-nosnippet>
+  <div data-nosnippet>
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
       <div class="lg:col-span-4">
         <RadarCard
-          groups={report?.groups ?? (PLACEHOLDER_GROUPS as any)}
+          {locale}
+          groups={report?.groups ?? placeholderGroups}
           verdictState={report?.verdict.state ?? 'unknown'}
-          riskLabel={report ? (RISK_LABEL[report.riskLevel] ?? report.riskLevel) : '—'}
+          riskLabel={report ? riskText(report.riskLevel) : '—'}
           isScanning={isScanning}
           pendingKeys={dnsPending ? ['leak'] : []}
           settledKeys={revealedKeys}
@@ -418,25 +432,33 @@
         />
       </div>
       <div class="lg:col-span-8">
-        <DiagnosisCard report={report} isScanning={isScanning} active={activeDimension === 'identity'} onCopyPromo={handleCopyPromo} onStart={() => runScan('manual')} />
+        <DiagnosisCard
+          {locale}
+          report={report}
+          isScanning={isScanning}
+          active={activeDimension === 'identity'}
+          onCopyPromo={handleCopyPromo}
+          onStart={() => runScan('manual')}
+        />
       </div>
     </div>
 
     {#if scanError}
       <div class="glass-card rounded-xl p-8 text-center">
         <i class="fa-solid fa-plug-circle-xmark text-2xl mb-3" style="color:var(--leak)"></i>
-        <p class="text-[15px] text-white">检测未完成</p>
+        <p class="text-[15px] text-white">{m.home.errors.incomplete}</p>
         <p class="mt-1.5 text-xs text-(--slate-500) max-w-md mx-auto">{scanError}</p>
         <button
           onclick={() => runScan('retest')}
           class="mt-5 text-sm px-4 py-2 rounded-lg transition-colors cursor-pointer"
           style="color:var(--radar-400); background:var(--sig-soft)"
-        >重新检测</button>
+        >{m.common.rescan}</button>
       </div>
     {:else}
       <div class="mb-6">
         <IdentityCard
-          identity={report?.identity ?? EMPTY_IDENTITY}
+          {locale}
+          identity={report?.identity ?? emptyIdentity}
           rtt={report?.rtt}
           isScanning={isScanning}
           idle={!isScanning && !report}
@@ -450,46 +472,58 @@
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <ReadoutCard
-          title="环境一致性" icon="fa-globe"
+          {locale}
+          title={m.home.groups.consistency}
+          icon="fa-globe"
           rows={report?.consistency ?? []}
           state={report?.groups[1]?.state ?? 'unknown'}
           referenceOnly={scenario === 'daily'}
-          isScanning={isScanning} settled={revealedKeys.includes('consistency')} active={activeDimension === 'consistency'}
+          isScanning={isScanning}
+          settled={revealedKeys.includes('consistency')}
+          active={activeDimension === 'consistency'}
         />
         <ReadoutCard
-          title="DNS/IP 泄露" icon="fa-shield-halved"
+          {locale}
+          title={m.home.groups.leak}
+          icon="fa-shield-halved"
           rows={report?.leaks ?? []}
           state={report?.groups[2]?.state ?? 'unknown'}
-          isScanning={isScanning} settled={revealedKeys.includes('leak')} active={activeDimension === 'leak'}
+          isScanning={isScanning}
+          settled={revealedKeys.includes('leak')}
+          active={activeDimension === 'leak'}
         />
         <ReadoutCard
-          title="环境指纹" icon="fa-fingerprint"
+          {locale}
+          title={m.home.groups.environment}
+          icon="fa-fingerprint"
           rows={report?.environment ?? []}
           state={report?.groups[3]?.state ?? 'unknown'}
-          isScanning={isScanning} settled={revealedKeys.includes('environment')} active={activeDimension === 'environment'}
+          isScanning={isScanning}
+          settled={revealedKeys.includes('environment')}
+          active={activeDimension === 'environment'}
         />
       </div>
 
       {#if report && !isScanning}
         <div class="mt-8">
-          <FeedbackCard scanId={report.meta.scanId} />
+          <FeedbackCard {locale} scanId={report.meta.scanId} />
         </div>
       {/if}
     {/if}
-    </div>
-  </main>
+  </div>
+</main>
 
-  <ReportToast bind:this={toast} suppressed={isCapturing} />
+<ReportToast bind:this={toast} suppressed={isCapturing} />
 
-  {#if isCapturing}
-    <div class="fixed inset-0 z-50 pointer-events-none">
-      <div class="absolute bottom-8 left-1/2 -translate-x-1/2 w-[320px]">
-        <div class="glass-card rounded-lg px-4 py-3">
-          <div class="text-xs text-(--slate-300) font-mono">生成截图 · {Math.round(captureProgress)}%</div>
-          <div class="mt-2 h-1.5 bg-slate-800 overflow-hidden rounded">
-            <div class="h-full transition-all duration-200" style="width:{captureProgress}%; background:var(--radar-400)"></div>
-          </div>
+{#if isCapturing}
+  <div class="fixed inset-0 z-50 pointer-events-none">
+    <div class="absolute bottom-8 left-1/2 -translate-x-1/2 w-[320px]">
+      <div class="glass-card rounded-lg px-4 py-3">
+        <div class="text-xs text-(--slate-300) font-mono">{m.home.captureProgress(Math.round(captureProgress))}</div>
+        <div class="mt-2 h-1.5 bg-slate-800 overflow-hidden rounded">
+          <div class="h-full transition-all duration-200" style="width:{captureProgress}%; background:var(--radar-400)"></div>
         </div>
       </div>
     </div>
-  {/if}
+  </div>
+{/if}

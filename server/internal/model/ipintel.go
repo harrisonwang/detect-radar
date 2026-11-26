@@ -4,17 +4,26 @@ import (
 	"time"
 )
 
+type LocalizedGeo struct {
+	CountryName string `json:"country_name,omitempty"`
+	Region      string `json:"region,omitempty"`
+	City        string `json:"city,omitempty"`
+	ISP         string `json:"isp,omitempty"`
+}
+
 type IPIntel struct {
-	IP          string  `json:"ip"`
-	Hostname    string  `json:"hostname,omitempty"`
-	Country     string  `json:"country"`
-	CountryName string  `json:"country_name,omitempty"`
-	City        string  `json:"city"`
-	Region      string  `json:"region,omitempty"`
-	Postal      string  `json:"postal,omitempty"`
-	Timezone    string  `json:"timezone"`
-	Latitude    float64 `json:"latitude,omitempty"`
-	Longitude   float64 `json:"longitude,omitempty"`
+	IP          string        `json:"ip"`
+	Hostname    string        `json:"hostname,omitempty"`
+	Country     string        `json:"country"`
+	CountryName string        `json:"country_name,omitempty"`
+	City        string        `json:"city"`
+	Region      string        `json:"region,omitempty"`
+	Postal      string        `json:"postal,omitempty"`
+	Timezone    string        `json:"timezone"`
+	Latitude    float64       `json:"latitude,omitempty"`
+	Longitude   float64       `json:"longitude,omitempty"`
+	GeoZH       *LocalizedGeo `json:"geo_zh,omitempty"`
+	GeoEN       *LocalizedGeo `json:"geo_en,omitempty"`
 
 	ASN string `json:"asn"`
 	Org string `json:"org"`

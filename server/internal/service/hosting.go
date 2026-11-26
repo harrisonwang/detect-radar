@@ -61,6 +61,7 @@ type HostingResult struct {
 	Org           string `json:"org"`
 	IsHosting     bool   `json:"is_hosting"`
 	IsResidential bool   `json:"is_residential"`
+	IsMobile      bool   `json:"is_mobile,omitempty"`
 	ASNStale      bool   `json:"asn_stale,omitempty"`
 	Confidence    int    `json:"confidence"`
 	Method        string `json:"method,omitempty"`
@@ -78,9 +79,10 @@ type HostingDetector struct {
 	mu     sync.RWMutex
 	dbPath string
 
-	cloudIPRepo  *repository.CloudIPRangeRepository
-	providerRepo *repository.HostingProviderRepository
-	keywordRepo  *repository.HostingKeywordRepository
+	cloudIPRepo   *repository.CloudIPRangeRepository
+	providerRepo  *repository.HostingProviderRepository
+	keywordRepo   *repository.HostingKeywordRepository
+	accessASNRepo *repository.AccessASNRepository
 
 	lookupASNRecord func(ip net.IP) (ASNRecord, error)
 	lookupCymru     func(ipStr string) ([]CymruASNInfo, error)
@@ -120,6 +122,10 @@ func NewHostingDetector(asnDBPath string, cloudIPRepo *repository.CloudIPRangeRe
 	d.lookupRDNS = d.checkResidentialByRDNS
 
 	return d, nil
+}
+
+func (d *HostingDetector) SetAccessASNRepo(repo *repository.AccessASNRepository) {
+	d.accessASNRepo = repo
 }
 
 func (d *HostingDetector) now() time.Time {
@@ -318,6 +324,18 @@ func (d *HostingDetector) Detect(ipStr string) (*HostingResult, error) {
 		}
 	}
 
+	if d.accessASNRepo != nil && result.ASN > 0 {
+		if access, err := d.accessASNRepo.FindByASN(result.ASN); err == nil && access != nil {
+			result.IsHosting = false
+			result.IsResidential = true
+			result.IsMobile = access.NetworkKind == "mobile"
+			result.Confidence = 85
+			result.Method = "access_asn"
+			result.NeedsDeepScan = false
+			return result, nil
+		}
+	}
+
 	isLikelyISP := d.isLikelyISPByName(record.ASOrg)
 
 	if isLikelyISP {
@@ -393,6 +411,11 @@ func (d *HostingDetector) GetStats() map[string]interface{} {
 	if d.cloudIPRepo != nil {
 		count, _ := d.cloudIPRepo.Count()
 		stats["cloud_ip_range_count"] = count
+	}
+
+	if d.accessASNRepo != nil {
+		count, _ := d.accessASNRepo.Count()
+		stats["access_asn_count"] = count
 	}
 
 	return stats

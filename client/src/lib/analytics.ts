@@ -1,3 +1,4 @@
+import { detectClientLocale } from '../i18n';
 import { isAutomatedCrawler } from './crawler';
 
 export type ToolPage = 'home' | 'dns' | 'webrtc' | 'ipv6';
@@ -16,15 +17,20 @@ declare global {
 export function trackEvent(event: string, data?: UmamiProps): void {
   if (typeof window === 'undefined' || isAutomatedCrawler()) return;
   try {
-    window.umami?.track(event, data);
+    const payload: UmamiProps = {
+      locale: detectClientLocale(),
+      ...data,
+    };
+    window.umami?.track(event, payload);
   } catch {
   }
 }
 
 export function specialistToolFromHref(href?: string): SpecialistTool | null {
   if (!href) return null;
-  if (href.startsWith('/dns-leak-test')) return 'dns';
-  if (href.startsWith('/webrtc-leak-test')) return 'webrtc';
-  if (href.startsWith('/ipv6-leak-test')) return 'ipv6';
+  const normalized = href.replace(/^\/en(?=\/|$)/, '') || '/';
+  if (normalized.startsWith('/dns-leak-test')) return 'dns';
+  if (normalized.startsWith('/webrtc-leak-test')) return 'webrtc';
+  if (normalized.startsWith('/ipv6-leak-test')) return 'ipv6';
   return null;
 }

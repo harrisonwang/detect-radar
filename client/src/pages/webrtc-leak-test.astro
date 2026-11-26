@@ -1,33 +1,5 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import WebRTCCheckPage from '../components/WebRTCCheckPage.svelte';
-import ReportBackdrop from '../components/ReportBackdrop.svelte';
-import SiteFooter from '../components/SiteFooter.svelte';
-
-const webrtcFeatures = [
-  '通过 STUN ICE 实测浏览器真实公网候选地址并与当前出口 IP 比对',
-  '识别局域网 / CGNAT / Fake-IP 内网暴露及浏览器 mDNS（.local）隐私保护状态',
-  '同步展示从 WebRTC ICE 候选中观测到的全局 IPv6 地址与协议/类型明细',
-  '同一浏览器内保留最近两次检测记录，支持调整代理或浏览器设置后同页复测对比',
-];
+import WebRTCLeakView from '../views/WebRTCLeakView.astro';
 ---
 
-<Layout
-  title="WebRTC 泄露检测：查看浏览器暴露的公网与内网 IP"
-  canonical="/webrtc-leak-test/"
-  ogImage="/og-webrtc.png"
-  description="免费在线 WebRTC 泄露检测：比对当前出口 IP 与浏览器通过 WebRTC 暴露的公网、内网地址及 mDNS 保护状态，支持改配置后同页复测对比。"
-  pageType="tool"
-  appName="DetectRadar WebRTC 泄露检测"
-  featureList={webrtcFeatures}
-  dateModified="2026-11-24"
->
-  <div class="min-h-screen bg-space-950 scan-grid flex flex-col relative">
-    <ReportBackdrop />
-    <WebRTCCheckPage client:load />
-    <noscript>
-      <p class="report-main pt-0 text-sm text-(--slate-300)">请启用 JavaScript 后再检测 WebRTC。</p>
-    </noscript>
-    <SiteFooter />
-  </div>
-</Layout>
+<WebRTCLeakView locale="zh-CN" />

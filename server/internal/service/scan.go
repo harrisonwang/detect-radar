@@ -401,6 +401,13 @@ func (s *ScanService) refineWebRTCPrivacy(
 	pa.OverallStatus = privacyOverallStatus(*pa)
 }
 
+func isAccessIntel(intel *model.IPIntel) bool {
+	if intel == nil || isHostingOrProxyIntel(intel) {
+		return false
+	}
+	return intel.IsMobile || intel.UsageTypeRaw == "residential" || intel.UsageTypeRaw == "mobile" || intel.InferUsageType() == "isp"
+}
+
 func (s *ScanService) refineIPv6Privacy(
 	ctx context.Context,
 	pa *model.PrivacyAnalysis,
@@ -426,9 +433,27 @@ func (s *ScanService) refineIPv6Privacy(
 		return
 	}
 
-	exitOverseas := exitIntel != nil && exitIntel.Country != "" && exitIntel.Country != "LOCAL" && !isMainlandCN(exitIntel)
-	v6MainlandAccess := isMainlandCN(v6Intel) && !v6Intel.IsHosting && v6Intel.InferUsageType() != "hosting"
-	if exitOverseas && v6MainlandAccess {
+	exitGeo := geoBucket(exitIntel)
+	v6Geo := geoBucket(v6Intel)
+	if exitGeo == "" || v6Geo == "" {
+		return
+	}
+
+	var exitASN, v6ASN string
+	if exitIntel != nil {
+		exitASN = normalizeASN(exitIntel.ASN)
+	}
+	v6ASN = normalizeASN(v6Intel.ASN)
+	sameASN := exitASN != "" && v6ASN != "" && exitASN == v6ASN
+	exitCarrier := canonicalCarrier(exitIntel)
+	v6Carrier := canonicalCarrier(v6Intel)
+	sameCarrier := exitCarrier != "" && v6Carrier != "" && exitCarrier == v6Carrier
+
+	v6Access := isAccessIntel(v6Intel)
+	exitProxyOrHosting := isHostingOrProxyIntel(exitIntel)
+
+	leaked := v6Access && !sameASN && !sameCarrier && (exitGeo != v6Geo || exitProxyOrHosting)
+	if leaked {
 		pa.IPv6 = model.PrivacyIPv6{Status: "danger", Address: addr.String()}
 	} else {
 		pa.IPv6 = model.PrivacyIPv6{Status: "safe", Address: addr.String()}
@@ -473,12 +498,13 @@ func buildFingerprint(req *model.ScanRequest) model.FingerprintAnalysis {
 		platform = nav.Data.Platform
 	}
 	if g := req.Fingerprint.WebGL; g != nil && g.Data != nil {
-		match, reason := webglMatchesPlatform(g.Data.UnmaskedRenderer, platform)
+		match, code, reason := webglMatchesPlatform(g.Data.UnmaskedRenderer, platform)
 		fa.WebGL.VendorMatchsUA = match
 		if match {
 			fa.WebGL.Status = "match"
 		} else {
 			fa.WebGL.Status = "mismatch"
+			fa.WebGL.MismatchCode = code
 			fa.WebGL.MismatchReason = reason
 		}
 	}
@@ -514,10 +540,12 @@ func buildAutomation(req *model.ScanRequest) model.AutomationAnalysis {
 		mobile = ua.Data.Mobile
 	}
 	if nav.Data.PluginsLength == 0 && !mobile {
+		aa.NoDesktopPlugins = true
 		aa.AutomationTraces = append(aa.AutomationTraces, "plugins_length=0 (桌面浏览器无插件，可疑)")
 	}
 
 	if req.FPJSAudit != nil && req.FPJSAudit.Hook.Status == "DANGER" {
+		aa.HookedMethods = append([]string(nil), req.FPJSAudit.Hook.Methods...)
 		aa.AutomationTraces = append(aa.AutomationTraces, "检测到原生方法被 Hook: "+strings.Join(req.FPJSAudit.Hook.Methods, ","))
 	}
 
@@ -534,11 +562,11 @@ func isNativeCode(code string) bool {
 	return strings.Contains(code, "[native code]")
 }
 
-func webglMatchesPlatform(renderer, platform string) (bool, string) {
+func webglMatchesPlatform(renderer, platform string) (bool, string, string) {
 	r := strings.ToLower(renderer)
 	p := strings.ToLower(platform)
 	if r == "" || p == "" {
-		return true, ""
+		return true, "", ""
 	}
 
 	isMac := strings.Contains(p, "mac")
@@ -546,13 +574,13 @@ func webglMatchesPlatform(renderer, platform string) (bool, string) {
 
 	if isMac || isIOS {
 		if strings.Contains(r, "direct3d") || strings.Contains(r, "d3d") || strings.Contains(r, "nvidia") {
-			return false, "Apple 平台不应出现 Direct3D/NVIDIA 渲染器"
+			return false, "apple_d3d_nvidia", "Apple 平台不应出现 Direct3D/NVIDIA 渲染器"
 		}
 	}
 
 	if isIOS && strings.Contains(r, "angle") {
-		return false, "iOS 不应出现桌面 ANGLE 渲染器"
+		return false, "ios_angle", "iOS 不应出现桌面 ANGLE 渲染器"
 	}
 
-	return true, ""
+	return true, "", ""
 }

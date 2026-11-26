@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { getMessages, localePath, type Locale } from '../i18n';
   import AppHeader from './report/AppHeader.svelte';
   import ExitIPAddress from './report/ExitIPAddress.svelte';
   import ReportToast from './report/ReportToast.svelte';
@@ -7,8 +8,9 @@
   import { dnsExitType, dnsProviderName, exitTypeLabel } from '../lib/dnsPresentation';
   import {
     compareIPv6,
+    getIPv6Status,
     ipv6History,
-    ipv6Status,
+    ipv6VerdictNote,
     measureIPv6,
     stackRegionLabel,
     type IPv6Check,
@@ -22,6 +24,14 @@
   import { renderIPv6ShareCard, saveShareImage } from '../lib/toolShareCard';
   import { copyShareText, formatIPv6ShareText } from '../lib/shareSummary';
 
+  interface Props {
+    locale?: Locale;
+  }
+  let { locale = 'zh-CN' }: Props = $props();
+
+  let m = $derived(getMessages(locale));
+  let statusMap = $derived(getIPv6Status(locale));
+
   let history = $state.raw<IPv6History>(emptyHistory<IPv6Check>());
   let ready = $state(false);
   let busy = $state(false);
@@ -32,10 +42,11 @@
 
   let current = $derived(history.current);
   let comparison = $derived(
-    current && history.previous ? compareIPv6(history.previous, current) : null,
+    current && history.previous ? compareIPv6(history.previous, current, locale) : null,
   );
   let verdict = $derived(current?.verdict);
-  let status = $derived(verdict ? ipv6Status[verdict.state] : ipv6Status.unknown);
+  let verdictNote = $derived(current && verdict ? ipv6VerdictNote(verdict, current.v4, current.v6, locale) : '');
+  let status = $derived(verdict ? statusMap[verdict.state] : statusMap.unknown);
 
   onMount(() => {
     if (isAutomatedCrawler()) {
@@ -63,9 +74,13 @@
     busy = true;
     liveProgress = null;
     try {
-      const result = await measureIPv6((progress) => {
-        liveProgress = progress;
-      });
+      const result = await measureIPv6(
+        (progress) => {
+          liveProgress = progress;
+        },
+        {},
+        locale,
+      );
       try {
         history = await ipv6History(result, history.current);
       } catch {
@@ -86,21 +101,26 @@
         verdictState: verdict.state,
         verdictTitle: status.title,
         verdictReason: verdict.reason,
-        verdictNote: verdict.note,
+        verdictNote,
         v4: current.v4,
-        v4NetworkName: current.v4?.ip ? (dnsProviderName(current.v4.network) || '网络未知') : '未连通',
-        v4Region: current.v4?.ip ? stackRegionLabel(current.v4) : '',
-        v4TypeLabel: current.v4?.ip ? exitTypeLabel(dnsExitType(current.v4)) : '',
+        v4NetworkName: current.v4?.ip
+          ? (dnsProviderName(current.v4.network, locale) || m.common.unknownNetwork)
+          : m.ipv6.page.unreachableShort,
+        v4Region: current.v4?.ip ? stackRegionLabel(current.v4, locale) : '',
+        v4TypeLabel: current.v4?.ip ? exitTypeLabel(dnsExitType(current.v4), locale) : '',
         v6: current.v6,
-        v6NetworkName: current.v6?.ip ? (dnsProviderName(current.v6.network) || '网络未知') : '未连通',
-        v6Region: current.v6?.ip ? stackRegionLabel(current.v6) : '',
-        v6TypeLabel: current.v6?.ip ? exitTypeLabel(dnsExitType(current.v6)) : '',
+        v6NetworkName: current.v6?.ip
+          ? (dnsProviderName(current.v6.network, locale) || m.common.unknownNetwork)
+          : m.ipv6.page.unreachableShort,
+        v6Region: current.v6?.ip ? stackRegionLabel(current.v6, locale) : '',
+        v6TypeLabel: current.v6?.ip ? exitTypeLabel(dnsExitType(current.v6), locale) : '',
+        locale,
       });
-      const shareMsg = await saveShareImage(blob, 'detectradar-ipv6');
+      const shareMsg = await saveShareImage(blob, 'detectradar-ipv6', locale);
       trackEvent('share-save-image', { page: 'ipv6' });
       toast?.show(shareMsg);
     } catch (err) {
-      toast?.show('分享图生成失败：' + (err as Error).message);
+      toast?.show(m.common.imageFailed((err as Error).message));
     } finally {
       capturing = false;
     }
@@ -109,22 +129,29 @@
   async function handleCopyText() {
     if (!current || busy || !verdict) return;
     trackEvent('share-copy-text', { page: 'ipv6' });
-    const text = formatIPv6ShareText({
-      verdictState: verdict.state,
-      verdictTitle: status.title,
-      verdictReason: verdict.reason,
-      verdictNote: verdict.note,
-      v4: current.v4,
-      v4NetworkName: current.v4?.ip ? (dnsProviderName(current.v4.network) || '网络未知') : '未连通',
-      v4Region: current.v4?.ip ? stackRegionLabel(current.v4) : '',
-      v4TypeLabel: current.v4?.ip ? exitTypeLabel(dnsExitType(current.v4)) : '',
-      v6: current.v6,
-      v6NetworkName: current.v6?.ip ? (dnsProviderName(current.v6.network) || '网络未知') : '未连通',
-      v6Region: current.v6?.ip ? stackRegionLabel(current.v6) : '',
-      v6TypeLabel: current.v6?.ip ? exitTypeLabel(dnsExitType(current.v6)) : '',
-      comparisonSummary: comparison?.summary,
-    });
-    toast?.show(await copyShareText(text));
+    const text = formatIPv6ShareText(
+      {
+        verdictState: verdict.state,
+        verdictTitle: status.title,
+        verdictReason: verdict.reason,
+        verdictNote,
+        v4: current.v4,
+        v4NetworkName: current.v4?.ip
+          ? (dnsProviderName(current.v4.network, locale) || m.common.unknownNetwork)
+          : m.ipv6.page.unreachableShort,
+        v4Region: current.v4?.ip ? stackRegionLabel(current.v4, locale) : '',
+        v4TypeLabel: current.v4?.ip ? exitTypeLabel(dnsExitType(current.v4), locale) : '',
+        v6: current.v6,
+        v6NetworkName: current.v6?.ip
+          ? (dnsProviderName(current.v6.network, locale) || m.common.unknownNetwork)
+          : m.ipv6.page.unreachableShort,
+        v6Region: current.v6?.ip ? stackRegionLabel(current.v6, locale) : '',
+        v6TypeLabel: current.v6?.ip ? exitTypeLabel(dnsExitType(current.v6), locale) : '',
+        comparisonSummary: comparison?.summary,
+      },
+      locale,
+    );
+    toast?.show(await copyShareText(text, locale));
   }
 </script>
 
@@ -138,18 +165,19 @@
   isSplit = false,
 )}
   <div class="reading">
-    <p class="field" title={family === 'v4' ? '经纯 IPv4 探测节点 4.detectradar.com 测得的出口' : '经纯 IPv6 探测节点 6.detectradar.com 测得的出口'}>
+    <p class="field" title={family === 'v4' ? m.ipv6.page.v4Tooltip : m.ipv6.page.v6Tooltip}>
       <i class="fa-solid {family === 'v4' ? 'fa-globe' : 'fa-network-wired'}" aria-hidden="true"></i>
-      {family === 'v4' ? 'IPv4 出口' : 'IPv6 出口'}
+      {family === 'v4' ? m.ipv6.page.v4Label : m.ipv6.page.v6Label}
     </p>
     {#if exit?.ip}
-      {@const networkType = exitTypeLabel(dnsExitType(exit))}
+      {@const networkType = exitTypeLabel(dnsExitType(exit), locale)}
       <div class="network-identity exit-identity">
-        <span class="network-name" class:leak-text={isLeak}>{dnsProviderName(exit.network) || '网络未知'}</span>
-        <span class="region">{stackRegionLabel(exit)}</span>
+        <span class="network-name" class:leak-text={isLeak}>{dnsProviderName(exit.network, locale) || m.common.unknownNetwork}</span>
+        <span class="region">{stackRegionLabel(exit, locale)}</span>
       </div>
       <div class="mt-0.5 mb-1.5">
         <ExitIPAddress
+          {locale}
           ip={exit.ip}
           revealed={revealExit}
           onToggleReveal={() => {
@@ -160,9 +188,9 @@
       </div>
       <div class="exit-meta">
         {#if isLeak}
-          <span class="badge danger">境内直连</span>
+          <span class="badge danger">{m.ipv6.page.badgeLeak}</span>
         {:else if isSplit}
-          <span class="badge">海外分流</span>
+          <span class="badge">{m.ipv6.page.badgeSplit}</span>
         {/if}
         {#if networkType}<span class="badge">{networkType}</span>{/if}
         {#if exit.asn}<span class="font-mono">{exit.asn}</span>{/if}
@@ -172,19 +200,20 @@
       <div class="mt-3 h-5 w-40 rounded bg-white/8" aria-hidden="true"></div>
       <div class="mt-2 h-3 w-24 rounded bg-white/5" aria-hidden="true"></div>
     {:else if waiting}
-      <p class="readout-placeholder">待检测</p>
+      <p class="readout-placeholder">{m.common.idle}</p>
     {:else if errKind === 'limited'}
-      <p class="readout-placeholder">请求过于频繁，请稍后重试</p>
+      <p class="readout-placeholder">{m.ipv6.page.errLimited}</p>
     {:else if family === 'v6'}
-      <p class="readout-placeholder">未连通 IPv6（仅 IPv4 网络）</p>
+      <p class="readout-placeholder">{m.ipv6.page.v6Unreachable}</p>
     {:else}
-      <p class="readout-placeholder">未连通 IPv4</p>
+      <p class="readout-placeholder">{m.ipv6.page.v4Unreachable}</p>
     {/if}
   </div>
 {/snippet}
 
 <AppHeader
   page="ipv6"
+  {locale}
   onCopyText={handleCopyText}
   onScreenshot={handleScreenshot}
   onRescan={() => run('retest')}
@@ -194,14 +223,14 @@
 
 <main class="report-main flex-1 min-w-0">
   <header class="mb-6">
-    <h1 class="report-title"><span class="text-radar">IPv6</span> 泄露检测</h1>
+    <h1 class="report-title"><span class="text-radar">{m.ipv6.titleAccent}</span>{m.ipv6.titleRest}</h1>
   </header>
 
   <div role="status" class="sr-only" data-nosnippet>
     {busy
       ? current
-        ? '正在重新检测 IPv4 与 IPv6 出口。'
-        : '正在检测 IPv4 与 IPv6 出口。'
+        ? m.ipv6.page.srRetesting
+        : m.ipv6.page.srTesting
       : current
         ? status.title
         : ''}
@@ -209,19 +238,20 @@
 
   <div class="diagnostic-layout">
     {#if current}
-      <section class="glass-card result-card" aria-label="IPv6 泄露检测结果" data-nosnippet>
+      <section class="glass-card result-card" aria-label={m.ipv6.page.resultAria} data-nosnippet>
         {#if current.v4Error === 'limited' || current.v6Error === 'limited'}
           <div class="result-notice">
             <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
-            <span>部分检测请求过于频繁，结果可能不完整。</span>
+            <span>{m.ipv6.page.noticeLimited}</span>
           </div>
         {/if}
 
         <IPv6FlowStage
+          {locale}
           v4={current.v4}
           v6={current.v6}
           verdictState={verdict?.state ?? 'unknown'}
-          verdictNote={verdict?.note}
+          {verdictNote}
           {revealExit}
           {busy}
           {liveProgress}
@@ -229,7 +259,7 @@
         />
 
         {#if busy}
-          <div class="progress-track" role="progressbar" aria-label="IPv6 重新检测进度">
+          <div class="progress-track" role="progressbar" aria-label={m.ipv6.page.retestProgressAria}>
             <span></span>
           </div>
         {/if}
@@ -239,12 +269,12 @@
           style:--verdict-color={status.color}
           style:--verdict-soft={status.soft}
         >
-          <p class="card-label">{busy ? '正在重新检测 · 上次结果' : '本次检测'}</p>
+          <p class="card-label">{busy ? m.common.retestingPrevious : m.common.thisScan}</p>
           <p class="verdict-title">
             <span class="dot" class:loading-dot={busy} aria-hidden="true"></span>{status.title}
           </p>
-          {#if verdict?.note}
-            <p class="diagnosis-note">{verdict.note}</p>
+          {#if verdictNote}
+            <p class="diagnosis-note">{verdictNote}</p>
           {/if}
         </header>
 
@@ -263,8 +293,9 @@
       </section>
     {:else}
       {@const isWaiting = ready && !busy}
-      <section class="glass-card result-card" aria-label={isWaiting ? '待检测 IPv6' : '正在检测 IPv6'} data-nosnippet>
+      <section class="glass-card result-card" aria-label={isWaiting ? m.ipv6.page.waitingTitle : m.ipv6.page.testingTitle} data-nosnippet>
         <IPv6FlowStage
+          {locale}
           v4={liveProgress?.v4 ?? null}
           v6={liveProgress?.v6 ?? null}
           verdictState="unknown"
@@ -274,27 +305,27 @@
           hasResult={false}
         />
         {#if !isWaiting}
-          <div class="progress-track" role="progressbar" aria-label="IPv6 检测进度">
+          <div class="progress-track" role="progressbar" aria-label={m.ipv6.page.progressAria}>
             <span></span>
           </div>
         {/if}
         <header class="diagnosis">
           {#if isWaiting}
             <p class="verdict-title">
-              <span class="dot" aria-hidden="true"></span>待检测 IPv6
+              <span class="dot" aria-hidden="true"></span>{m.ipv6.page.waitingTitle}
             </p>
-            <p class="diagnosis-note">点击开始后将同时测试 IPv4 与 IPv6 实际出口。</p>
+            <p class="diagnosis-note">{m.ipv6.page.waitingDesc}</p>
             <button
               type="button"
               onclick={() => run('manual')}
               class="mt-3 text-sm px-3.5 py-1.5 rounded-lg transition-colors cursor-pointer"
               style="color:var(--radar-400); background:var(--sig-soft)"
-            >开始检测</button>
+            >{m.common.startScan}</button>
           {:else}
             <p class="verdict-title">
-              <span class="dot loading-dot" aria-hidden="true"></span>正在检测 IPv6
+              <span class="dot loading-dot" aria-hidden="true"></span>{m.ipv6.page.testingTitle}
             </p>
-            <p class="diagnosis-note">正在并发探测 IPv4（4.detectradar.com）与 IPv6（6.detectradar.com）出口。</p>
+            <p class="diagnosis-note">{m.ipv6.page.testingDesc}</p>
           {/if}
         </header>
         <div class="columns">
@@ -309,31 +340,31 @@
         <aside class="glass-card side-card" aria-labelledby="ipv6-comparison-title" data-nosnippet>
           <p class="side-heading" id="ipv6-comparison-title">
             <i class="fa-solid fa-arrow-right-arrow-left" aria-hidden="true"></i>
-            {busy ? '上次对比' : '和上次比'}
+            {busy ? m.common.lastComparison : m.common.vsLast}
           </p>
           {#if comparison.summary}
             <p class="comparison-summary">{comparison.summary}</p>
           {:else}
             {#if comparison.previousVerdict}
               <p class="verdict-change" style:--change-color={status.color}>
-                <span class="sr-only">前次检测</span>
+                <span class="sr-only">{m.common.previousScanSr}</span>
                 {#if comparison.improved}
-                  <s>{ipv6Status[comparison.previousVerdict].title}</s>
+                  <s>{statusMap[comparison.previousVerdict].title}</s>
                 {:else}
-                  <span>{ipv6Status[comparison.previousVerdict].title}</span>
+                  <span>{statusMap[comparison.previousVerdict].title}</span>
                 {/if}
                 <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
-                <span class="sr-only">变为</span>
+                <span class="sr-only">{m.common.changedToSr}</span>
                 <strong>{status.title}</strong>
               </p>
             {/if}
             <dl class="change-list">
               <div>
-                <dt>IPv4 出口</dt>
+                <dt>{m.ipv6.page.v4Label}</dt>
                 <dd>{comparison.v4Change}</dd>
               </div>
               <div>
-                <dt>IPv6 出口</dt>
+                <dt>{m.ipv6.page.v6Label}</dt>
                 <dd>{comparison.v6Change}</dd>
               </div>
             </dl>
@@ -343,12 +374,14 @@
 
       <aside class="glass-card side-card" aria-labelledby="ipv6-info-title">
         <p class="side-heading" id="ipv6-info-title">
-          <i class="fa-solid fa-circle-info" aria-hidden="true"></i>检测说明
+          <i class="fa-solid fa-circle-info" aria-hidden="true"></i>{m.common.howItWorks}
         </p>
         <ul class="rule-note">
-          <li>同时测试当前网络的 IPv4 与 IPv6 实际出口</li>
-          <li>IPv4 出口在海外，而 IPv6 走中国大陆运营商直连时，判为<strong>泄露</strong></li>
-          <li>海外跨区 IPv6（如分流节点或 WARP）、港澳台节点及国内直连均判为<strong>未泄露</strong>，完整口径见 <a href="/about/#ipv6" class="text-(--radar-400) underline underline-offset-4">检测说明</a></li>
+          <li>{m.ipv6.page.rules[0]}</li>
+          <li>{m.ipv6.page.rules[1]}<strong>{statusMap.leaked.title}</strong></li>
+          <li>
+            {m.ipv6.page.rules[2]}<strong>{statusMap.clear.title}</strong>{locale === 'en' ? ' — see ' : '，完整口径见 '}<a href={localePath('/about/#ipv6', locale)} class="text-(--radar-400) underline underline-offset-4">{m.common.fullCriteriaLink}</a>
+          </li>
         </ul>
       </aside>
     </div>
@@ -432,13 +465,14 @@
   }
   .change-list > div {
     display: grid;
-    grid-template-columns: 4.5rem minmax(0, 1fr);
+    grid-template-columns: minmax(4.75rem, auto) minmax(0, 1fr);
     align-items: baseline;
     gap: 0.5rem;
   }
   .change-list dt {
     color: var(--slate-400);
     font-size: 0.8125rem;
+    white-space: nowrap;
   }
   .change-list dd {
     color: var(--slate-200);

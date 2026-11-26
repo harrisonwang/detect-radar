@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { getMessages, localePath, type Locale } from '../i18n';
   import AppHeader from './report/AppHeader.svelte';
   import ExitIPAddress from './report/ExitIPAddress.svelte';
   import ReportToast from './report/ReportToast.svelte';
@@ -13,10 +14,11 @@
   import { canonicalIP, isIPv6Address, sameIP, sameIPv6Prefix64 } from '../lib/ip';
   import {
     compareWebRTC,
+    getWebrtcStatus,
     localScopeLabel,
     measureWebRTC,
     webrtcHistory,
-    webrtcStatus,
+    webrtcVerdictNote,
     type WebRTCCheck,
     type WebRTCHistory,
     type WebRTCProgress,
@@ -27,6 +29,14 @@
   import { renderWebRTCShareCard, saveShareImage } from '../lib/toolShareCard';
   import { copyShareText, formatWebRTCShareText } from '../lib/shareSummary';
   import type { DNSExit, WebRTCNetworkInfo } from '../lib/types';
+
+  interface Props {
+    locale?: Locale;
+  }
+  let { locale = 'zh-CN' }: Props = $props();
+
+  let m = $derived(getMessages(locale));
+  let statusMap = $derived(getWebrtcStatus(locale));
 
   let history = $state.raw<WebRTCHistory>(emptyHistory<WebRTCCheck>());
   let ready = $state(false);
@@ -39,10 +49,11 @@
 
   let current = $derived(history.current);
   let comparison = $derived(
-    current && history.previous ? compareWebRTC(history.previous, current) : null,
+    current && history.previous ? compareWebRTC(history.previous, current, locale) : null,
   );
   let verdict = $derived(current?.verdict);
-  let status = $derived(verdict ? webrtcStatus[verdict.state] : webrtcStatus.unknown);
+  let verdictNote = $derived(current ? webrtcVerdictNote(current, locale) : '');
+  let status = $derived(verdict ? statusMap[verdict.state] : statusMap.unknown);
   let suspectSet = $derived(new Set((verdict?.suspectIPs ?? []).map((ip) => canonicalIP(ip))));
   let publicInfoByIP = $derived.by(() => {
     const map = new Map<string, WebRTCNetworkInfo>();
@@ -57,14 +68,15 @@
     if (!info) return '';
     const parts: string[] = [];
     if (info.country) {
-      const region = dnsRegion(info.country);
-      if (region && region !== '地区未知') parts.push(region);
+      const region = dnsRegion(info.country, locale);
+      if (region && region !== m.common.unknownRegion) parts.push(region);
     }
-    const provider = dnsProviderName(info.network ?? '');
+    const provider = dnsProviderName(info.network ?? '', locale);
     if (provider) parts.push(provider);
     if (info.asn) parts.push(info.asn);
     return parts.join(' · ');
   }
+
   let localScopeByIP = $derived.by(() => {
     const map = new Map<string, (typeof current extends infer C ? C extends WebRTCCheck ? C['candidates'][number]['localScope'] : never : never)>();
     if (!current) return map;
@@ -113,6 +125,7 @@
         (progress) => {
           liveProgress = progress;
         },
+        locale,
       );
       try {
         history = await webrtcHistory(result, history.current);
@@ -134,70 +147,80 @@
         verdictState: verdict.state,
         verdictTitle: status.title,
         verdictReason: verdict.reason,
-        verdictNote: verdict.note,
+        verdictNote,
         exit: current.exit,
-        exitNetworkName: current.exit?.ip ? (dnsProviderName(current.exit.network) || '网络未知') : '未获取',
-        exitRegion: current.exit?.ip ? dnsRegion(current.exit.country) : '',
-        exitTypeLabel: current.exit?.ip ? exitTypeLabel(dnsExitType(current.exit)) : '',
+        exitNetworkName: current.exit?.ip
+          ? (dnsProviderName(current.exit.network, locale) || m.common.unknownNetwork)
+          : m.common.unavailable,
+        exitRegion: current.exit?.ip ? dnsRegion(current.exit.country, locale) : '',
+        exitTypeLabel: current.exit?.ip ? exitTypeLabel(dnsExitType(current.exit), locale) : '',
         apiSupported: current.apiSupported,
         publicIPs: current.publicIPs,
         suspectIPs: verdict.suspectIPs,
         localIPs: current.localIPs.map((ip) => ({
           ip,
-          scope: localScopeLabel(localScopeByIP.get(ip)),
+          scope: localScopeLabel(localScopeByIP.get(ip), locale),
         })),
         mdnsCount: current.mdnsHosts.length,
         ipv6Global: current.ipv6Global,
+        locale,
       });
-      const shareMsg = await saveShareImage(blob, 'detectradar-webrtc');
+      const shareMsg = await saveShareImage(blob, 'detectradar-webrtc', locale);
       trackEvent('share-save-image', { page: 'webrtc' });
       toast?.show(shareMsg);
     } catch (err) {
-      toast?.show('分享图生成失败：' + (err as Error).message);
+      toast?.show(m.common.imageFailed((err as Error).message));
     } finally {
       capturing = false;
     }
   }
+
   async function handleCopyText() {
     if (!current || busy || !verdict) return;
     trackEvent('share-copy-text', { page: 'webrtc' });
-    const text = formatWebRTCShareText({
-      verdictState: verdict.state,
-      verdictTitle: status.title,
-      verdictReason: verdict.reason,
-      verdictNote: verdict.note,
-      exit: current.exit,
-      exitNetworkName: current.exit?.ip ? (dnsProviderName(current.exit.network) || '网络未知') : '未获取',
-      exitRegion: current.exit?.ip ? dnsRegion(current.exit.country) : '',
-      exitTypeLabel: current.exit?.ip ? exitTypeLabel(dnsExitType(current.exit)) : '',
-      apiSupported: current.apiSupported,
-      publicIPs: current.publicIPs,
-      suspectIPs: verdict.suspectIPs,
-      localIPs: current.localIPs.map((ip) => ({
-        ip,
-        scope: localScopeLabel(localScopeByIP.get(ip)),
-      })),
-      mdnsCount: current.mdnsHosts.length,
-      ipv6Global: current.ipv6Global,
-      comparisonSummary: comparison?.summary,
-    });
-    toast?.show(await copyShareText(text));
+    const text = formatWebRTCShareText(
+      {
+        verdictState: verdict.state,
+        verdictTitle: status.title,
+        verdictReason: verdict.reason,
+        verdictNote,
+        exit: current.exit,
+        exitNetworkName: current.exit?.ip
+          ? (dnsProviderName(current.exit.network, locale) || m.common.unknownNetwork)
+          : m.common.unavailable,
+        exitRegion: current.exit?.ip ? dnsRegion(current.exit.country, locale) : '',
+        exitTypeLabel: current.exit?.ip ? exitTypeLabel(dnsExitType(current.exit), locale) : '',
+        apiSupported: current.apiSupported,
+        publicIPs: current.publicIPs,
+        suspectIPs: verdict.suspectIPs,
+        localIPs: current.localIPs.map((ip) => ({
+          ip,
+          scope: localScopeLabel(localScopeByIP.get(ip), locale),
+        })),
+        mdnsCount: current.mdnsHosts.length,
+        ipv6Global: current.ipv6Global,
+        comparisonSummary: comparison?.summary,
+      },
+      locale,
+    );
+    toast?.show(await copyShareText(text, locale));
   }
 </script>
 
 {#snippet exitReadout(exit: DNSExit | null, pending: boolean, waiting = false)}
   <div class="reading">
-    <p class="field" title="你访问本站时使用的公网 IP">
-      <i class="fa-solid fa-globe" aria-hidden="true"></i>出口 IP
+    <p class="field" title={m.common.exitIPTooltip}>
+      <i class="fa-solid fa-globe" aria-hidden="true"></i>{m.common.exitIP}
     </p>
     {#if exit?.ip}
-      {@const networkType = exitTypeLabel(dnsExitType(exit))}
+      {@const networkType = exitTypeLabel(dnsExitType(exit), locale)}
       <div class="network-identity exit-identity">
-        <span class="network-name">{dnsProviderName(exit.network) || '网络未知'}</span>
-        <span class="region">{dnsRegion(exit.country)}</span>
+        <span class="network-name">{dnsProviderName(exit.network, locale) || m.common.unknownNetwork}</span>
+        <span class="region">{dnsRegion(exit.country, locale)}</span>
       </div>
       <div class="mt-0.5 mb-1.5">
         <ExitIPAddress
+          {locale}
           ip={exit.ip}
           revealed={revealExit}
           onToggleReveal={() => {
@@ -213,13 +236,14 @@
         </div>
       {/if}
     {:else}
-      <p class="readout-placeholder">{pending ? '正在获取…' : waiting ? '待检测' : '未获取'}</p>
+      <p class="readout-placeholder">{pending ? m.common.fetching : waiting ? m.common.idle : m.common.unavailable}</p>
     {/if}
   </div>
 {/snippet}
 
 <AppHeader
   page="webrtc"
+  {locale}
   onCopyText={handleCopyText}
   onScreenshot={handleScreenshot}
   onRescan={() => run('retest')}
@@ -229,14 +253,14 @@
 
 <main class="report-main flex-1 min-w-0">
   <header class="mb-6">
-    <h1 class="report-title"><span class="text-radar">WebRTC</span> 泄露检测</h1>
+    <h1 class="report-title"><span class="text-radar">{m.webrtc.titleAccent}</span>{m.webrtc.titleRest}</h1>
   </header>
 
   <div role="status" class="sr-only" data-nosnippet>
     {busy
       ? current
-        ? '正在重新检测 WebRTC。'
-        : '正在检测 WebRTC。'
+        ? m.webrtc.page.srRetesting
+        : m.webrtc.page.srTesting
       : current
         ? status.title
         : ''}
@@ -244,23 +268,24 @@
 
   <div class="diagnostic-layout">
     {#if current}
-      <section class="glass-card result-card" aria-label="WebRTC 检测结果" data-nosnippet>
+      <section class="glass-card result-card" aria-label={m.webrtc.page.resultAria} data-nosnippet>
         {#if current.exitError}
           <div class="result-notice">
             <i class="fa-solid fa-circle-info" aria-hidden="true"></i>
             <span>
               {current.exitError === 'limited'
-                ? '出口 IP 请求过于频繁，暂未获取到用于比对的出口地址。'
-                : '出口 IP 服务暂时不可用，仅展示本地 WebRTC 收集结果。'}
+                ? m.webrtc.page.noticeLimited
+                : m.webrtc.page.noticeUnavailable}
             </span>
           </div>
         {/if}
 
         <WebRTCFlowStage
+          {locale}
           exit={current.exit}
           verdictState={verdict?.state ?? 'unknown'}
           verdictReason={verdict?.reason}
-          verdictNote={verdict?.note}
+          {verdictNote}
           apiSupported={current.apiSupported}
           publicIPs={current.publicIPs}
           suspectIPs={verdict?.suspectIPs ?? []}
@@ -273,7 +298,7 @@
         />
 
         {#if busy}
-          <div class="progress-track" role="progressbar" aria-label="WebRTC 重新检测进度">
+          <div class="progress-track" role="progressbar" aria-label={m.webrtc.page.retestProgressAria}>
             <span></span>
           </div>
         {/if}
@@ -283,12 +308,12 @@
           style:--verdict-color={status.color}
           style:--verdict-soft={status.soft}
         >
-          <p class="card-label">{busy ? '正在重新检测 · 上次结果' : '本次检测'}</p>
+          <p class="card-label">{busy ? m.common.retestingPrevious : m.common.thisScan}</p>
           <p class="verdict-title">
             <span class="dot" class:loading-dot={busy} aria-hidden="true"></span>{status.title}
           </p>
-          {#if verdict?.note}
-            <p class="diagnosis-note">{verdict.note}</p>
+          {#if verdictNote}
+            <p class="diagnosis-note">{verdictNote}</p>
           {/if}
         </header>
 
@@ -300,18 +325,18 @@
               <i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i>WebRTC
             </p>
 
-            <ul class="network-list" aria-label="检测到的 WebRTC 地址">
+            <ul class="network-list" aria-label={m.webrtc.page.listAria}>
               <li class="network-row network-stack">
                 <div class="row-head">
-                  <span class="row-label">公网 IP</span>
+                  <span class="row-label">{m.webrtc.page.publicIPLabel}</span>
                   {#if !current.apiSupported}
-                    <span class="badge">WebRTC 已禁用</span>
+                    <span class="badge">{m.webrtc.page.disabledBadge}</span>
                   {:else if current.publicIPs.length === 0}
-                    <span class="region">未测到公网 IP</span>
+                    <span class="region">{m.webrtc.page.noPublicIP}</span>
                   {/if}
                 </div>
                 {#if current.publicIPs.length > 0}
-                  <ul class="candidate-list" aria-label="WebRTC 公网 IP">
+                  <ul class="candidate-list" aria-label={m.webrtc.page.publicIPAria}>
                     {#each current.publicIPs as ip (ip)}
                       {@const canonIP = canonicalIP(ip)}
                       {@const candInfo = publicInfoByIP.get(canonIP)}
@@ -334,7 +359,7 @@
                           <div class="network-identity">
                             {#if isSuspect}
                               <span class="suspect-dot" aria-hidden="true"></span>
-                              <span class="sr-only">泄露</span>
+                              <span class="sr-only">{statusMap.leaked.title}</span>
                             {/if}
                             <span class="ip-address">{canonIP}</span>
                           </div>
@@ -345,18 +370,18 @@
                         <div class="network-tags">
                           {#if isV6}<span class="badge">IPv6</span>{/if}
                           {#if isSuspect}
-                            <span class="badge danger">与出口不同</span>
+                            <span class="badge danger">{m.webrtc.page.tagDifferent}</span>
                           {:else if matchesExit}
-                            <span class="badge">与出口一致</span>
+                            <span class="badge">{m.webrtc.page.tagMatch}</span>
                           {:else if samePrefix}
-                            <span class="badge">同网段 IPv6</span>
+                            <span class="badge">{m.webrtc.page.tagSamePrefix}</span>
                           {:else if isDualStack}
-                            <span class="badge">同运营商</span>
+                            <span class="badge">{m.webrtc.page.tagSameISP}</span>
                           {:else if isSameNetwork}
-                            <span class="badge">共享出口</span>
+                            <span class="badge">{m.webrtc.page.tagSharedExit}</span>
                           {/if}
                           {#if comparison?.addedPublicIPs.has(canonIP)}
-                            <span class="badge new">新增</span>
+                            <span class="badge new">{m.common.added}</span>
                           {/if}
                         </div>
                       </li>
@@ -367,24 +392,24 @@
 
               <li class="network-row network-stack">
                 <div class="row-head">
-                  <span class="row-label">内网地址</span>
+                  <span class="row-label">{m.webrtc.page.localAddrLabel}</span>
                   {#if !current.apiSupported}
-                    <span class="region">接口已禁用</span>
+                    <span class="region">{m.webrtc.page.apiDisabled}</span>
                   {:else if current.localIPs.length === 0 && current.mdnsHosts.length > 0}
-                    <span class="badge">mDNS 已隐藏（*.local）</span>
+                    <span class="badge">{m.webrtc.page.mdnsHidden}</span>
                   {:else if current.localIPs.length === 0}
-                    <span class="region">未暴露</span>
+                    <span class="region">{m.webrtc.page.localNotExposed}</span>
                   {/if}
                 </div>
                 {#if current.localIPs.length > 0}
-                  <ul class="candidate-list" aria-label="WebRTC 内网地址">
+                  <ul class="candidate-list" aria-label={m.webrtc.page.localAddrAria}>
                     {#each current.localIPs as ip (ip)}
                       <li class="candidate-item">
                         <span class="ip-address">{ip}</span>
                         <div class="network-tags">
-                          <span class="badge">{localScopeLabel(localScopeByIP.get(ip))}</span>
+                          <span class="badge">{localScopeLabel(localScopeByIP.get(ip), locale)}</span>
                           {#if comparison?.addedLocalIPs.has(ip)}
-                            <span class="badge new">新增</span>
+                            <span class="badge new">{m.common.added}</span>
                           {/if}
                         </div>
                       </li>
@@ -395,13 +420,13 @@
 
               <li class="network-row">
                 <div class="row-head w-full">
-                  <span class="row-label">IPv6 地址</span>
+                  <span class="row-label">{m.webrtc.page.ipv6AddrLabel}</span>
                   {#if current.ipv6Global}
                     <span class="ip-address">{current.ipv6Global}</span>
                   {:else if !current.apiSupported}
-                    <span class="region">禁用 WebRTC 时未采集</span>
+                    <span class="region">{m.webrtc.page.ipv6Skipped}</span>
                   {:else}
-                    <span class="region">未测到全局 IPv6</span>
+                    <span class="region">{m.webrtc.page.ipv6None}</span>
                   {/if}
                 </div>
               </li>
@@ -414,16 +439,16 @@
             <summary>
               <span class="summary-name">
                 <i class="chevron fa-solid fa-chevron-right" aria-hidden="true"></i>
-                WebRTC 地址
+                {m.webrtc.page.detailsTitle}
               </span>
               <span class="address-count">
-                <span class="font-mono">{current.candidates.length}</span> 个地址
+                <span class="font-mono">{m.webrtc.page.addressCount(current.candidates.length)}</span>
               </span>
             </summary>
 
             <div class="resolver-groups">
               {#if current.candidates.length > 0}
-                <ul class="detail-list" aria-label="WebRTC 地址原始记录">
+                <ul class="detail-list" aria-label={m.webrtc.page.rawListAria}>
                   {#each current.candidates as cand (`${cand.address}|${cand.type}|${cand.protocol}`)}
                     <li class="detail-row">
                       <span class="ip-address">{cand.address}</span>
@@ -433,11 +458,11 @@
                         {#if cand.kind === 'mdns'}
                           <span class="badge">mDNS</span>
                         {:else if cand.kind === 'local'}
-                          <span class="badge">{localScopeLabel(cand.localScope)}</span>
+                          <span class="badge">{localScopeLabel(cand.localScope, locale)}</span>
                         {:else if suspectSet.has(canonicalIP(cand.address))}
-                          <span class="badge danger">与出口不同</span>
+                          <span class="badge danger">{m.webrtc.page.tagDifferent}</span>
                         {:else}
-                          <span class="badge">公网</span>
+                          <span class="badge">{m.webrtc.page.tagPublic}</span>
                         {/if}
                       </div>
                     </li>
@@ -447,7 +472,7 @@
 
               {#if removedAll.length > 0}
                 <div class="old-addresses">
-                  <p class="region">{busy ? '上次未再测到的地址' : '本次未再测到的地址'}</p>
+                  <p class="region">{busy ? m.common.noLongerSeenPrevious : m.common.noLongerSeenCurrent}</p>
                   <ul class="resolver-addresses mt-2">
                     {#each removedAll as ip (ip)}
                       <li class="resolver-address"><span class="ip-address">{ip}</span></li>
@@ -461,8 +486,9 @@
       </section>
     {:else}
       {@const isWaiting = ready && !busy}
-      <section class="glass-card result-card" aria-label={isWaiting ? '待检测 WebRTC' : '正在检测 WebRTC'} data-nosnippet>
+      <section class="glass-card result-card" aria-label={isWaiting ? m.webrtc.page.waitingTitle : m.webrtc.page.testingTitle} data-nosnippet>
         <WebRTCFlowStage
+          {locale}
           exit={pendingExit}
           verdictState="unknown"
           apiSupported={true}
@@ -476,27 +502,27 @@
           hasResult={false}
         />
         {#if !isWaiting}
-          <div class="progress-track" role="progressbar" aria-label="WebRTC 检测进度">
+          <div class="progress-track" role="progressbar" aria-label={m.webrtc.page.progressAria}>
             <span></span>
           </div>
         {/if}
         <header class="diagnosis">
           {#if isWaiting}
             <p class="verdict-title">
-              <span class="dot" aria-hidden="true"></span>待检测 WebRTC
+              <span class="dot" aria-hidden="true"></span>{m.webrtc.page.waitingTitle}
             </p>
-            <p class="diagnosis-note">点击开始后将并发检测网页出口与 WebRTC 地址。</p>
+            <p class="diagnosis-note">{m.webrtc.page.waitingDesc}</p>
             <button
               type="button"
               onclick={() => run('manual')}
               class="mt-3 text-sm px-3.5 py-1.5 rounded-lg transition-colors cursor-pointer"
               style="color:var(--radar-400); background:var(--sig-soft)"
-            >开始检测</button>
+            >{m.common.startScan}</button>
           {:else}
             <p class="verdict-title">
-              <span class="dot loading-dot" aria-hidden="true"></span>正在检测 WebRTC
+              <span class="dot loading-dot" aria-hidden="true"></span>{m.webrtc.page.testingTitle}
             </p>
-            <p class="diagnosis-note">正在并发检测网页出口与 WebRTC 地址。</p>
+            <p class="diagnosis-note">{m.webrtc.page.testingDesc}</p>
           {/if}
         </header>
         <div class="columns">
@@ -506,7 +532,7 @@
               <i class="fa-solid fa-tower-broadcast" aria-hidden="true"></i>WebRTC
             </p>
             {#if isWaiting}
-              <p class="readout-placeholder">待检测</p>
+              <p class="readout-placeholder">{m.common.idle}</p>
             {:else}
               <div class="mt-3 h-5 w-40 rounded bg-white/8" aria-hidden="true"></div>
               <div class="mt-2 h-3 w-24 rounded bg-white/5" aria-hidden="true"></div>
@@ -521,35 +547,35 @@
         <aside class="glass-card side-card" aria-labelledby="webrtc-comparison-title" data-nosnippet>
           <p class="side-heading" id="webrtc-comparison-title">
             <i class="fa-solid fa-arrow-right-arrow-left" aria-hidden="true"></i>
-            {busy ? '上次对比' : '和上次比'}
+            {busy ? m.common.lastComparison : m.common.vsLast}
           </p>
           {#if comparison.summary}
             <p class="comparison-summary">{comparison.summary}</p>
           {:else}
             {#if comparison.previousVerdict}
               <p class="verdict-change" style:--change-color={status.color}>
-                <span class="sr-only">前次检测</span>
+                <span class="sr-only">{m.common.previousScanSr}</span>
                 {#if comparison.improved}
-                  <s>{webrtcStatus[comparison.previousVerdict].title}</s>
+                  <s>{statusMap[comparison.previousVerdict].title}</s>
                 {:else}
-                  <span>{webrtcStatus[comparison.previousVerdict].title}</span>
+                  <span>{statusMap[comparison.previousVerdict].title}</span>
                 {/if}
                 <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
-                <span class="sr-only">变为</span>
+                <span class="sr-only">{m.common.changedToSr}</span>
                 <strong>{status.title}</strong>
               </p>
             {/if}
             <dl class="change-list">
               <div>
-                <dt>公网 IP</dt>
+                <dt>{m.webrtc.page.publicIPLabel}</dt>
                 <dd>{comparison.publicChange}</dd>
               </div>
               <div>
-                <dt>内网地址</dt>
+                <dt>{m.webrtc.page.localAddrLabel}</dt>
                 <dd>{comparison.localChange}</dd>
               </div>
               <div>
-                <dt>出口 IP</dt>
+                <dt>{m.common.exitIP}</dt>
                 <dd>{comparison.exitChange}</dd>
               </div>
             </dl>
@@ -559,12 +585,20 @@
 
       <aside class="glass-card side-card" aria-labelledby="webrtc-info-title">
         <p class="side-heading" id="webrtc-info-title">
-          <i class="fa-solid fa-circle-info" aria-hidden="true"></i>检测说明
+          <i class="fa-solid fa-circle-info" aria-hidden="true"></i>{m.common.howItWorks}
         </p>
         <ul class="rule-note">
-          <li>结果来自当前浏览器的 WebRTC 检测，不同公网 IP 仅做归属核对、不留存</li>
-          <li>测到不同地区、不同运营商或绕过代理的公网 IP，判为<strong>泄露</strong>，完整口径见 <a href="/about/#webrtc" class="text-(--radar-400) underline underline-offset-4">检测说明</a></li>
-          <li>同一运营商下的 IPv4 / IPv6 同时在线、同网段 IPv6 或共享出口不判泄露；如需单独排查 IPv6，请使用 <a href="/ipv6-leak-test/" onclick={() => trackEvent('tool-open', { from: 'webrtc', to: 'ipv6', source: 'note' })} class="text-(--radar-400) underline underline-offset-4">IPv6 泄露检测</a></li>
+          <li>{m.webrtc.page.rules[0]}</li>
+          <li>
+            {m.webrtc.page.rules[1]}<strong>{statusMap.leaked.title}</strong>{locale === 'en' ? ' — see ' : '，完整口径见 '}<a href={localePath('/about/#webrtc', locale)} class="text-(--radar-400) underline underline-offset-4">{m.common.fullCriteriaLink}</a>
+          </li>
+          <li>
+            {m.webrtc.page.rules[2]}<a
+              href={localePath('/ipv6-leak-test/', locale)}
+              onclick={() => trackEvent('tool-open', { from: 'webrtc', to: 'ipv6', source: 'note' })}
+              class="text-(--radar-400) underline underline-offset-4"
+            >{m.webrtc.page.ipv6ToolLink}</a>
+          </li>
         </ul>
       </aside>
     </div>
@@ -652,13 +686,14 @@
   }
   .change-list > div {
     display: grid;
-    grid-template-columns: 4.25rem minmax(0, 1fr);
+    grid-template-columns: minmax(4.75rem, auto) minmax(0, 1fr);
     align-items: baseline;
     gap: 0.5rem;
   }
   .change-list dt {
     color: var(--slate-400);
     font-size: 0.8125rem;
+    white-space: nowrap;
   }
   .change-list dd {
     color: var(--slate-200);

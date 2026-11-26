@@ -1,0 +1,44 @@
+---
+import Layout from '../layouts/Layout.astro';
+import AppHeader from '../components/report/AppHeader.svelte';
+import SiteFooter from '../components/SiteFooter.svelte';
+import { getMessages, localePath, type Locale } from '../i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const m = getMessages(locale);
+const canonical = localePath('/contact/', locale);
+---
+
+<Layout
+  title={m.contact.title}
+  canonical={canonical}
+  locale={locale}
+  description={m.contact.description}
+  pageType="static"
+  dateModified="2026-11-21"
+>
+  <div class="min-h-screen flex flex-col">
+    <AppHeader page="static" {locale} currentPath={canonical} />
+    <main class="flex-1 mx-auto w-full max-w-3xl px-6 py-12 sm:py-16 prose prose-invert prose-headings:font-semibold prose-a:text-(--radar-400)">
+      <h1>{m.contact.title}</h1>
+      <dl class="not-prose mt-6 divide-y divide-slate-800/70">
+        {m.contact.rows.map(({ name, purpose, email }) => (
+          <div class="flex flex-col gap-2 py-5 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+            <dt class="leading-6">
+              <span class="font-semibold text-(--slate-200)">{name}</span>
+              <p class="mt-1 text-sm text-(--slate-500)">{purpose}</p>
+            </dt>
+            <dd class="text-sm leading-5">
+              <a href={`mailto:${email}`} class="font-mono text-sm text-(--radar-400) transition-colors hover:text-white">{email}</a>
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </main>
+    <SiteFooter {locale} />
+  </div>
+</Layout>

@@ -1,0 +1,35 @@
+---
+import Layout from '../layouts/Layout.astro';
+import DNSCheckPage from '../components/DNSCheckPage.svelte';
+import ReportBackdrop from '../components/ReportBackdrop.svelte';
+import SiteFooter from '../components/SiteFooter.svelte';
+import { getMessages, localePath, type Locale } from '../i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const m = getMessages(locale);
+---
+
+<Layout
+  title={m.seo.dns.title}
+  canonical={localePath('/dns-leak-test/', locale)}
+  locale={locale}
+  ogImage={locale === 'en' ? '/og-dns-en.png' : '/og-dns.png'}
+  description={m.seo.dns.description}
+  pageType="tool"
+  appName={m.seo.dns.appName}
+  featureList={m.seo.dns.features}
+  dateModified="2026-11-26"
+>
+  <div class="min-h-screen bg-space-950 scan-grid flex flex-col relative">
+    <ReportBackdrop />
+    <DNSCheckPage client:load {locale} />
+    <noscript>
+      <p class="report-main pt-0 text-sm text-(--slate-300)">{m.seo.dns.noscript}</p>
+    </noscript>
+    <SiteFooter {locale} />
+  </div>
+</Layout>

@@ -163,6 +163,7 @@ func scoreForScenario(a model.ScanAnalysis, intel *model.IPIntel, rawScenario st
 		diag = append(diag, model.DiagnosisItem{
 			Status: "success",
 			Text:   fmt.Sprintf("出口 IP 判定为住宅/移动网络 (置信度 %d)", a.Identity.IPTypeConfidence),
+			Code:   "RESIDENTIAL_PASS",
 		})
 	}
 

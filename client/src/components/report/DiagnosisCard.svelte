@@ -1,9 +1,11 @@
 <script lang="ts">
+  import { getMessages, localePath, type Locale } from '../../i18n';
   import type { ReportModel, Severity } from '../../lib/report';
   import { stateVar, stateSoft } from '../../lib/report';
   import { specialistToolFromHref, trackEvent } from '../../lib/analytics';
 
   interface Props {
+    locale?: Locale;
     report: ReportModel | null;
     isScanning?: boolean;
     active?: boolean;
@@ -16,14 +18,17 @@
     'ipv6-leak': '/ipv6-leak-test/',
   };
 
-  let { report, isScanning = false, active = false, onCopyPromo, onStart }: Props = $props();
+  let { locale = 'zh-CN', report, isScanning = false, active = false, onCopyPromo, onStart }: Props = $props();
 
-  const SEV: Record<Severity, { color: string; soft: string; label: string; icon: string }> = {
-    leak: { color: 'var(--leak)', soft: 'var(--leak-soft)', label: '暴露', icon: 'fa-triangle-exclamation' },
-    contradiction: { color: 'var(--warn)', soft: 'var(--warn-soft)', label: '冲突', icon: 'fa-not-equal' },
-    caution: { color: 'var(--warn)', soft: 'var(--warn-soft)', label: '留意', icon: 'fa-circle-exclamation' },
-    info: { color: 'var(--unknown)', soft: 'var(--unknown-soft)', label: '提示', icon: 'fa-circle-info' },
-  };
+  let msg = $derived(getMessages(locale));
+  let d = $derived(msg.home.diagnosis);
+
+  let sevMap = $derived<Record<Severity, { color: string; soft: string; label: string; icon: string }>>({
+    leak: { color: 'var(--leak)', soft: 'var(--leak-soft)', label: d.sev.leak, icon: 'fa-triangle-exclamation' },
+    contradiction: { color: 'var(--warn)', soft: 'var(--warn-soft)', label: d.sev.contradiction, icon: 'fa-not-equal' },
+    caution: { color: 'var(--warn)', soft: 'var(--warn-soft)', label: d.sev.caution, icon: 'fa-circle-exclamation' },
+    info: { color: 'var(--unknown)', soft: 'var(--unknown-soft)', label: d.sev.info, icon: 'fa-circle-info' },
+  });
 
   const ENV = (import.meta as unknown as { env?: Record<string, string | boolean> }).env ?? {};
   const partnerEnabled = ENV.PUBLIC_PARTNER_ENABLED === true || ENV.PUBLIC_PARTNER_ENABLED === 'true' || ENV.PUBLIC_PARTNER_ENABLED === '1';
@@ -40,103 +45,104 @@
     </div>
   {:else if report}
     <div class="flex flex-col flex-1 scan-settle">
-    <div class="flex items-start gap-3">
-      <span class="dot mt-2" style="background:{stateVar(report.verdict.state)}; --_soft:{stateSoft(report.verdict.state)}"></span>
-      <div>
-        <p class="text-xl md:text-2xl font-bold text-white leading-snug">{report.verdict.headline}</p>
-        <p class="text-sm text-(--slate-400) mt-1.5 leading-relaxed max-w-xl">{report.verdict.sub}</p>
+      <div class="flex items-start gap-3">
+        <span class="dot mt-2" style="background:{stateVar(report.verdict.state)}; --_soft:{stateSoft(report.verdict.state)}"></span>
+        <div>
+          <p class="text-xl md:text-2xl font-bold text-white leading-snug">{report.verdict.headline}</p>
+          <p class="text-sm text-(--slate-400) mt-1.5 leading-relaxed max-w-xl">{report.verdict.sub}</p>
+        </div>
       </div>
-    </div>
 
-    <div class="mt-5 pt-4 border-t border-slate-800 flex-1">
-      {#if report.findings.length === 0}
-        <div class="flex items-center gap-2 text-sm text-(--slate-300)">
-          <i class="fa-solid fa-circle-check" style="color:var(--sig)"></i> 未见明显异常
-        </div>
-      {:else}
-        <div class="flex items-center justify-between mb-3">
-          <span class="text-xs font-mono text-(--slate-500) tracking-wider">暴露项</span>
-          <span class="text-xs font-mono text-(--slate-600)">{report.findings.length}</span>
-        </div>
-        <ul class="space-y-2.5">
-          {#each report.findings as f}
-            {@const m = SEV[f.severity]}
-            {@const href = FINDING_LINKS[f.id]}
-            <li class="flex items-start gap-2.5">
-              <span class="text-[10px] font-mono px-1.5 py-1 rounded shrink-0 flex items-center gap-1" style="color:{m.color}; background:{m.soft}">
-                <i class="fa-solid {m.icon}"></i>{m.label}
-              </span>
-              <div class="min-w-0 flex-1">
-                {#if href}
-                  <a
-                    {href}
-                    onclick={() => {
-                      const to = specialistToolFromHref(href);
-                      if (to) trackEvent('tool-open', { from: 'home', to, source: 'finding' });
-                    }}
-                    class="text-sm text-(--slate-200) leading-snug hover:text-(--radar-400) underline decoration-slate-600 underline-offset-4"
-                  >
-                    {f.title}<i class="fa-solid fa-arrow-right ml-1.5 text-[10px]" aria-hidden="true"></i>
-                  </a>
-                {:else}
-                  <span class="text-sm text-(--slate-200) leading-snug">{f.title}</span>
-                {/if}
-                <span class="text-xs text-(--slate-400) block sm:truncate mt-0.5">{f.fact}</span>
-                {#if f.fix && f.severity !== 'info'}
-                  <span class="text-xs text-(--slate-500) block mt-0.5 leading-relaxed">建议：{f.fix}</span>
-                {/if}
-              </div>
-            </li>
-          {/each}
-        </ul>
-      {/if}
-    </div>
+      <div class="mt-5 pt-4 border-t border-slate-800 flex-1">
+        {#if report.findings.length === 0}
+          <div class="flex items-center gap-2 text-sm text-(--slate-300)">
+            <i class="fa-solid fa-circle-check" style="color:var(--sig)"></i> {d.noIssues}
+          </div>
+        {:else}
+          <div class="flex items-center justify-between mb-3">
+            <span class="text-xs font-mono text-(--slate-500) tracking-wider">{d.findingsLabel}</span>
+            <span class="text-xs font-mono text-(--slate-600)">{report.findings.length}</span>
+          </div>
+          <ul class="space-y-2.5">
+            {#each report.findings as f}
+              {@const m = sevMap[f.severity]}
+              {@const baseHref = FINDING_LINKS[f.id]}
+              {@const href = baseHref ? localePath(baseHref, locale) : undefined}
+              <li class="flex items-start gap-2.5">
+                <span class="text-[10px] font-mono px-1.5 py-1 rounded shrink-0 flex items-center gap-1" style="color:{m.color}; background:{m.soft}">
+                  <i class="fa-solid {m.icon}"></i>{m.label}
+                </span>
+                <div class="min-w-0 flex-1">
+                  {#if href}
+                    <a
+                      {href}
+                      onclick={() => {
+                        const to = specialistToolFromHref(href);
+                        if (to) trackEvent('tool-open', { from: 'home', to, source: 'finding' });
+                      }}
+                      class="text-sm text-(--slate-200) leading-snug hover:text-(--radar-400) underline decoration-slate-600 underline-offset-4"
+                    >
+                      {f.title}<i class="fa-solid fa-arrow-right ml-1.5 text-[10px]" aria-hidden="true"></i>
+                    </a>
+                  {:else}
+                    <span class="text-sm text-(--slate-200) leading-snug">{f.title}</span>
+                  {/if}
+                  <span class="text-xs text-(--slate-400) block sm:truncate mt-0.5">{f.fact}</span>
+                  {#if f.fix && f.severity !== 'info'}
+                    <span class="text-xs text-(--slate-500) block mt-0.5 leading-relaxed">{d.fixPrefix}{f.fix}</span>
+                  {/if}
+                </div>
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
 
-    {#if partnerEnabled}
-      <div class="mt-5 pt-4 border-t border-slate-800 flex items-start gap-2.5">
-        <span
-          class="text-[10px] font-mono px-1.5 py-1 rounded shrink-0 flex items-center gap-1"
-          style="color:#38bdf8; background:rgba(56, 189, 248, 0.12)"
-        >
-          <span class="w-[1.25em] text-center leading-none">✦</span>推荐
-        </span>
-
-        <div class="min-w-0 flex-1">
-          <span class="text-sm text-(--slate-200) leading-snug block">
-            需要纯净的原生住宅或 ISP 代理？
+      {#if partnerEnabled}
+        <div class="mt-5 pt-4 border-t border-slate-800 flex items-start gap-2.5">
+          <span
+            class="text-[10px] font-mono px-1.5 py-1 rounded shrink-0 flex items-center gap-1"
+            style="color:#38bdf8; background:rgba(56, 189, 248, 0.12)"
+          >
+            <span class="w-[1.25em] text-center leading-none">✦</span>{d.partnerBadge}
           </span>
-          <div class="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-(--slate-500)">
-            <a
-              href={partnerUrl}
-              target="_blank"
-              rel="noopener sponsored"
-              class="text-(--slate-300) hover:text-white underline decoration-slate-600 hover:decoration-slate-300 underline-offset-4 transition-colors"
-            >
-              前往 Proxy-Seller 获取 ↗
-            </a>
-            {#if partnerCode}
-              <span class="text-(--slate-600)">·</span>
-              <button
-                type="button"
-                onclick={() => onCopyPromo?.(partnerCode)}
-                class="inline-flex items-center gap-1.5 text-(--slate-400) hover:text-(--slate-200) transition-colors cursor-pointer"
-                title="结账时输入可享专属折扣，点击复制"
+
+          <div class="min-w-0 flex-1">
+            <span class="text-sm text-(--slate-200) leading-snug block">
+              {d.partnerTitle}
+            </span>
+            <div class="mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-(--slate-500)">
+              <a
+                href={partnerUrl}
+                target="_blank"
+                rel="noopener sponsored"
+                class="text-(--slate-300) hover:text-white underline decoration-slate-600 hover:decoration-slate-300 underline-offset-4 transition-colors"
               >
-                <span>优惠码</span>
-                <code class="px-1.5 py-0.5 rounded bg-white/5 text-(--slate-300) font-mono text-[11px]">{partnerCode}</code>
-                <i class="fa-regular fa-copy text-[11px]"></i>
-              </button>
-            {/if}
+                {d.partnerCta}
+              </a>
+              {#if partnerCode}
+                <span class="text-(--slate-600)">·</span>
+                <button
+                  type="button"
+                  onclick={() => onCopyPromo?.(partnerCode)}
+                  class="inline-flex items-center gap-1.5 text-(--slate-400) hover:text-(--slate-200) transition-colors cursor-pointer"
+                  title={d.partnerCodeTitle}
+                >
+                  <span>{d.partnerCodeLabel}</span>
+                  <code class="px-1.5 py-0.5 rounded bg-white/5 text-(--slate-300) font-mono text-[11px]">{partnerCode}</code>
+                  <i class="fa-regular fa-copy text-[11px]"></i>
+                </button>
+              {/if}
+            </div>
           </div>
         </div>
-      </div>
-    {/if}
+      {/if}
     </div>
   {:else}
     <div class="flex flex-col items-start justify-center h-full gap-2.5">
-      <p class="text-lg font-semibold text-white">待检测</p>
+      <p class="text-lg font-semibold text-white">{msg.common.idle}</p>
       <p class="text-sm text-(--slate-400) leading-relaxed max-w-xl">
-        点击开始检测当前出口 IP、浏览器时区与语言一致性、DNS / WebRTC / IPv6 泄露及环境指纹。
+        {d.idleDesc}
       </p>
       {#if onStart}
         <button
@@ -144,7 +150,7 @@
           onclick={onStart}
           class="mt-1 text-sm px-4 py-2 rounded-lg transition-colors cursor-pointer"
           style="color:var(--radar-400); background:var(--sig-soft)"
-        >开始检测</button>
+        >{msg.common.startScan}</button>
       {/if}
     </div>
   {/if}

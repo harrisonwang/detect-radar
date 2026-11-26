@@ -1,8 +1,11 @@
 <script lang="ts">
   import { trackEvent, type SpecialistTool } from '../../lib/analytics';
+  import { getMessages, localePath, switchLocalePath, type Locale } from '../../i18n';
 
   interface Props {
-    page?: "home" | "dns" | "webrtc" | "ipv6" | "static";
+    page?: 'home' | 'dns' | 'webrtc' | 'ipv6' | 'static';
+    locale?: Locale;
+    currentPath?: string;
     onCopyText?: () => void;
     onScreenshot?: () => void;
     onRescan?: () => void;
@@ -11,7 +14,9 @@
     failureText?: string;
   }
   let {
-    page = "home",
+    page = 'home',
+    locale = 'zh-CN',
+    currentPath,
     onCopyText,
     onScreenshot,
     onRescan,
@@ -20,7 +25,23 @@
     failureText,
   }: Props = $props();
 
-  let statusText = $derived(isScanning ? '检测中' : failureText || (ready ? '检测完成' : '待检测'));
+  const PAGE_BASE: Record<Exclude<NonNullable<Props['page']>, 'static'>, string> = {
+    home: '/',
+    dns: '/dns-leak-test/',
+    webrtc: '/webrtc-leak-test/',
+    ipv6: '/ipv6-leak-test/',
+  };
+
+  let m = $derived(getMessages(locale));
+  let otherLocale = $derived<Locale>(locale === 'en' ? 'zh-CN' : 'en');
+  let switchHref = $derived(
+    currentPath
+      ? switchLocalePath(currentPath, otherLocale)
+      : page !== 'static'
+        ? localePath(PAGE_BASE[page], otherLocale)
+        : localePath('/', otherLocale),
+  );
+  let statusText = $derived(isScanning ? m.nav.scanning : failureText || (ready ? m.nav.done : m.nav.idle));
   let statusColor = $derived(isScanning ? 'var(--warn)' : ready && !failureText ? 'var(--sig)' : 'var(--unknown)');
   let canShare = $derived(Boolean(onCopyText || onScreenshot));
   let shareDisabled = $derived(isScanning || !ready);
@@ -99,7 +120,7 @@
 <header bind:this={headerEl} class="border-b border-slate-800/60 bg-space-950/80 sticky top-0 z-50 backdrop-blur-md">
   <div class="header-wrap max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
     <div class="header-row">
-      <a href="/" class="brand flex items-center gap-1.5 sm:gap-3 group">
+      <a href={localePath('/', locale)} class="brand flex items-center gap-1.5 sm:gap-3 group">
         <span class="relative size-6 sm:size-8 flex items-center justify-center">
           <i class="fa-solid fa-crosshairs text-(--radar-400) text-xl group-hover:rotate-180 transition-transform duration-700"></i>
           <span class="absolute inset-0 bg-(--radar-400)/2 rounded-full animate-ping-slow"></span>
@@ -107,39 +128,42 @@
         <span class="text-lg sm:text-xl font-bold tracking-tight text-white font-mono">Detect<span class="text-(--radar-400)">Radar</span></span>
       </a>
 
-      <nav id="site-nav" aria-label="主导航" class="site-nav" class:is-open={menuOpen}>
-        <a href="/" aria-current={page === 'home' ? 'page' : undefined} onclick={closeNavMenu}>网络环境检测</a>
+      <nav id="site-nav" aria-label={m.nav.ariaLabel} class="site-nav" class:is-open={menuOpen}>
+        <a href={localePath('/', locale)} aria-current={page === 'home' ? 'page' : undefined} onclick={closeNavMenu}>{m.nav.home}</a>
         <a
-          href="/dns-leak-test/"
+          href={localePath('/dns-leak-test/', locale)}
           aria-current={page === 'dns' ? 'page' : undefined}
           onclick={() => handleToolNavClick('dns')}
           data-umami-event={page === 'static' ? 'tool-open' : undefined}
           data-umami-event-from={page === 'static' ? 'static' : undefined}
           data-umami-event-to={page === 'static' ? 'dns' : undefined}
           data-umami-event-source={page === 'static' ? 'nav' : undefined}
-        >DNS 泄露检测</a>
+          data-umami-event-locale={page === 'static' ? locale : undefined}
+        >{m.nav.dns}</a>
         <a
-          href="/webrtc-leak-test/"
+          href={localePath('/webrtc-leak-test/', locale)}
           aria-current={page === 'webrtc' ? 'page' : undefined}
           onclick={() => handleToolNavClick('webrtc')}
           data-umami-event={page === 'static' ? 'tool-open' : undefined}
           data-umami-event-from={page === 'static' ? 'static' : undefined}
           data-umami-event-to={page === 'static' ? 'webrtc' : undefined}
           data-umami-event-source={page === 'static' ? 'nav' : undefined}
-        >WebRTC 泄露检测</a>
+          data-umami-event-locale={page === 'static' ? locale : undefined}
+        >{m.nav.webrtc}</a>
         <a
-          href="/ipv6-leak-test/"
+          href={localePath('/ipv6-leak-test/', locale)}
           aria-current={page === 'ipv6' ? 'page' : undefined}
           onclick={() => handleToolNavClick('ipv6')}
           data-umami-event={page === 'static' ? 'tool-open' : undefined}
           data-umami-event-from={page === 'static' ? 'static' : undefined}
           data-umami-event-to={page === 'static' ? 'ipv6' : undefined}
           data-umami-event-source={page === 'static' ? 'nav' : undefined}
-        >IPv6 泄露检测</a>
+          data-umami-event-locale={page === 'static' ? locale : undefined}
+        >{m.nav.ipv6}</a>
       </nav>
 
       <div class="report-actions">
-        {#if page !== "static"}
+        {#if page !== 'static'}
           <span class="status-pill text-xs font-mono text-(--slate-500) whitespace-nowrap" role="status" data-nosnippet>
             <span aria-hidden="true" class="dot" style:background={statusColor} style:--_soft="transparent"></span>
             {statusText}
@@ -147,11 +171,11 @@
         {/if}
 
         <div class="icon-actions">
-          {#if page !== "static" && (ready || !isScanning || page === "dns" || page === "webrtc" || page === "ipv6")}
-            <button type="button" onclick={onRescan} disabled={isScanning} class="hbtn" title="重新检测" aria-label="重新检测">
+          {#if page !== 'static' && (ready || !isScanning || page === 'dns' || page === 'webrtc' || page === 'ipv6')}
+            <button type="button" onclick={onRescan} disabled={isScanning} class="hbtn" title={m.nav.rescan} aria-label={m.nav.rescan}>
               <i class="fa-solid fa-rotate-right text-sm" aria-hidden="true"></i>
             </button>
-            {#if canShare && (ready || page === "dns" || page === "webrtc" || page === "ipv6")}
+            {#if canShare && (ready || page === 'dns' || page === 'webrtc' || page === 'ipv6')}
               <div class="share-wrap" bind:this={shareWrap}>
                 <button
                   type="button"
@@ -159,22 +183,22 @@
                   disabled={shareDisabled}
                   class="hbtn"
                   class:is-open={shareOpen}
-                  title="分享"
-                  aria-label="分享"
+                  title={m.nav.share}
+                  aria-label={m.nav.share}
                   aria-haspopup={onCopyText && onScreenshot ? 'menu' : undefined}
                   aria-expanded={onCopyText && onScreenshot ? shareOpen : undefined}
                 >
                   <i class="fa-solid fa-share-nodes text-sm" aria-hidden="true"></i>
                 </button>
                 {#if shareOpen && onCopyText && onScreenshot}
-                  <div class="share-menu" role="menu" aria-label="分享">
+                  <div class="share-menu" role="menu" aria-label={m.nav.share}>
                     <button type="button" role="menuitem" class="share-item" onclick={runCopyText}>
                       <i class="fa-regular fa-copy share-icon" aria-hidden="true"></i>
-                      <span>复制文字</span>
+                      <span>{m.nav.copyText}</span>
                     </button>
                     <button type="button" role="menuitem" class="share-item" onclick={runScreenshot}>
                       <i class="fa-regular fa-image share-icon" aria-hidden="true"></i>
-                      <span>保存图片</span>
+                      <span>{m.nav.saveImage}</span>
                     </button>
                   </div>
                 {/if}
@@ -182,13 +206,21 @@
             {/if}
           {/if}
 
+          <a
+            href={switchHref}
+            hreflang={otherLocale}
+            class="hbtn lang-btn"
+            title={m.nav.switchTitle}
+            aria-label={m.nav.switchTitle}
+          >{m.nav.switchLabel}</a>
+
           <button
             type="button"
             class="hbtn menu-btn"
             class:is-open={menuOpen}
             onclick={toggleNavMenu}
-            title={menuOpen ? '关闭导航菜单' : '打开导航菜单'}
-            aria-label={menuOpen ? '关闭导航菜单' : '打开导航菜单'}
+            title={menuOpen ? m.nav.closeMenu : m.nav.openMenu}
+            aria-label={menuOpen ? m.nav.closeMenu : m.nav.openMenu}
             aria-expanded={menuOpen}
             aria-controls="site-nav"
             data-nav-toggle={page === 'static' ? 'static' : undefined}
@@ -268,6 +300,17 @@
     background: rgba(30, 41, 59, 0.5);
     transition: all 0.18s ease;
     cursor: pointer;
+    flex-shrink: 0;
+  }
+  .lang-btn {
+    width: auto;
+    min-width: 38px;
+    padding-inline: 0.5rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
   }
   .hbtn:hover:not(:disabled),
   .hbtn.is-open {
@@ -292,7 +335,7 @@
     display: inline-block;
   }
 
-  @media (max-width: 62rem) {
+  @media (max-width: 68rem) {
     .header-row {
       grid-template-areas: "brand actions";
       grid-template-columns: minmax(0, 1fr) auto;
@@ -343,7 +386,7 @@
     }
   }
 
-  @media (max-width: 30rem) {
+  @media (max-width: 34rem) {
     .status-pill {
       display: none;
     }
@@ -400,12 +443,19 @@
     font-size: 0.85rem;
     flex-shrink: 0;
   }
+  @media (max-width: 26rem) {
+    .report-actions { column-gap: 0.35rem; }
+    .hbtn { width: 35px; height: 35px; }
+    .lang-btn { width: auto; min-width: 35px; padding-inline: 0.45rem; font-size: 0.72rem; }
+    .header-wrap { padding-inline: 0.875rem; }
+  }
   @media (max-width: 23rem) {
-    .report-actions { column-gap: 0.3rem; }
-    .hbtn { width: 34px; height: 34px; }
+    .report-actions { column-gap: 0.25rem; }
+    .hbtn { width: 32px; height: 32px; }
+    .lang-btn { width: auto; min-width: 32px; padding-inline: 0.4rem; }
     .header-wrap { padding-inline: 0.75rem; }
     .brand { gap: 0.35rem; }
-    .brand > span:last-child { font-size: 1.05rem; }
+    .brand > span:last-child { font-size: 1.02rem; }
   }
   @media (max-width: 20rem) {
     .brand > span:first-child { display: none; }

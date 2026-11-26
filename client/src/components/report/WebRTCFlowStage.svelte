@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
+  import { getMessages, type Locale } from '../../i18n';
   import { dnsProviderName, dnsRegion } from '../../lib/dnsPresentation';
   import { maskIP } from '../../lib/ipDisplay';
   import type { DNSExit } from '../../lib/types';
@@ -9,6 +10,7 @@
   type Pt = readonly [number, number];
 
   interface Props {
+    locale?: Locale;
     exit: DNSExit | null;
     verdictState: WebRTCVerdictState;
     verdictReason?: WebRTCVerdictReason;
@@ -25,6 +27,7 @@
   }
 
   let {
+    locale = 'zh-CN',
     exit,
     verdictState,
     verdictReason,
@@ -39,6 +42,10 @@
     liveProgress = null,
     hasResult = false,
   }: Props = $props();
+
+  let m = $derived(getMessages(locale));
+  let fl = $derived(m.webrtc.flow);
+  let dnsFl = $derived(m.dns.flow);
 
   let httpsT = $state(1);
   let httpsActive = $state(false);
@@ -117,6 +124,14 @@
     exit: [262, 152],
     judge: [170, 254],
   };
+
+  function pillWidth(label: string, minW = 38): number {
+    let w = 16;
+    for (const ch of label) {
+      w += /[\u3000-\u9fff]/.test(ch) ? 10 : 6.1;
+    }
+    return Math.max(minW, Math.ceil(w));
+  }
 
   function pointAlong(pts: readonly Pt[], rawT: number): { x: number; y: number } {
     const t = Math.max(0, Math.min(1, rawT));
@@ -298,6 +313,9 @@
   );
 
   let effectiveVerdict = $derived<WebRTCVerdictState>(busy ? 'unknown' : verdictState);
+  let isHaltedBranch = $derived(
+    !busy && (!activeApiSupported || verdictReason === 'no-candidates'),
+  );
 
   $effect(() => {
     const reduced = prefersReducedMotion();
@@ -449,117 +467,119 @@
 
   let exitName = $derived(
     activeExit?.ip
-      ? `${dnsProviderName(activeExit.network) || '出口网络'} · ${dnsRegion(activeExit.country)}`
+      ? `${dnsProviderName(activeExit.network, locale) || dnsFl.exitDefault} · ${dnsRegion(activeExit.country, locale)}`
       : isIdle
-        ? '网页出口'
-        : '正在获取出口 IP',
+        ? dnsFl.exitIdle
+        : dnsFl.exitFetching,
   );
   let exitDisplayIP = $derived(
-    activeExit?.ip ? (revealExit ? activeExit.ip : maskIP(activeExit.ip)) : isIdle ? '待检测' : '…',
+    activeExit?.ip ? (revealExit ? activeExit.ip : maskIP(activeExit.ip)) : isIdle ? m.common.idle : '…',
   );
 
   let stunTitle = $derived.by(() => {
-    if (isIdle) return 'WebRTC 探测';
+    if (isIdle) return fl.titleProbe;
     if (busy) {
-      if (activePublicIPs.length > 0) return 'WebRTC 公网 IP';
-      if (activeLocalIPs.length > 0) return 'WebRTC 内网地址';
-      if (activeMdnsHosts.length > 0) return 'mDNS (*.local)';
-      return 'WebRTC 探测';
+      if (activePublicIPs.length > 0) return fl.titlePublic;
+      if (activeLocalIPs.length > 0) return fl.titleLocal;
+      if (activeMdnsHosts.length > 0) return fl.titleMdns;
+      return fl.titleProbe;
     }
 
     switch (verdictReason) {
       case 'disabled':
-        return 'WebRTC 已禁用';
+        return fl.titleDisabled;
       case 'no-candidates':
-        return '未测到 WebRTC 地址';
+        return fl.titleNoCands;
       case 'mdns-protected':
-        return 'mDNS (*.local)';
+        return fl.titleMdns;
       case 'local-exposed':
-        return 'WebRTC 内网地址';
+        return fl.titleLocal;
       case 'dual-stack':
-        return 'WebRTC 公网 IP';
+        return fl.titlePublic;
       case 'same-prefix':
-        return 'WebRTC IPv6 地址';
+        return fl.titleIPv6;
       case 'same-network':
-        return 'WebRTC 同网出口';
+        return fl.titleSameNet;
       case 'public-leak':
       case 'matches-exit':
       case 'missing-exit':
       case 'assessment-unavailable':
       default:
-        return 'WebRTC 公网 IP';
+        return fl.titlePublic;
     }
   });
 
   let stunSub = $derived.by(() => {
-    if (isIdle) return '待检测';
+    if (isIdle) return m.common.idle;
     if (busy) {
       const firstPub = activePublicIPs[0];
       if (firstPub) return formatCandidateIP(firstPub);
       const firstLocal = activeLocalIPs[0];
       if (firstLocal) return formatCandidateIP(firstLocal);
-      if (activeCandidateCount > 0) return `已收到 ${activeCandidateCount} 个地址`;
-      return '正在探测本地与反射地址';
+      if (activeCandidateCount > 0) return fl.subCount(activeCandidateCount);
+      return fl.subGathering;
     }
 
     switch (verdictReason) {
       case 'disabled':
-        return '未暴露任何地址';
+        return fl.subDisabled;
       case 'no-candidates':
-        return '未返回公网或内网 IP';
+        return fl.subNoCands;
       case 'mdns-protected':
-        return `已隐藏内网 IP · ${activeMdnsHosts.length} 个`;
+        return fl.subMdns(activeMdnsHosts.length);
       case 'local-exposed': {
         const ip = activeLocalIPs[0];
-        return ip
-          ? `${formatCandidateIP(ip)}${activeLocalIPs.length > 1 ? ` 等 ${activeLocalIPs.length} 个` : ' · 本机内网'}`
-          : '仅读取到本机内网';
+        if (!ip) return fl.subLocalFallback;
+        return activeLocalIPs.length > 1
+          ? fl.subLocalMore(formatCandidateIP(ip), activeLocalIPs.length)
+          : fl.subLocalSingle(formatCandidateIP(ip));
       }
       case 'public-leak': {
         const ip = suspectIPs[0] ?? activePublicIPs[0];
-        return ip
-          ? `${formatCandidateIP(ip)}${suspectIPs.length > 1 ? ` 等 ${suspectIPs.length} 个` : ''} · 与出口不同`
-          : '与出口不同';
+        if (!ip) return fl.subLeakFallback;
+        return suspectIPs.length > 1
+          ? fl.subLeakMore(formatCandidateIP(ip), suspectIPs.length)
+          : fl.subLeakSingle(formatCandidateIP(ip));
       }
       case 'dual-stack': {
         const ip = activePublicIPs[0];
-        return ip ? `${formatCandidateIP(ip)} · 同运营商` : '同运营商 IPv4/IPv6';
+        return fl.subDual(ip ? formatCandidateIP(ip) : undefined);
       }
       case 'same-prefix': {
         const ip = activePublicIPs[0];
-        return ip ? `${formatCandidateIP(ip)} · 同网段 IPv6` : '同网段 IPv6';
+        return fl.subPrefix(ip ? formatCandidateIP(ip) : undefined);
       }
       case 'same-network': {
         const ip = activePublicIPs[0];
-        return ip ? `${formatCandidateIP(ip)} · 共享出口` : '同运营商共享出口';
+        return fl.subSameNet(ip ? formatCandidateIP(ip) : undefined);
       }
       case 'assessment-unavailable': {
         const ip = activePublicIPs[0];
-        return ip ? `${formatCandidateIP(ip)} · 归属待核对` : '暂未完成归属核对';
+        return fl.subUnavail(ip ? formatCandidateIP(ip) : undefined);
       }
       case 'missing-exit': {
         const ip = activePublicIPs[0];
-        return ip ? formatCandidateIP(ip) : '未获取出口 IP';
+        return ip ? formatCandidateIP(ip) : fl.subMissingExit;
       }
       case 'matches-exit':
       default: {
         const ip = activePublicIPs[0] ?? activeLocalIPs[0];
-        return ip ? `${formatCandidateIP(ip)} · 与出口一致` : '与出口一致';
+        return fl.subMatch(ip ? formatCandidateIP(ip) : undefined);
       }
     }
   });
 
   let stunSubCompact = $derived.by(() => {
-    if (isIdle) return '待检测';
+    if (isIdle) return m.common.idle;
     if (busy) return stunSub;
     switch (verdictReason) {
       case 'mdns-protected':
-        return `已隐藏 · ${activeMdnsHosts.length} 个`;
+        return fl.subMdnsCompact(activeMdnsHosts.length);
       case 'local-exposed':
-        return activeLocalIPs[0] ? formatCandidateIP(activeLocalIPs[0]) : '本机内网';
+        return activeLocalIPs[0] ? formatCandidateIP(activeLocalIPs[0]) : fl.subLocalCompactFallback;
       case 'public-leak': {
         const ip = suspectIPs[0] ?? activePublicIPs[0];
-        return ip ? formatCandidateIP(ip) : '与出口不同';
+        return ip ? formatCandidateIP(ip) : fl.subLeakFallback;
       }
       case 'dual-stack':
       case 'same-prefix':
@@ -573,10 +593,6 @@
       }
     }
   });
-
-  let isHaltedBranch = $derived(
-    !busy && (!activeApiSupported || verdictReason === 'no-candidates'),
-  );
 
   let stunSubIsIP = $derived(/^(?:\d{1,3}\.){2}|^[0-9a-fA-F]{1,4}:/.test(stunSub));
 
@@ -632,58 +648,55 @@
     (busy && (liveProgress?.phase === 'comparing' || (liveProgress?.phase === 'collected' && stunT > 0.94))),
   );
 
+  let verdictTitleText = $derived(
+    isIdle
+      ? m.common.idle
+      : busy
+        ? liveProgress?.phase === 'comparing'
+          ? fl.verdictComparing
+          : fl.verdictBusy
+        : m.webrtc.status[effectiveVerdict],
+  );
+
   let inspectorInfo = $derived.by(() => {
     if (!selectedNode) return null;
     switch (selectedNode) {
       case 'browser':
-        return '你的浏览器：并发请求网页出口 IP（HTTPS）与浏览器本地 WebRTC 地址';
+        return fl.inspectorBrowser;
       case 'stun':
-        return `${stunTitle}：${stunSub}`;
+        return fl.inspectorStun(stunTitle, stunSub);
       case 'exit':
-        return `网页出口：${exitName}（${exitDisplayIP}${activeExit?.asn ? ` · ${activeExit.asn}` : ''}）`;
+        return fl.inspectorExit(exitName, exitDisplayIP, activeExit?.asn);
       case 'judge': {
-        const cleanNote = verdictNote ? verdictNote.replace(/。$/, '') : '';
-        return `出口归属比对：${verdictTitleText}${cleanNote && !busy ? ` — ${cleanNote}` : ''}（同 IP 与同 /64 前缀在本地直接比对，不同公网 IP 通过本地库核对归属且不留存）`;
+        const cleanNote = verdictNote ? verdictNote.replace(/[。；.;]+$/, '') : '';
+        return fl.inspectorJudge(verdictTitleText, cleanNote && !busy ? cleanNote : '');
       }
     }
   });
 
-  let verdictTitleWord = $derived(
-    effectiveVerdict === 'leaked'
-      ? '泄露'
-      : effectiveVerdict === 'clear'
-        ? '未泄露'
-        : '无法判断',
-  );
-
-  let verdictTitleText = $derived(
-    isIdle
-      ? '待检测'
-      : busy
-        ? liveProgress?.phase === 'comparing'
-          ? '归属比对中…'
-          : '并发检测中…'
-        : verdictTitleWord,
-  );
-
   let statusText = $derived.by(() => {
     if (!busy) return '';
     if (!liveProgress || liveProgress.phase === 'gathering') {
-      return '正在检测 WebRTC';
+      return fl.statusGathering;
     }
     if (liveProgress.phase === 'collected') {
-      return `已收到 ${liveProgress.candidateCount} 个地址`;
+      return fl.statusCollected(liveProgress.candidateCount);
     }
-    return '归属比对中…';
+    return fl.statusComparing;
   });
 
   let ariaSummary = $derived(
     isIdle
-      ? 'WebRTC 流量路径图：等待开始检测当前浏览器的 WebRTC 地址与 HTTPS 网页出口'
+      ? fl.ariaIdle
       : busy && !hasResult
-        ? 'WebRTC 流量路径图：正在并发检测当前浏览器的 WebRTC 地址与 HTTPS 网页出口'
-        : `WebRTC 实测流量路径图：${stunTitle}为 ${stunSub}；网页出口为 ${exitName}（${exitDisplayIP}）；出口归属比对：${verdictTitleText}`,
+        ? fl.ariaBusy
+        : fl.ariaResult(stunTitle, stunSub, exitName, exitDisplayIP, verdictTitleText),
   );
+
+  let wireStunLabel = $derived(fl.wireStun);
+  let wireReadLabel = $derived(isHaltedBranch ? fl.wireNoReturn : fl.wireLocalRead);
+  let wireStunW = $derived(pillWidth(wireStunLabel, 44));
+  let wireReadW = $derived(pillWidth(wireReadLabel, 48));
 </script>
 
 {#snippet isoNodes(prefix: string, pos: Record<NodeId, Pt>, compact: boolean)}
@@ -692,7 +705,7 @@
     class="dfs-node-hit"
     role="button"
     tabindex="0"
-    aria-label="查看节点：你的浏览器"
+    aria-label={fl.browserAria}
     onclick={() => toggleNode('browser')}
     onkeydown={(e) => handleNodeKey(e, 'browser')}
     transform={`translate(${b[0]}, ${b[1]})`}
@@ -710,7 +723,7 @@
     <line x1="-18" y1="-12" x2="-7" y2="-17" stroke="var(--radar-400)" stroke-width="1.3" stroke-linecap="round" opacity="0.9" />
     <line x1="-18" y1="-8" x2="-10" y2="-12" stroke="#94a3b8" stroke-width="1.1" stroke-linecap="round" opacity="0.65" />
     <circle cx="0" cy="14" r="28" fill="transparent" />
-    <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#e2e8f0" font-size={compact ? 11.5 : 12} font-weight="600">你的浏览器</text>
+    <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#e2e8f0" font-size={compact ? 11.5 : 12} font-weight="600">{fl.browserNode}</text>
   </g>
 
   {@const st = pos.stun}
@@ -718,7 +731,7 @@
     class="dfs-node-hit"
     role="button"
     tabindex="0"
-    aria-label="查看节点：WebRTC 地址"
+    aria-label={fl.stunAria}
     onclick={() => toggleNode('stun')}
     onkeydown={(e) => handleNodeKey(e, 'stun')}
     transform={`translate(${st[0]}, ${st[1]})`}
@@ -781,7 +794,7 @@
         font-size="11.5"
         font-weight="600"
       >
-        {truncateText(stunTitle, 15)}
+        {truncateText(stunTitle, 16)}
       </text>
       <text
         x="0"
@@ -791,7 +804,7 @@
         font-size="10.5"
         font-family={stunSubIsIP ? "'JetBrains Mono', ui-monospace, monospace" : undefined}
       >
-        {truncateText(stunSubCompact, 16)}
+        {truncateText(stunSubCompact, 18)}
       </text>
     {:else}
       <text
@@ -802,7 +815,7 @@
         font-size="12"
         font-weight="600"
       >
-        {truncateText(stunTitle, 24)}
+        {truncateText(stunTitle, 28)}
       </text>
       <text
         x="0"
@@ -812,7 +825,7 @@
         font-size="10.5"
         font-family={stunSubIsIP ? "'JetBrains Mono', ui-monospace, monospace" : undefined}
       >
-        {truncateText(stunSub, 26)}
+        {truncateText(stunSub, 30)}
       </text>
     {/if}
   </g>
@@ -822,7 +835,7 @@
     class="dfs-node-hit"
     role="button"
     tabindex="0"
-    aria-label="查看节点：网页出口"
+    aria-label={fl.exitAria}
     onclick={() => toggleNode('exit')}
     onkeydown={(e) => handleNodeKey(e, 'exit')}
     transform={`translate(${ex[0]}, ${ex[1]})`}
@@ -842,11 +855,11 @@
     <line x1="-16" y1="6" x2="-4" y2="12" stroke="#64748b" stroke-width="1.4" stroke-linecap="round" opacity="0.55" />
     <circle cx="0" cy="0" r="30" fill="transparent" />
     {#if compact}
-      <text x="0" y="36" text-anchor="middle" fill="#f8fafc" font-size="11.5" font-weight="600">{truncateText(exitName, 14)}</text>
-      <text x="0" y="51" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeExit?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{activeExit?.ip ? truncateText(exitDisplayIP, 16) : isIdle ? '待检测' : '等待响应'}</text>
+      <text x="0" y="36" text-anchor="middle" fill="#f8fafc" font-size="11.5" font-weight="600">{truncateText(exitName, 16)}</text>
+      <text x="0" y="51" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeExit?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{activeExit?.ip ? truncateText(exitDisplayIP, 16) : isIdle ? m.common.idle : dnsFl.exitWaitingCompact}</text>
     {:else}
-      <text x="0" y="38" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="600">{truncateText(exitName, 22)}</text>
-      <text x="0" y="53" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeExit?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{activeExit?.ip ? `${truncateText(exitDisplayIP, 28)} · 网页出口` : isIdle ? '待检测' : '网页出口'}</text>
+      <text x="0" y="38" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="600">{truncateText(exitName, 26)}</text>
+      <text x="0" y="53" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeExit?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{activeExit?.ip ? `${truncateText(exitDisplayIP, 28)} · ${dnsFl.exitSuffix}` : isIdle ? m.common.idle : dnsFl.exitSuffix}</text>
     {/if}
   </g>
 
@@ -855,7 +868,7 @@
     class="dfs-node-hit"
     role="button"
     tabindex="0"
-    aria-label="查看节点：出口归属比对"
+    aria-label={fl.judgeAria}
     onclick={() => toggleNode('judge')}
     onkeydown={(e) => handleNodeKey(e, 'judge')}
     transform={`translate(${jg[0]}, ${jg[1]})`}
@@ -886,7 +899,7 @@
     <circle cx="0" cy="-8" r="4.5" fill={judgeAccent} opacity="0.95" />
     <path d="M 0 -22 V -16 M 0 0 V 6 M -14 -8 H -8 M 8 -8 H 14" stroke={judgeAccent} stroke-width="1.5" stroke-linecap="round" />
     <circle cx="0" cy="0" r="32" fill="transparent" />
-    <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#f8fafc" font-size={compact ? 11.5 : 12} font-weight="600">出口归属比对</text>
+    <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#f8fafc" font-size={compact ? 11.5 : 12} font-weight="600">{fl.judgeNode}</text>
     <text x="0" y={compact ? 48 : 53} text-anchor="middle" fill={judgeAccent} font-size="10.5" font-weight="600">
       {verdictTitleText}
     </text>
@@ -982,22 +995,22 @@
       />
 
       <g transform="translate(252, 106)" opacity="0.88">
-        <rect x="-30" y="-9.5" width="60" height="19" rx="9.5" fill="#050d1d" stroke={stunAccent} stroke-opacity="0.4" />
-        <text x="0" y="3.2" text-anchor="middle" fill="#cbd5e1" font-size="9.5" font-family="'JetBrains Mono', ui-monospace, monospace">STUN 探测</text>
+        <rect x={-wireStunW / 2} y="-9.5" width={wireStunW} height="19" rx="9.5" fill="#050d1d" stroke={stunAccent} stroke-opacity="0.4" />
+        <text x="0" y="3.2" text-anchor="middle" fill="#cbd5e1" font-size="9.5" font-family="'JetBrains Mono', ui-monospace, monospace">{wireStunLabel}</text>
       </g>
       <g transform="translate(508, 106)" opacity="0.88">
-        <rect x="-28" y="-9.5" width="56" height="19" rx="9.5" fill="#050d1d" stroke="rgba(148,163,184,0.28)" />
+        <rect x={-wireReadW / 2} y="-9.5" width={wireReadW} height="19" rx="9.5" fill="#050d1d" stroke="rgba(148,163,184,0.28)" />
         <text x="0" y="3.2" text-anchor="middle" fill="#cbd5e1" font-size="9.5" font-family="'JetBrains Mono', ui-monospace, monospace">
-          {isHaltedBranch ? '未返回' : '本地读取'}
+          {wireReadLabel}
         </text>
       </g>
       <g transform="translate(252, 190)" opacity="0.88">
         <rect x="-24" y="-9.5" width="48" height="19" rx="9.5" fill="#050d1d" stroke="rgba(74,222,128,0.38)" />
-        <text x="0" y="3.2" text-anchor="middle" fill="#86efac" font-size="9.5" font-family="'JetBrains Mono', ui-monospace, monospace">HTTPS</text>
+        <text x="0" y="3.2" text-anchor="middle" fill="#86efac" font-size="9.5" font-family="'JetBrains Mono', ui-monospace, monospace">{fl.wireHttps}</text>
       </g>
       <g transform="translate(508, 190)" opacity="0.88">
         <rect x="-19" y="-9.5" width="38" height="19" rx="9.5" fill="#050d1d" stroke="rgba(74,222,128,0.28)" />
-        <text x="0" y="3.2" text-anchor="middle" fill="#86efac" font-size="9.5" font-family="'JetBrains Mono', ui-monospace, monospace">API</text>
+        <text x="0" y="3.2" text-anchor="middle" fill="#86efac" font-size="9.5" font-family="'JetBrains Mono', ui-monospace, monospace">{fl.wireApi}</text>
       </g>
 
       {#if isHaltedBranch}
@@ -1014,17 +1027,7 @@
         <g transform={`translate(${httpsPosDesktop.x}, ${httpsPosDesktop.y})`} filter="url(#wd-glow)">
           <rect x="-26" y="-11" width="52" height="22" rx="11" fill="var(--sig)" opacity="0.22" />
           <rect x="-24" y="-9" width="48" height="18" rx="9" fill="#071122" stroke="var(--sig)" stroke-width="1.45" />
-          <text
-            x="0"
-            y="3.3"
-            text-anchor="middle"
-            fill="#f8fafc"
-            font-size="9.5"
-            font-weight="700"
-            font-family="'JetBrains Mono', ui-monospace, monospace"
-          >
-            HTTPS
-          </text>
+          <text x="0" y="3.3" text-anchor="middle" fill="#f8fafc" font-size="9.5" font-weight="700" font-family="'JetBrains Mono', ui-monospace, monospace">HTTPS</text>
         </g>
       {/if}
 
@@ -1036,17 +1039,7 @@
         <g transform={`translate(${stunPosDesktop.x}, ${stunPosDesktop.y})`} filter="url(#wd-glow)">
           <rect x="-29" y="-11" width="58" height="22" rx="11" fill={stunAccent} opacity="0.22" />
           <rect x="-27" y="-9" width="54" height="18" rx="9" fill="#071122" stroke={stunAccent} stroke-width="1.45" />
-          <text
-            x="0"
-            y="3.3"
-            text-anchor="middle"
-            fill="#f8fafc"
-            font-size="9.5"
-            font-weight="700"
-            font-family="'JetBrains Mono', ui-monospace, monospace"
-          >
-            WebRTC
-          </text>
+          <text x="0" y="3.3" text-anchor="middle" fill="#f8fafc" font-size="9.5" font-weight="700" font-family="'JetBrains Mono', ui-monospace, monospace">WebRTC</text>
         </g>
       {/if}
     </svg>
@@ -1103,17 +1096,7 @@
         <g transform={`translate(${httpsPosMobile.x}, ${httpsPosMobile.y})`} filter="url(#wm-glow)">
           <rect x="-24" y="-10" width="48" height="20" rx="10" fill="var(--sig)" opacity="0.24" />
           <rect x="-22" y="-8" width="44" height="16" rx="8" fill="#071122" stroke="var(--sig)" stroke-width="1.4" />
-          <text
-            x="0"
-            y="3"
-            text-anchor="middle"
-            fill="#f8fafc"
-            font-size="8.8"
-            font-weight="700"
-            font-family="'JetBrains Mono', ui-monospace, monospace"
-          >
-            HTTPS
-          </text>
+          <text x="0" y="3" text-anchor="middle" fill="#f8fafc" font-size="8.8" font-weight="700" font-family="'JetBrains Mono', ui-monospace, monospace">HTTPS</text>
         </g>
       {/if}
 
@@ -1125,17 +1108,7 @@
         <g transform={`translate(${stunPosMobile.x}, ${stunPosMobile.y})`} filter="url(#wm-glow)">
           <rect x="-26" y="-10" width="52" height="20" rx="10" fill={stunAccent} opacity="0.24" />
           <rect x="-24" y="-8" width="48" height="16" rx="8" fill="#071122" stroke={stunAccent} stroke-width="1.4" />
-          <text
-            x="0"
-            y="3"
-            text-anchor="middle"
-            fill="#f8fafc"
-            font-size="8.8"
-            font-weight="700"
-            font-family="'JetBrains Mono', ui-monospace, monospace"
-          >
-            WebRTC
-          </text>
+          <text x="0" y="3" text-anchor="middle" fill="#f8fafc" font-size="8.8" font-weight="700" font-family="'JetBrains Mono', ui-monospace, monospace">WebRTC</text>
         </g>
       {/if}
     </svg>
@@ -1146,7 +1119,7 @@
         <button
           type="button"
           class="text-(--slate-400) hover:text-white px-1 cursor-pointer"
-          aria-label="关闭节点详情"
+          aria-label={m.home.feedback.close}
           onclick={() => {
             selectedNode = null;
           }}

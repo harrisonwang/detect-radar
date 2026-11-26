@@ -2,6 +2,7 @@ package handler
 
 import (
 	"detect-radar/internal/service"
+	"detect-radar/internal/util"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -17,5 +18,7 @@ func NewReputationHandler(s *service.ReputationService) *ReputationHandler {
 func (h *ReputationHandler) GetCurrentReputation(c *fiber.Ctx) error {
 	ip := c.IP()
 	result := h.service.Check(c.Context(), ip)
-	return c.JSON(result)
+	cp := *result
+	cp.Recommendation = service.ReputationRecommendation(&cp, util.ResolveLang(c))
+	return c.JSON(&cp)
 }

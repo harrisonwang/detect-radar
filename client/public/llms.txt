@@ -3,25 +3,36 @@
 > DetectRadar (https://detectradar.com) 是一个免费、免注册的开源网络环境与代理泄露检测工具。它核对当前出口 IP（区分住宅 IP 与机房 IP）和浏览器的时区、语言及浏览器指纹，同时检查 WebRTC、DNS 和 IPv6 泄露，生成诊断报告与雷达图并支持分享，打开网页即可检测。
 > Free, zero-signup, open-source network environment, IP purity (residential vs. datacenter), DNS/WebRTC/IPv6 leak, and browser fingerprint diagnostic tool.
 
-## 核心工具
+## English Pages (`/en/`)
+
+- [Network Environment Radar (EN)](https://detectradar.com/en/): Check your exit IP (residential vs. datacenter), ASN and 30-day human traffic ratio, timezone/language consistency, DNS/WebRTC/IPv6 leaks, and browser fingerprint integrity.
+- [DNS Leak Test (EN)](https://detectradar.com/en/dns-leak-test/): Authoritative nameserver + DNSTap test revealing real recursive DNS resolvers, catching cross-region ISP and proxy-bypass leaks with local before/after comparison.
+- [WebRTC Leak Test (EN)](https://detectradar.com/en/webrtc-leak-test/): Local STUN ICE candidate check comparing exposed public/LAN IPs and mDNS (`*.local`) masking against your exit IP.
+- [IPv6 Leak Test (EN)](https://detectradar.com/en/ipv6-leak-test/): Concurrent IPv4-only (`4.detectradar.com`) and IPv6-only (`6.detectradar.com`) dual-stack test catching ISP bypass leaks independently of WebRTC.
+- [How It Works (EN)](https://detectradar.com/en/about/): Full methodology for DNS/WebRTC/IPv6 leaks, data sources, CLI usage, privacy boundaries, and FAQs.
+- [DetectRadar for macOS (EN)](https://detectradar.com/en/macos/): Menu bar app (`DetectRadarBar`, macOS 13+, Apple Silicon / Intel) + AI agent `SKILL.md` + Surge/Stash/Loon modules.
+- [AI Agent Skill (EN)](https://detectradar.com/en/SKILL.md): Concise Markdown instructions for Antigravity, Claude Code, and Codex to run terminal exit IP, IPv6, and DNS checks (`?lang=en`).
+- [Full Documentation (EN)](https://detectradar.com/en/llms-full.txt): Complete English technical specification, API contracts, leak policies, and boundaries.
+
+## 中文核心工具（`/`）
 
 - [网络环境一致性检测雷达](https://detectradar.com/): 免费、免注册核对当前出口 IP 的归属地、ASN、运营商、住宅 IP / 机房 IP 属性与 Cloudflare Radar 近 30 天网段人类流量占比，比对浏览器时区、语言一致性，排查 WebRTC、DNS、IPv6 代理泄露以及 Canvas、Audio、WebGL 等浏览器指纹特征，生成诊断报告并支持分享。
-- [DNS 泄露检测](https://detectradar.com/dns-leak-test/): 基于自建权威 DNS 服务检测实际使用的 DNS 服务器归属地，区分国内宽带运营商 DNS 泄露与公共 DNS 正常分流，同一浏览器内保留最近两次结果以便对比变化。
-- [WebRTC 泄露检测](https://detectradar.com/webrtc-leak-test/): 通过浏览器本地 STUN ICE 候选核对公网候选 IP 与当前出口 IP 是否一致，检查内网地址与 mDNS（*.local）隐私保护状态，支持改配置后同页对比。
-- [IPv6 泄露检测](https://detectradar.com/ipv6-leak-test/): 独立并发探测纯 IPv4（4.detectradar.com）与纯 IPv6（6.detectradar.com）真实双栈出口，不依赖 WebRTC 即可检出国内宽带运营商 IPv6 旁路泄露。
+- [DNS 泄露检测](https://detectradar.com/dns-leak-test/): 基于自建权威 DNS 服务检测实际使用的 DNS 服务器归属地，识别跨地区接入网与代理旁路 DNS 泄露，区分公共 DNS 与机房解析，同一浏览器内保留最近两次结果以便对比变化。
+- [WebRTC 泄露检测](https://detectradar.com/webrtc-leak-test/): 通过浏览器本地 STUN ICE 候选核对公网候选 IP 与当前出口 IP 是否一致，检查内网地址与 mDNS（`*.local`）隐私保护状态，支持改配置后同页对比。
+- [IPv6 泄露检测](https://detectradar.com/ipv6-leak-test/): 独立并发探测纯 IPv4（`4.detectradar.com`）与纯 IPv6（`6.detectradar.com`）真实双栈出口，不依赖 WebRTC 即可检出接入网运营商 IPv6 旁路泄露。
 
-## 检测说明、终端查询与常见问题
+## 中文检测说明、终端查询与文档
 
 - [检测说明](https://detectradar.com/about/): 说明检测内容、DNS / WebRTC / IPv6 泄露判断标准、局限性与隐私保护、终端与 AI 助手用法及常见问题。
 - [DetectRadar for macOS](https://detectradar.com/macos/): Mac 菜单栏客户端（DetectRadarBar，macOS 13+，Apple Silicon / Intel），随时查看出口 IP 和机房/宽带，发现 IPv6 泄露时提醒；支持安装包与 Homebrew 安装，同页附面向 AI 助手的 `SKILL.md` 终端自检用法。
 - [终端查询与 Agent 说明](https://detectradar.com/about/#cli): 免安装使用 `curl` / `dig` 核对终端 IPv4/IPv6 出口与 DNS 解析器的方法与能力边界。
-- [AI Agent 技能文件（SKILL.md）](https://detectradar.com/SKILL.md): 供 Antigravity、Claude Code、Codex 等 Agent 直接读取的终端网络自检指令与字段解读红线。
-- [完整说明文档](https://detectradar.com/llms-full.txt): 包含各项检测原理、DNS 泄露判断标准、终端接口口径、能力边界与结果含义。
-- [站点地图](https://detectradar.com/sitemap.xml): 全站标准页面索引与更新时间。
+- [AI Agent 技能文件（SKILL.md）](https://detectradar.com/SKILL.md): 供 Antigravity、Claude Code、Codex 等 Agent 直接读取的中文终端网络自检指令与字段解读红线。
+- [完整说明文档（中文）](https://detectradar.com/llms-full.txt): 包含各项检测原理、DNS/IPv6 泄露判断标准、终端接口口径、能力边界与结果含义。
+- [站点地图](https://detectradar.com/sitemap.xml): 全站中英文页面索引与更新时间。
 
 ## Optional
 
-- [隐私政策](https://detectradar.com/privacy/): 检测数据与反馈的处理方式及隐私请求邮箱。
-- [服务条款](https://detectradar.com/terms/): 服务性质（不隐藏身份、非 VPN 或代理）、免责声明与使用规范。
-- [联系我们](https://detectradar.com/contact/): 问题反馈、一般联系、隐私请求与滥用举报邮箱。
-- [源码仓库](https://github.com/harrisonwang/detect-radar): MIT 开源项目仓库。
+- [隐私政策](https://detectradar.com/privacy/) / [Privacy Policy](https://detectradar.com/en/privacy/)
+- [服务条款](https://detectradar.com/terms/) / [Terms of Service](https://detectradar.com/en/terms/)
+- [联系我们](https://detectradar.com/contact/) / [Contact](https://detectradar.com/en/contact/)
+- [源码仓库 / Source Code](https://github.com/harrisonwang/detect-radar): MIT 开源项目仓库。

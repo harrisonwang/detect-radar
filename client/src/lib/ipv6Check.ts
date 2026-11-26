@@ -1,3 +1,4 @@
+import { apiLang, detectClientLocale, getMessages, type Locale } from '../i18n';
 import { browserExit, dnsProviderName, dnsRegion } from './dnsPresentation';
 import { recentHistory, type RecentHistory } from './recentHistory';
 import type { DNSExit, IPIntel } from './types';
@@ -17,6 +18,8 @@ export const V6_IP_URL =
 export type IPv6VerdictState = 'leaked' | 'clear' | 'unknown';
 
 export type IPv6VerdictReason =
+  | 'isp-bypass'
+  | 'proxy-isp-bypass'
   | 'mainland-bypass'
   | 'v4-only'
   | 'v6-only'
@@ -70,14 +73,19 @@ export interface IPv6Comparison {
   summary: string | null;
 }
 
-export const ipv6Status: Record<
+export function getIPv6Status(locale: Locale = 'zh-CN'): Record<
   IPv6VerdictState,
   { title: string; color: string; soft: string }
-> = {
-  leaked: { title: '泄露', color: 'var(--leak)', soft: 'var(--leak-soft)' },
-  clear: { title: '未泄露', color: 'var(--sig)', soft: 'var(--sig-soft)' },
-  unknown: { title: '无法判断', color: 'var(--unknown)', soft: 'var(--unknown-soft)' },
-};
+> {
+  const s = getMessages(locale).ipv6.status;
+  return {
+    leaked: { title: s.leaked, color: 'var(--leak)', soft: 'var(--leak-soft)' },
+    clear: { title: s.clear, color: 'var(--sig)', soft: 'var(--sig-soft)' },
+    unknown: { title: s.unknown, color: 'var(--unknown)', soft: 'var(--unknown-soft)' },
+  };
+}
+
+export const ipv6Status = getIPv6Status('zh-CN');
 
 const HK_MO_TW_RE = /香港|澳门|澳門|台湾|臺灣|hong\s*kong|macau|macao|taiwan/i;
 
@@ -88,17 +96,17 @@ export function isMainlandChina(exit: StackExit | null | undefined): boolean {
   return !HK_MO_TW_RE.test(haystack);
 }
 
-export function stackRegionLabel(exit: StackExit | null | undefined): string {
-  if (!exit) return '地区未知';
+export function stackRegionLabel(exit: StackExit | null | undefined, locale: Locale = 'zh-CN'): string {
+  if (!exit) return getMessages(locale).common.unknownRegion;
   const code = (exit.country ?? '').trim().toUpperCase();
   const haystack = [exit.region, exit.countryName, exit.city].filter(Boolean).join(' ');
   if (code === 'CN') {
-    if (/香港|hong\s*kong/i.test(haystack)) return '中国香港';
-    if (/澳门|澳門|macau|macao/i.test(haystack)) return '中国澳门';
-    if (/台湾|臺灣|taiwan/i.test(haystack)) return '中国台湾';
-    return '中国大陆';
+    if (/香港|hong\s*kong/i.test(haystack)) return locale === 'en' ? 'Hong Kong' : '中国香港';
+    if (/澳门|澳門|macau|macao/i.test(haystack)) return locale === 'en' ? 'Macao' : '中国澳门';
+    if (/台湾|臺灣|taiwan/i.test(haystack)) return locale === 'en' ? 'Taiwan' : '中国台湾';
+    return locale === 'en' ? 'Mainland China' : '中国大陆';
   }
-  return dnsRegion(code);
+  return dnsRegion(code, locale);
 }
 
 function toStackExit(info: IPIntel, latencyMs?: number): StackExit {
@@ -127,10 +135,13 @@ class StackProbeError extends Error {
 }
 
 async function probeStackEndpoint(
-  url: string,
+  baseUrl: string,
   expectedFamily: 'v4' | 'v6',
   timeoutMs: number,
+  locale: Locale,
 ): Promise<StackExit> {
+  const sep = baseUrl.includes('?') ? '&' : '?';
+  const url = `${baseUrl}${sep}lang=${apiLang(locale)}`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const t0 = performance.now();
@@ -160,12 +171,90 @@ async function probeStackEndpoint(
   }
 }
 
-export function evaluateIPv6(v4: StackExit | null, v6: StackExit | null): IPv6Verdict {
+export function stackGeoBucket(exit: StackExit | null | undefined): string {
+  if (!exit) return '';
+  const code = (exit.country ?? '').trim().toUpperCase();
+  if (!code || code === 'LOCAL' || code === 'XX' || code === 'ZZ') return '';
+  if (code === 'CN') {
+    const haystack = [exit.region, exit.countryName, exit.city].filter(Boolean).join(' ');
+    if (/香港|hong\s*kong/i.test(haystack)) return 'HK';
+    if (/澳门|澳門|macau|macao/i.test(haystack)) return 'MO';
+    if (/台湾|臺灣|taiwan/i.test(haystack)) return 'TW';
+    return 'CN';
+  }
+  return code;
+}
+
+function isProxyOrHostingStack(exit: StackExit): boolean {
+  return Boolean(
+    exit.isHosting ||
+      exit.type === 'hosting' ||
+      exit.type === 'proxy' ||
+      exit.usageType === 'hosting',
+  );
+}
+
+function isAccessStack(exit: StackExit): boolean {
+  if (isProxyOrHostingStack(exit)) return false;
+  return Boolean(
+    exit.type === 'access' ||
+      exit.usageType === 'isp' ||
+      isMainlandChina(exit),
+  );
+}
+
+export function ipv6VerdictNote(
+  verdict: Pick<IPv6Verdict, 'reason' | 'leakedCarrier'>,
+  v4: StackExit | null,
+  v6: StackExit | null,
+  locale: Locale = 'zh-CN',
+): string {
+  const n = getMessages(locale).ipv6.verdictNote;
+  switch (verdict.reason) {
+    case 'both-failed':
+      return n.bothFailed;
+    case 'v4-only':
+      return n.v4Only;
+    case 'v6-only':
+      return n.v6Only;
+    case 'isp-bypass':
+    case 'mainland-bypass': {
+      const carrier = verdict.leakedCarrier
+        ? dnsProviderName(verdict.leakedCarrier, locale)
+        : v6?.network
+          ? dnsProviderName(v6.network, locale)
+          : '';
+      return n.ispBypass(stackRegionLabel(v4, locale), stackRegionLabel(v6, locale), carrier || undefined);
+    }
+    case 'proxy-isp-bypass': {
+      const carrier = verdict.leakedCarrier
+        ? dnsProviderName(verdict.leakedCarrier, locale)
+        : v6?.network
+          ? dnsProviderName(v6.network, locale)
+          : '';
+      return n.proxyBypass(carrier || undefined);
+    }
+    case 'domestic-dual':
+      return n.domesticDual;
+    case 'matched-dual':
+      return n.matchedDual(stackRegionLabel(v4, locale));
+    case 'overseas-split':
+      return n.overseasSplit(stackRegionLabel(v4, locale), stackRegionLabel(v6, locale));
+    default:
+      return '';
+  }
+}
+
+export function evaluateIPv6(
+  v4: StackExit | null,
+  v6: StackExit | null,
+  locale: Locale = 'zh-CN',
+): IPv6Verdict {
   if (!v4 && !v6) {
     return {
       state: 'unknown',
       reason: 'both-failed',
-      note: '未能连通 IPv4 与 IPv6 探测服务。',
+      note: ipv6VerdictNote({ reason: 'both-failed' }, v4, v6, locale),
     };
   }
 
@@ -173,7 +262,7 @@ export function evaluateIPv6(v4: StackExit | null, v6: StackExit | null): IPv6Ve
     return {
       state: 'clear',
       reason: 'v4-only',
-      note: '当前网络仅连通 IPv4，不存在 IPv6 泄露。',
+      note: ipv6VerdictNote({ reason: 'v4-only' }, v4, v6, locale),
     };
   }
 
@@ -181,57 +270,63 @@ export function evaluateIPv6(v4: StackExit | null, v6: StackExit | null): IPv6Ve
     return {
       state: 'clear',
       reason: 'v6-only',
-      note: '当前仅连通 IPv6 出口，未测得 IPv4 地址。',
+      note: ipv6VerdictNote({ reason: 'v6-only' }, v4, v6, locale),
     };
   }
 
   const ipv4 = v4!;
   const ipv6 = v6!;
 
-  const v4Mainland = isMainlandChina(ipv4);
-  const v6Mainland = isMainlandChina(ipv6);
-  const v6IsHosting = Boolean(ipv6.isHosting || ipv6.type === 'hosting');
+  const v4Geo = stackGeoBucket(ipv4);
+  const v6Geo = stackGeoBucket(ipv6);
+  const v4ASN = (ipv4.asn ?? '').trim().toUpperCase();
+  const v6ASN = (ipv6.asn ?? '').trim().toUpperCase();
+  const sameASN = Boolean(v4ASN && v6ASN && v4ASN === v6ASN);
+  const v6Access = isAccessStack(ipv6);
+  const v4ProxyOrHosting = isProxyOrHostingStack(ipv4);
 
-  if (!v4Mainland && v6Mainland && !v6IsHosting) {
-    const carrierName = dnsProviderName(ipv6.network);
-    const leakedCarrier = carrierName && carrierName !== '网络未知' ? carrierName : undefined;
-    return {
-      state: 'leaked',
-      reason: 'mainland-bypass',
-      note: `IPv4 出口在海外（${stackRegionLabel(ipv4)}），但 IPv6 经${leakedCarrier || '国内运营商'}直连，存在 IPv6 泄露。`,
-      ...(leakedCarrier ? { leakedCarrier } : {}),
-    };
+  if (v6Access && !sameASN && v4Geo && v6Geo) {
+    const carrierName = dnsProviderName(ipv6.network, 'en');
+    const leakedCarrier = carrierName ? carrierName : undefined;
+    if (v4Geo !== v6Geo) {
+      return {
+        state: 'leaked',
+        reason: 'isp-bypass',
+        note: ipv6VerdictNote({ reason: 'isp-bypass', leakedCarrier }, ipv4, ipv6, locale),
+        ...(leakedCarrier ? { leakedCarrier } : {}),
+      };
+    }
+    if (v4ProxyOrHosting) {
+      return {
+        state: 'leaked',
+        reason: 'proxy-isp-bypass',
+        note: ipv6VerdictNote({ reason: 'proxy-isp-bypass', leakedCarrier }, ipv4, ipv6, locale),
+        ...(leakedCarrier ? { leakedCarrier } : {}),
+      };
+    }
   }
 
-  if (v4Mainland && v6Mainland) {
-    return {
-      state: 'clear',
-      reason: 'domestic-dual',
-      note: 'IPv4 与 IPv6 均在中国大陆直连，未见异常。',
-    };
-  }
-
-  const r4 = stackRegionLabel(ipv4);
-  const r6 = stackRegionLabel(ipv6);
-  if (r4 === r6) {
+  if (v4Geo && v6Geo && v4Geo === v6Geo) {
     return {
       state: 'clear',
       reason: 'matched-dual',
-      note: `IPv4 与 IPv6 出口均位于${r4}，未见泄露。`,
+      note: ipv6VerdictNote({ reason: 'matched-dual' }, ipv4, ipv6, locale),
     };
   }
 
   return {
     state: 'clear',
     reason: 'overseas-split',
-    note: `未测到国内运营商 IPv6 直连（IPv4 位于${r4}，IPv6 位于${r6}，常见于分流节点或 WARP）。`,
+    note: ipv6VerdictNote({ reason: 'overseas-split' }, ipv4, ipv6, locale),
   };
 }
 
 export async function measureIPv6(
   onProgress?: (progress: IPv6Progress) => void,
   timeouts: { v4Ms?: number; v6Ms?: number } = {},
+  locale?: Locale,
 ): Promise<IPv6Check> {
+  const effectiveLocale = locale ?? detectClientLocale();
   const v4Ms = timeouts.v4Ms ?? 5000;
   const v6Ms = timeouts.v6Ms ?? 3500;
 
@@ -249,7 +344,7 @@ export async function measureIPv6(
 
   emit();
 
-  const v4Promise = probeStackEndpoint(V4_IP_URL, 'v4', v4Ms)
+  const v4Promise = probeStackEndpoint(V4_IP_URL, 'v4', v4Ms, effectiveLocale)
     .then((res) => {
       v4 = res;
     })
@@ -261,7 +356,7 @@ export async function measureIPv6(
       emit();
     });
 
-  const v6Promise = probeStackEndpoint(V6_IP_URL, 'v6', v6Ms)
+  const v6Promise = probeStackEndpoint(V6_IP_URL, 'v6', v6Ms, effectiveLocale)
     .then((res) => {
       v6 = res;
     })
@@ -284,7 +379,7 @@ export async function measureIPv6(
     v6,
     ...(v4Error ? { v4Error } : {}),
     ...(v6Error ? { v6Error } : {}),
-    verdict: evaluateIPv6(v4, v6),
+    verdict: evaluateIPv6(v4, v6, effectiveLocale),
   };
 }
 
@@ -299,27 +394,42 @@ const STATE_RANK: Record<IPv6VerdictState, number> = {
   leaked: 2,
 };
 
-function formatStackChange(prev: StackExit | null, cur: StackExit | null): string {
-  if (!prev?.ip && !cur?.ip) return '两次均未连通';
-  if (!prev?.ip && cur?.ip) return `本次连通 ${cur.ip}`;
-  if (prev?.ip && !cur?.ip) return '本次未连通';
-  if (prev!.ip.toLowerCase() === cur!.ip.toLowerCase()) return '未变';
-  return `从 ${prev!.ip} 变为 ${cur!.ip}`;
+function formatStackChange(prev: StackExit | null, cur: StackExit | null, locale: Locale): string {
+  const m = getMessages(locale);
+  const c = m.ipv6.compare;
+  if (!prev?.ip && !cur?.ip) return c.bothUnreachable;
+  if (!prev?.ip && cur?.ip) return c.nowConnected(cur.ip);
+  if (prev?.ip && !cur?.ip) return c.nowDisconnected;
+  if (prev!.ip.toLowerCase() === cur!.ip.toLowerCase()) return m.common.unchanged;
+  return c.changed(prev!.ip, cur!.ip);
 }
 
-export function compareIPv6(previous: IPv6Check, current: IPv6Check): IPv6Comparison {
-  const v4Change = formatStackChange(previous.v4, current.v4);
-  const v6Change = formatStackChange(previous.v6, current.v6);
+function stackUnchanged(prev: StackExit | null, cur: StackExit | null): boolean {
+  if (!prev?.ip && !cur?.ip) return true;
+  if (!prev?.ip || !cur?.ip) return false;
+  return prev.ip.toLowerCase() === cur.ip.toLowerCase();
+}
+
+export function compareIPv6(
+  previous: IPv6Check,
+  current: IPv6Check,
+  locale: Locale = 'zh-CN',
+): IPv6Comparison {
+  const c = getMessages(locale).ipv6.compare;
+  const v4Change = formatStackChange(previous.v4, current.v4, locale);
+  const v6Change = formatStackChange(previous.v6, current.v6, locale);
+  const v4Unchanged = stackUnchanged(previous.v4, current.v4);
+  const v6Unchanged = stackUnchanged(previous.v6, current.v6);
   const previousVerdict =
     previous.verdict.state !== current.verdict.state ? previous.verdict.state : undefined;
   const improved = STATE_RANK[current.verdict.state] < STATE_RANK[previous.verdict.state];
-  const unchanged = !previousVerdict && v4Change === '未变' && v6Change === '未变';
+  const unchanged = !previousVerdict && v4Unchanged && v6Unchanged;
 
   return {
     improved,
     previousVerdict,
     v4Change,
     v6Change,
-    summary: unchanged ? 'IPv4 与 IPv6 出口均与上次一致' : null,
+    summary: unchanged ? c.identical : null,
   };
 }

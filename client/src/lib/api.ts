@@ -1,4 +1,4 @@
-
+import { apiLang, detectClientLocale, type Locale } from '../i18n';
 import type {
   ScanRequest,
   ScanResponse,
@@ -32,12 +32,20 @@ export class ApiError extends Error {
   }
 }
 
+function appendLang(path: string, locale?: Locale): string {
+  const lang = apiLang(locale ?? detectClientLocale());
+  const sep = path.includes('?') ? '&' : '?';
+  return `${path}${sep}lang=${lang}`;
+}
+
 async function request<T>(
   path: string,
   init: RequestInit = {},
   timeoutMs = 15_000,
+  locale?: Locale,
 ): Promise<T> {
-  const url = `${API_BASE}${path}`;
+  const effectiveLocale = locale ?? detectClientLocale();
+  const url = `${API_BASE}${appendLang(path, effectiveLocale)}`;
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -60,7 +68,11 @@ async function request<T>(
   } catch (err) {
     if (err instanceof ApiError) throw err;
     if ((err as Error)?.name === 'AbortError') {
-      throw new ApiError(0, `请求超时 (>${timeoutMs}ms)`, url);
+      const msg =
+        effectiveLocale === 'en'
+          ? `Request timed out (>${timeoutMs}ms)`
+          : `请求超时 (>${timeoutMs}ms)`;
+      throw new ApiError(0, msg, url);
     }
     throw new ApiError(0, (err as Error)?.message ?? 'network error', url);
   } finally {
@@ -68,12 +80,12 @@ async function request<T>(
   }
 }
 
-export const createScan = (req: ScanRequest) =>
-  request<ScanResponse>('/scans', { method: 'POST', body: JSON.stringify(req) }, 20_000);
+export const createScan = (req: ScanRequest, locale?: Locale) =>
+  request<ScanResponse>('/scans', { method: 'POST', body: JSON.stringify(req) }, 20_000, locale);
 
-export const getScan = (id: string, scenario?: ScanScenario) => {
+export const getScan = (id: string, scenario?: ScanScenario, locale?: Locale) => {
   const qs = scenario ? `?scenario=${encodeURIComponent(scenario)}` : '';
-  return request<ScanResponse>(`/scans/${encodeURIComponent(id)}${qs}`);
+  return request<ScanResponse>(`/scans/${encodeURIComponent(id)}${qs}`, {}, 15_000, locale);
 };
 
 export type FeedbackCategory =
@@ -87,29 +99,47 @@ export const submitScanFeedback = (
   category: FeedbackCategory,
   note?: string,
   replyEmail?: string,
+  locale?: Locale,
 ) =>
-  request<void>(`/scans/${encodeURIComponent(id)}/feedback`, {
-    method: 'POST',
-    body: JSON.stringify({ category, note, reply_email: replyEmail }),
-  });
+  request<void>(
+    `/scans/${encodeURIComponent(id)}/feedback`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ category, note, reply_email: replyEmail }),
+    },
+    15_000,
+    locale,
+  );
 
-export const createDNSLeakTest = (scanId?: string) =>
-  request<DNSLeakTestResponse>('/leaks/dns', {
-    method: 'POST',
-    body: JSON.stringify(scanId ? { scan_id: scanId } : {}),
-  });
+export const createDNSLeakTest = (scanId?: string, locale?: Locale) =>
+  request<DNSLeakTestResponse>(
+    '/leaks/dns',
+    {
+      method: 'POST',
+      body: JSON.stringify(scanId ? { scan_id: scanId } : {}),
+    },
+    15_000,
+    locale,
+  );
 
-export const getDNSLeakResult = (id: string) =>
-  request<DNSLeakResult>(`/leaks/dns/${encodeURIComponent(id)}`, { cache: 'no-store' });
+export const getDNSLeakResult = (id: string, locale?: Locale) =>
+  request<DNSLeakResult>(`/leaks/dns/${encodeURIComponent(id)}`, { cache: 'no-store' }, 15_000, locale);
 
-export const getBrowserExit = () => request<IPIntel>('/ip', { cache: 'no-store' });
+export const getBrowserExit = (locale?: Locale) =>
+  request<IPIntel>('/ip', { cache: 'no-store' }, 15_000, locale);
 
-export const assessDNSObservation = (observation: DNSAssessmentInput) =>
-  request<DNSAssessmentResult>('/leaks/dns/assessment', { method: 'POST', body: JSON.stringify(observation) }, 6000);
+export const assessDNSObservation = (observation: DNSAssessmentInput, locale?: Locale) =>
+  request<DNSAssessmentResult>(
+    '/leaks/dns/assessment',
+    { method: 'POST', body: JSON.stringify(observation) },
+    6000,
+    locale,
+  );
 
-export const assessWebRTCCandidates = (publicIPs: string[]) =>
+export const assessWebRTCCandidates = (publicIPs: string[], locale?: Locale) =>
   request<WebRTCAssessmentResponse>(
     '/leaks/webrtc/assessment',
     { method: 'POST', body: JSON.stringify({ public_ips: publicIPs }) },
     6000,
+    locale,
   );

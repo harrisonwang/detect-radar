@@ -1,0 +1,35 @@
+---
+import Layout from '../layouts/Layout.astro';
+import IPv6CheckPage from '../components/IPv6CheckPage.svelte';
+import ReportBackdrop from '../components/ReportBackdrop.svelte';
+import SiteFooter from '../components/SiteFooter.svelte';
+import { getMessages, localePath, type Locale } from '../i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const m = getMessages(locale);
+---
+
+<Layout
+  title={m.seo.ipv6.title}
+  canonical={localePath('/ipv6-leak-test/', locale)}
+  locale={locale}
+  ogImage={locale === 'en' ? '/og-ipv6-en.png' : '/og-ipv6.png'}
+  description={m.seo.ipv6.description}
+  pageType="tool"
+  appName={m.seo.ipv6.appName}
+  featureList={m.seo.ipv6.features}
+  dateModified="2026-11-26"
+>
+  <div class="min-h-screen bg-space-950 scan-grid flex flex-col relative">
+    <ReportBackdrop />
+    <IPv6CheckPage client:load {locale} />
+    <noscript>
+      <p class="report-main pt-0 text-sm text-(--slate-300)">{m.seo.ipv6.noscript}</p>
+    </noscript>
+    <SiteFooter {locale} />
+  </div>
+</Layout>

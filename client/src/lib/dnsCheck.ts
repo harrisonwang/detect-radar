@@ -1,3 +1,4 @@
+import { getMessages, joinList, type Locale } from '../i18n';
 import { ApiError, assessDNSObservation, getBrowserExit } from './api';
 import { sampleDNSRound } from './collectors/leaks/dns';
 import { DNS_POLICY_VERSION, browserExit, dnsExitType, dnsProvider, dnsProviderName, dnsRegion } from './dnsPresentation';
@@ -139,13 +140,14 @@ interface DNSNetwork {
   samples: DNSResolver[];
 }
 
-export function dnsNetworks(check: DNSCheck): Map<string, DNSNetwork> {
+export function dnsNetworks(check: DNSCheck, locale: Locale = 'zh-CN'): Map<string, DNSNetwork> {
   const groups = new Map<string, DNSNetwork>();
   const suspects = suspectIPs(check);
   for (const resolver of sortedResolvers(check)) {
-    const name = dnsProviderName(resolver.isp);
+    const canonicalName = dnsProviderName(resolver.isp, 'en');
+    const name = dnsProviderName(resolver.isp, locale);
     const { country, network_type: type } = resolver;
-    const providerKey = name ? `provider:${name.toLowerCase()}` : resolver.asn || resolver.ip;
+    const providerKey = canonicalName ? `provider:${canonicalName.toLowerCase()}` : resolver.asn || resolver.ip;
     const key = `${providerKey}|${country}`;
     const existing = groups.get(key);
     if (existing) {
@@ -157,7 +159,8 @@ export function dnsNetworks(check: DNSCheck): Map<string, DNSNetwork> {
   return groups;
 }
 
-export function dnsProviderGroups(networks: Iterable<DNSNetwork>) {
+export function dnsProviderGroups(networks: Iterable<DNSNetwork>, locale: Locale = 'zh-CN') {
+  const unknownNetwork = getMessages(locale).common.unknownNetwork;
   const providers = new Map<string, DNSNetwork[]>();
   for (const network of networks) {
     const regions = providers.get(network.providerKey);
@@ -166,18 +169,22 @@ export function dnsProviderGroups(networks: Iterable<DNSNetwork>) {
   }
   return [...providers].map(([key, regions]) => ({
     key,
-    name: regions[0].name || '网络未知',
+    name: regions[0].name || unknownNetwork,
     regions,
     suspect: regions.some((region) => region.suspect),
     type: regions.every((region) => region.type === regions[0].type) ? regions[0].type : undefined,
   }));
 }
 
-function networkLabels(networks: DNSNetwork[], other: Set<string>) {
-  return dnsProviderGroups(networks).map(({ key, name, regions }) => ({
-    name,
-    region: other.has(key) ? `（${regions.map((region) => dnsRegion(region.country)).join('、')}）` : '',
-  }));
+function networkLabels(networks: DNSNetwork[], other: Set<string>, locale: Locale) {
+  return dnsProviderGroups(networks, locale).map(({ key, name, regions }) => {
+    if (!other.has(key)) return { name, region: '' };
+    const joined = joinList(regions.map((r) => dnsRegion(r.country, locale)), locale);
+    return {
+      name,
+      region: locale === 'en' ? ` (${joined})` : `（${joined}）`,
+    };
+  });
 }
 
 interface DNSChange {
@@ -186,21 +193,32 @@ interface DNSChange {
   text?: string;
 }
 
-function exitLabel(exit: DNSExit) {
-  const region = dnsRegion(exit.country);
-  const provider = dnsProviderName(exit.network) || exit.asn;
+function exitLabel(exit: DNSExit, locale: Locale) {
+  const region = dnsRegion(exit.country, locale);
+  const provider = dnsProviderName(exit.network, locale) || exit.asn;
   if (!provider) return region;
   return provider.startsWith(region) ? provider : `${region} · ${provider}`;
 }
 
-export function compareDNS(previous: DNSCheck, current: DNSCheck, after: Map<string, DNSNetwork>) {
-  const before = dnsNetworks(previous);
+export function compareDNS(
+  previous: DNSCheck,
+  current: DNSCheck,
+  after: Map<string, DNSNetwork>,
+  tense: 'current' | 'previous' = 'current',
+  locale: Locale = 'zh-CN',
+) {
+  const c = getMessages(locale).dns.compare;
+  const cur = tense === 'current';
+  const before = dnsNetworks(previous, locale);
   const beforeProviders = new Set([...before.values()].map((network) => network.providerKey));
   const afterProviders = new Set([...after.values()].map((network) => network.providerKey));
   const removed = [...before].filter(([key]) => !after.has(key)).map(([, n]) => n);
   const added = [...after].filter(([key]) => !before.has(key)).map(([, n]) => n);
-  const oldDNS = networkLabels(removed, afterProviders);
-  const newDNS = networkLabels(added, beforeProviders).map(({ name, region }) => name + region).join('、');
+  const oldDNS = networkLabels(removed, afterProviders, locale);
+  const newDNS = joinList(
+    networkLabels(added, beforeProviders, locale).map(({ name, region }) => name + region),
+    locale,
+  );
   const beforeIPs = new Set(previous.resolvers.map((r) => r.ip));
   const afterIPs = new Set(current.resolvers.map((r) => r.ip));
   const addedIPs = new Set([...afterIPs].filter((ip) => !beforeIPs.has(ip)));
@@ -213,25 +231,36 @@ export function compareDNS(previous: DNSCheck, current: DNSCheck, after: Map<str
     dnsChanges.push({ removed: oldDNS, text: ` → ${newDNS}` });
   } else {
     if (oldDNS.length) {
-      const space = /^[A-Za-z0-9]/.test(oldDNS[0].name) ? ' ' : '';
-      dnsChanges.push({ prefix: `本次未再测到${space}`, removed: oldDNS });
+      const base = cur ? c.removedCurrent : c.removedPrevious;
+      const space = locale === 'zh-CN' && /^[A-Za-z0-9]/.test(oldDNS[0].name) ? ' ' : '';
+      dnsChanges.push({ prefix: `${base}${space}`, removed: oldDNS });
     }
-    if (newDNS) dnsChanges.push({ text: `本次新增${/^[A-Za-z0-9]/.test(newDNS) ? ' ' : ''}${newDNS}` });
+    if (newDNS) {
+      const base = cur ? c.addedCurrent : c.addedPrevious;
+      const space = locale === 'zh-CN' && /^[A-Za-z0-9]/.test(newDNS) ? ' ' : '';
+      dnsChanges.push({ text: `${base}${space}${newDNS}` });
+    }
   }
-  if (!dnsChanges.length && !sameDNS) dnsChanges.push({ text: '网络归属信息有变化' });
-  if (!dnsChanges.length && dnsIPsChanged) dnsChanges.push({ text: '仅服务器地址有变化' });
+  if (!dnsChanges.length && !sameDNS) dnsChanges.push({ text: c.attributionChanged });
+  if (!dnsChanges.length && dnsIPsChanged) dnsChanges.push({ text: c.ipsOnlyChanged });
 
   const oldExit = previous.exit;
   const newExit = current.exit;
   let exitChange = '';
   if (!oldExit?.ip || !newExit?.ip) {
-    exitChange = !oldExit?.ip && !newExit?.ip ? '两次均未获取' : !oldExit?.ip ? '上次未获取' : '本次未获取';
-  } else if (exitLabel(oldExit) !== exitLabel(newExit)) {
-    exitChange = `${exitLabel(oldExit)} → ${exitLabel(newExit)}`;
+    exitChange = !oldExit?.ip && !newExit?.ip
+      ? c.bothMissing
+      : !oldExit?.ip
+        ? c.prevMissing
+        : cur
+          ? c.curMissingCurrent
+          : c.curMissingPrevious;
+  } else if (exitLabel(oldExit, locale) !== exitLabel(newExit, locale)) {
+    exitChange = `${exitLabel(oldExit, locale)} → ${exitLabel(newExit, locale)}`;
   } else if (oldExit.ip !== newExit.ip) {
-    exitChange = '出口 IP 有变化';
+    exitChange = c.exitIPChanged;
   } else if (oldExit.asn !== newExit.asn || dnsExitType(oldExit) !== dnsExitType(newExit)) {
-    exitChange = '网络归属信息有变化';
+    exitChange = c.attributionChanged;
   }
 
   const beforeStatus = previous.verdict?.state;
@@ -243,7 +272,7 @@ export function compareDNS(previous: DNSCheck, current: DNSCheck, after: Map<str
   return {
     previousVerdict,
     improved: beforeStatus === 'suspected' && afterStatus === 'clear',
-    summary: stable ? (dnsIPsChanged ? 'DNS 服务商未变，地址有变化' : '与上次一致') : '',
+    summary: stable ? (dnsIPsChanged ? c.sameProvidersNewIPs : c.identical) : '',
     dnsChanges, exitChange, addedIPs, removedIPs,
   };
 }

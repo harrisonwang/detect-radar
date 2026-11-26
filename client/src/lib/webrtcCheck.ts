@@ -1,3 +1,4 @@
+import { getMessages, joinList, type Locale } from '../i18n';
 import { ApiError, assessWebRTCCandidates, getBrowserExit } from './api';
 import {
   gatherRTCCandidates,
@@ -81,26 +82,23 @@ export interface WebRTCComparison {
   summary: string | null;
 }
 
-export const webrtcStatus: Record<
+export function getWebrtcStatus(locale: Locale = 'zh-CN'): Record<
   WebRTCVerdictState,
   { title: string; color: string; soft: string }
-> = {
-  leaked: { title: '泄露', color: 'var(--leak)', soft: 'var(--leak-soft)' },
-  clear: { title: '未泄露', color: 'var(--sig)', soft: 'var(--sig-soft)' },
-  unknown: { title: '无法判断', color: 'var(--unknown)', soft: 'var(--unknown-soft)' },
-};
+> {
+  const s = getMessages(locale).webrtc.status;
+  return {
+    leaked: { title: s.leaked, color: 'var(--leak)', soft: 'var(--leak-soft)' },
+    clear: { title: s.clear, color: 'var(--sig)', soft: 'var(--sig-soft)' },
+    unknown: { title: s.unknown, color: 'var(--unknown)', soft: 'var(--unknown-soft)' },
+  };
+}
 
-const LOCAL_SCOPE_LABELS: Record<RTCLocalScope, string> = {
-  lan: '局域网',
-  cgnat: 'CGNAT / Tailscale',
-  fakeip: '虚拟网卡 / Fake-IP',
-  'link-local': '链路本地',
-  ula: 'IPv6 ULA',
-  loopback: '本地回环',
-};
+export const webrtcStatus = getWebrtcStatus('zh-CN');
 
-export function localScopeLabel(scope?: RTCLocalScope): string {
-  return scope ? LOCAL_SCOPE_LABELS[scope] : '内网';
+export function localScopeLabel(scope?: RTCLocalScope, locale: Locale = 'zh-CN'): string {
+  const s = getMessages(locale).webrtc.scopes;
+  return scope ? s[scope] : s.fallback;
 }
 
 function isExpectedDualStack(exitIP: string, extraPublicIPs: string[]): boolean {
@@ -122,25 +120,20 @@ function dedupeCanonicalIPs(ips: string[]): string[] {
   return out;
 }
 
-export function evaluateWebRTC(exit: DNSExit | null, rtc: RTCGatherResult): WebRTCVerdict {
+export function evaluateWebRTC(
+  exit: DNSExit | null,
+  rtc: RTCGatherResult,
+  locale: Locale = 'zh-CN',
+): WebRTCVerdict {
+  const n = getMessages(locale).webrtc.verdictNote;
   if (!rtc.apiSupported) {
-    return {
-      state: 'clear',
-      reason: 'disabled',
-      note: '浏览器已禁用 WebRTC，未暴露任何地址。',
-      suspectIPs: [],
-    };
+    return { state: 'clear', reason: 'disabled', note: n.disabled, suspectIPs: [] };
   }
 
   const publicIPs = dedupeCanonicalIPs(rtc.publicIPs);
   const exitIP = canonicalIP(exit?.ip);
   if (publicIPs.length > 0 && !exitIP) {
-    return {
-      state: 'unknown',
-      reason: 'missing-exit',
-      note: '已测到 WebRTC 公网 IP，但未获取到出口 IP 进行比对。',
-      suspectIPs: [],
-    };
+    return { state: 'unknown', reason: 'missing-exit', note: n.missingExit, suspectIPs: [] };
   }
 
   const extraPublicIPs = exitIP
@@ -153,151 +146,140 @@ export function evaluateWebRTC(exit: DNSExit | null, rtc: RTCGatherResult): WebR
         return {
           state: 'unknown',
           reason: 'assessment-unavailable',
-          note: '测到另一协议栈的公网 IP，但暂未完成归属核对，无法确认是否同属当前代理网络。',
+          note: n.assessmentUnavailableDual,
           suspectIPs: [],
         };
       }
-      return {
-        state: 'clear',
-        reason: 'dual-stack',
-        note: 'WebRTC 测到另一协议的公网 IP（IPv4/IPv6），属正常连接。',
-        suspectIPs: [],
-      };
+      return { state: 'clear', reason: 'dual-stack', note: n.dualStackGeneric, suspectIPs: [] };
     }
     return {
       state: 'leaked',
       reason: 'public-leak',
-      note: 'WebRTC 测到的公网 IP 与当前出口不一致。',
+      note: n.publicLeakGeneric,
       suspectIPs: extraPublicIPs,
     };
   }
 
   if (publicIPs.length > 0 && exitIP && publicIPs.some((ip) => !sameIP(ip, exitIP) && sameIPv6Prefix64(ip, exitIP))) {
-    return {
-      state: 'clear',
-      reason: 'same-prefix',
-      note: 'WebRTC 测到的 IPv6 地址与当前出口属于同一 /64 前缀（临时隐私地址），未发生泄露。',
-      suspectIPs: [],
-    };
+    return { state: 'clear', reason: 'same-prefix', note: n.samePrefix, suspectIPs: [] };
   }
 
   if (publicIPs.length === 0 && rtc.localIPs.length > 0) {
-    return {
-      state: 'clear',
-      reason: 'local-exposed',
-      note: '未测到额外公网 IP（仅读取到本机内网地址）。',
-      suspectIPs: [],
-    };
+    return { state: 'clear', reason: 'local-exposed', note: n.localExposed, suspectIPs: [] };
   }
 
   if (publicIPs.length > 0) {
-    return {
-      state: 'clear',
-      reason: 'matches-exit',
-      note: 'WebRTC 测到的公网 IP 与当前出口一致。',
-      suspectIPs: [],
-    };
+    return { state: 'clear', reason: 'matches-exit', note: n.matchesExit, suspectIPs: [] };
   }
 
   if (rtc.mdnsHosts.length > 0) {
-    return {
-      state: 'clear',
-      reason: 'mdns-protected',
-      note: '仅返回 mDNS（*.local），未暴露公网或内网 IP。',
-      suspectIPs: [],
-    };
+    return { state: 'clear', reason: 'mdns-protected', note: n.mdnsProtected, suspectIPs: [] };
   }
 
-  return {
-    state: 'clear',
-    reason: 'no-candidates',
-    note: '本次未测到 WebRTC 地址。',
-    suspectIPs: [],
-  };
+  return { state: 'clear', reason: 'no-candidates', note: n.noCandidates, suspectIPs: [] };
 }
 
-function formatCandidateLabel(info: WebRTCNetworkInfo | undefined): string {
+function formatCandidateLabel(info: WebRTCNetworkInfo | undefined, locale: Locale): string {
   if (!info) return '';
-  const region = info.country ? dnsRegion(info.country) : '';
-  const validRegion = region && region !== '地区未知' ? region : '';
-  const provider = dnsProviderName(info.network ?? '');
+  const unknownRegion = getMessages(locale).common.unknownRegion;
+  const region = info.country ? dnsRegion(info.country, locale) : '';
+  const validRegion = region && region !== unknownRegion ? region : '';
+  const provider = dnsProviderName(info.network ?? '', locale);
   if (validRegion && provider) {
     return provider.startsWith(validRegion) ? provider : `${validRegion} ${provider}`;
   }
   return provider || validRegion;
 }
 
+export function webrtcVerdictNote(
+  check: Pick<WebRTCCheck, 'verdict' | 'exit' | 'publicCandidates'>,
+  locale: Locale = 'zh-CN',
+): string {
+  const n = getMessages(locale).webrtc.verdictNote;
+  const { verdict, exit, publicCandidates } = check;
+  switch (verdict.reason) {
+    case 'disabled':
+      return n.disabled;
+    case 'missing-exit':
+      return n.missingExit;
+    case 'assessment-unavailable':
+      return publicCandidates?.length ? n.assessmentUnavailableWithCands : n.assessmentUnavailableDual;
+    case 'public-leak': {
+      const firstSuspect = publicCandidates?.find((c) => c.relation === 'leak');
+      const label = formatCandidateLabel(firstSuspect, locale);
+      const exitRegion = exit?.country ? dnsRegion(exit.country, locale) : '';
+      if (label) {
+        return exitRegion && firstSuspect?.country && firstSuspect.country !== exit?.country
+          ? n.publicLeakDiffCountry(label, exitRegion)
+          : n.publicLeakDiffNet(label);
+      }
+      return publicCandidates?.length ? n.publicLeakGenericNet : n.publicLeakGeneric;
+    }
+    case 'same-network':
+      return n.sameNetwork;
+    case 'dual-stack':
+      return publicCandidates?.length ? n.dualStackSameISP : n.dualStackGeneric;
+    case 'same-prefix':
+      return n.samePrefix;
+    case 'local-exposed':
+      return n.localExposed;
+    case 'matches-exit':
+      return n.matchesExit;
+    case 'mdns-protected':
+      return n.mdnsProtected;
+    case 'no-candidates':
+      return n.noCandidates;
+    default:
+      return verdict.note || '';
+  }
+}
+
 export function verdictFromAssessment(
   res: WebRTCAssessmentResponse,
   exit: DNSExit | null,
+  locale: Locale = 'zh-CN',
 ): WebRTCVerdict {
+  const n = getMessages(locale).webrtc.verdictNote;
   const suspectIPs = dedupeCanonicalIPs(res.verdict.suspect_ips ?? []);
   const reason = (res.verdict.reason || 'matches-exit') as WebRTCVerdictReason;
 
   if (res.verdict.state === 'leaked') {
     const firstSuspect = res.candidates.find((c) => c.relation === 'leak');
-    const label = formatCandidateLabel(firstSuspect);
-    const exitRegion = exit?.country ? dnsRegion(exit.country) : '';
+    const label = formatCandidateLabel(firstSuspect, locale);
+    const exitRegion = exit?.country ? dnsRegion(exit.country, locale) : '';
     const note = label
       ? exitRegion && firstSuspect?.country && firstSuspect.country !== exit?.country
-        ? `WebRTC 测到了归属${label}的公网 IP，与当前出口（${exitRegion}）不一致。`
-        : `WebRTC 测到了归属${label}的公网 IP，与当前出口不属于同一网络。`
-      : 'WebRTC 测到的公网 IP 与当前出口不属于同一网络。';
-    return {
-      state: 'leaked',
-      reason: 'public-leak',
-      note,
-      suspectIPs,
-    };
+        ? n.publicLeakDiffCountry(label, exitRegion)
+        : n.publicLeakDiffNet(label)
+      : n.publicLeakGenericNet;
+    return { state: 'leaked', reason: 'public-leak', note, suspectIPs };
   }
 
   if (res.verdict.state === 'unknown') {
     return {
       state: 'unknown',
       reason: reason === 'missing-exit' ? 'missing-exit' : 'assessment-unavailable',
-      note:
-        reason === 'missing-exit'
-          ? '已测到 WebRTC 公网 IP，但未获取到出口 IP 进行比对。'
-          : '暂未获取到足够归属信息进行比对。',
+      note: reason === 'missing-exit' ? n.missingExit : n.assessmentUnavailableWithCands,
       suspectIPs: [],
     };
   }
 
   switch (reason) {
     case 'same-network':
-      return {
-        state: 'clear',
-        reason: 'same-network',
-        note: 'WebRTC 测到同一运营商下的其他公网出口（常见于手机或共享出口），未发现跨网泄露。',
-        suspectIPs: [],
-      };
+      return { state: 'clear', reason: 'same-network', note: n.sameNetwork, suspectIPs: [] };
     case 'dual-stack':
-      return {
-        state: 'clear',
-        reason: 'dual-stack',
-        note: 'WebRTC 测到同一运营商下的另一协议公网 IP（IPv4/IPv6），属正常连接。',
-        suspectIPs: [],
-      };
+      return { state: 'clear', reason: 'dual-stack', note: n.dualStackSameISP, suspectIPs: [] };
     case 'same-prefix':
-      return {
-        state: 'clear',
-        reason: 'same-prefix',
-        note: 'WebRTC 测到的 IPv6 地址与当前出口同属一个网段（临时隐私地址），未发生泄露。',
-        suspectIPs: [],
-      };
+      return { state: 'clear', reason: 'same-prefix', note: n.samePrefix, suspectIPs: [] };
     default:
-      return {
-        state: 'clear',
-        reason: 'matches-exit',
-        note: 'WebRTC 测到的公网 IP 与当前出口一致。',
-        suspectIPs: [],
-      };
+      return { state: 'clear', reason: 'matches-exit', note: n.matchesExit, suspectIPs: [] };
   }
 }
 
 export async function measureWebRTC(
   onExit?: (exit: DNSExit) => void,
   onProgress?: (progress: WebRTCProgress) => void,
+  locale: Locale = 'zh-CN',
 ): Promise<WebRTCCheck> {
   let exit: DNSExit | null = null;
   let exitError: WebRTCCheck['exitError'];
@@ -324,7 +306,7 @@ export async function measureWebRTC(
 
   emit();
 
-  const exitPromise = getBrowserExit()
+  const exitPromise = getBrowserExit(locale)
     .then((info) => {
       exit = browserExit(info);
       onExit?.(exit);
@@ -377,17 +359,17 @@ export async function measureWebRTC(
 
   if (needsAttribution) {
     try {
-      const assessed = await assessWebRTCCandidates(canonicalPublicIPs);
+      const assessed = await assessWebRTCCandidates(canonicalPublicIPs, locale);
       publicCandidates = assessed.candidates;
       if (assessed.exit?.ip && resolvedExit && !resolvedExit.country && assessed.exit.country) {
         resolvedExit = { ...resolvedExit, country: assessed.exit.country };
       }
-      verdict = verdictFromAssessment(assessed, resolvedExit);
+      verdict = verdictFromAssessment(assessed, resolvedExit, locale);
     } catch {
-      verdict = evaluateWebRTC(resolvedExit, canonicalRTC);
+      verdict = evaluateWebRTC(resolvedExit, canonicalRTC, locale);
     }
   } else {
-    verdict = evaluateWebRTC(resolvedExit, canonicalRTC);
+    verdict = evaluateWebRTC(resolvedExit, canonicalRTC, locale);
   }
 
   return {
@@ -417,14 +399,28 @@ const STATE_RANK: Record<WebRTCVerdictState, number> = {
   leaked: 2,
 };
 
-function formatIPDiff(added: string[], removed: string[], fallbackEmpty: string): string {
+function formatIPDiff(
+  added: string[],
+  removed: string[],
+  fallbackEmpty: string,
+  locale: Locale,
+): string {
+  const c = getMessages(locale).webrtc.compare;
   const parts: string[] = [];
-  if (added.length) parts.push(`新增 ${added.join('、')}`);
-  if (removed.length) parts.push(`不再出现 ${removed.join('、')}`);
-  return parts.length ? parts.join('；') : fallbackEmpty;
+  if (added.length) parts.push(c.added(joinList(added, locale)));
+  if (removed.length) parts.push(c.removed(joinList(removed, locale)));
+  return parts.length ? parts.join(locale === 'en' ? '; ' : '；') : fallbackEmpty;
 }
 
-export function compareWebRTC(previous: WebRTCCheck, current: WebRTCCheck): WebRTCComparison {
+export function compareWebRTC(
+  previous: WebRTCCheck,
+  current: WebRTCCheck,
+  locale: Locale = 'zh-CN',
+): WebRTCComparison {
+  const m = getMessages(locale);
+  const c = m.webrtc.compare;
+  const unchangedLabel = m.common.unchanged;
+
   const prevPubList = dedupeCanonicalIPs(previous.publicIPs);
   const curPubList = dedupeCanonicalIPs(current.publicIPs);
   const prevPub = new Set(prevPubList);
@@ -442,30 +438,33 @@ export function compareWebRTC(previous: WebRTCCheck, current: WebRTCCheck): WebR
   const exitChange =
     prevExitIP && curExitIP
       ? sameIP(prevExitIP, curExitIP)
-        ? '未变'
-        : `从 ${prevExitIP} 变为 ${curExitIP}`
+        ? unchangedLabel
+        : c.exitChanged(prevExitIP, curExitIP)
       : !prevExitIP && curExitIP
-        ? `本次获取到 ${curExitIP}`
+        ? c.exitAcquired(curExitIP)
         : prevExitIP && !curExitIP
-          ? '本次未获取到'
-          : '未变';
+          ? c.exitLost
+          : unchangedLabel;
 
   const localChange = (() => {
     if (addedLocalList.length === 0 && removedLocalIPs.length === 0) {
-      if (previous.mdnsHosts.length === 0 && current.mdnsHosts.length > 0) return '转为 mDNS（*.local）保护';
-      return '未变';
+      if (previous.mdnsHosts.length === 0 && current.mdnsHosts.length > 0) return c.mdnsSwitched;
+      return unchangedLabel;
     }
     if (addedLocalList.length === 0 && current.localIPs.length === 0 && current.mdnsHosts.length > 0) {
-      return `已隐藏原内网 IP，改用 mDNS（*.local）`;
+      return c.mdnsReplacedLocal;
     }
-    return formatIPDiff(addedLocalList, removedLocalIPs, '未变');
+    return formatIPDiff(addedLocalList, removedLocalIPs, unchangedLabel, locale);
   })();
 
-  const publicChange = formatIPDiff(addedPublicList, removedPublicIPs, '未变');
+  const publicChange = formatIPDiff(addedPublicList, removedPublicIPs, unchangedLabel, locale);
   const prevState = previous.verdict.state;
   const curState = current.verdict.state;
   const previousVerdict = prevState !== curState ? prevState : undefined;
   const improved = STATE_RANK[curState] < STATE_RANK[prevState];
+
+  const exitUnchanged =
+    (!prevExitIP && !curExitIP) || (Boolean(prevExitIP && curExitIP) && sameIP(prevExitIP, curExitIP));
 
   const unchanged =
     !previousVerdict &&
@@ -473,7 +472,7 @@ export function compareWebRTC(previous: WebRTCCheck, current: WebRTCCheck): WebR
     removedPublicIPs.length === 0 &&
     addedLocalList.length === 0 &&
     removedLocalIPs.length === 0 &&
-    exitChange === '未变' &&
+    exitUnchanged &&
     previous.apiSupported === current.apiSupported;
 
   return {
@@ -486,6 +485,6 @@ export function compareWebRTC(previous: WebRTCCheck, current: WebRTCCheck): WebR
     publicChange,
     localChange,
     exitChange,
-    summary: unchanged ? 'WebRTC 地址与出口 IP 和上次一致' : null,
+    summary: unchanged ? c.identical : null,
   };
 }

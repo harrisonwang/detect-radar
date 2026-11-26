@@ -43,17 +43,17 @@ func RFC7807Error(c *fiber.Ctx, problemType, title string, status int, detail st
 }
 
 func InvalidParameter(c *fiber.Ctx, detail string) error {
-	return RFC7807Error(c, ProblemTypeInvalidParameter, "Invalid Parameter", fiber.StatusBadRequest, detail)
+	return RFC7807Error(c, ProblemTypeInvalidParameter, Localized(c, "参数无效", "Invalid Parameter"), fiber.StatusBadRequest, detail)
 }
 
 func MissingParameter(c *fiber.Ctx, detail string) error {
-	return RFC7807Error(c, ProblemTypeMissingParameter, "Missing Parameter", fiber.StatusBadRequest, detail)
+	return RFC7807Error(c, ProblemTypeMissingParameter, Localized(c, "缺少参数", "Missing Parameter"), fiber.StatusBadRequest, detail)
 }
 
 func ResourceNotFound(c *fiber.Ctx, detail string) error {
-	return RFC7807Error(c, ProblemTypeResourceNotFound, "Resource Not Found", fiber.StatusNotFound, detail)
+	return RFC7807Error(c, ProblemTypeResourceNotFound, Localized(c, "资源不存在", "Resource Not Found"), fiber.StatusNotFound, detail)
 }
 
 func InternalError(c *fiber.Ctx, detail string) error {
-	return RFC7807Error(c, ProblemTypeInternalError, "Internal Server Error", fiber.StatusInternalServerError, detail)
+	return RFC7807Error(c, ProblemTypeInternalError, Localized(c, "服务器内部错误", "Internal Server Error"), fiber.StatusInternalServerError, detail)
 }

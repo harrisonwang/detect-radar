@@ -1,0 +1,31 @@
+---
+import Layout from '../layouts/Layout.astro';
+import MainApp from '../components/MainApp.svelte';
+import ReportBackdrop from '../components/ReportBackdrop.svelte';
+import SiteFooter from '../components/SiteFooter.svelte';
+import { getMessages, localePath, type Locale } from '../i18n';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const m = getMessages(locale);
+---
+
+<Layout
+  canonical={localePath('/', locale)}
+  locale={locale}
+  ogImage={locale === 'en' ? '/og-default-en.png' : '/og-default.png'}
+  pageType="home"
+  dateModified="2026-11-26"
+>
+  <div class="min-h-screen bg-space-950 scan-grid flex flex-col relative">
+    <ReportBackdrop />
+    <MainApp client:load {locale} />
+    <noscript>
+      <p class="report-main pt-0 text-sm text-(--slate-300)">{m.seo.homeNoscript}</p>
+    </noscript>
+    <SiteFooter {locale} />
+  </div>
+</Layout>

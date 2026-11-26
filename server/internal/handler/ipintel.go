@@ -69,34 +69,61 @@ func (h *IPIntelHandler) GetMyIPIntel(c *fiber.Ctx) error {
 	}
 
 	setNoStoreHeaders(c)
+	c.Set("Vary", "Accept-Language")
 
-	return c.JSON(intel)
+	return c.JSON(service.ProjectIPIntel(intel, util.ResolveLang(c)))
 }
 
 func (h *IPIntelHandler) GetMyIPText(c *fiber.Ctx) error {
+	lang := util.ResolveLang(c)
 	c.Set("Content-Type", "text/plain; charset=utf-8")
 	setNoStoreHeaders(c)
 	c.Set("X-Robots-Tag", "noindex, nofollow")
-	c.Set("Vary", "User-Agent, Accept")
+	c.Set("Vary", "User-Agent, Accept, Accept-Language")
 
 	intel, err := h.resolveClientIPIntel(c)
 	if err != nil {
+		if lang == util.LangEN {
+			return c.Status(fiber.StatusInternalServerError).SendString("Lookup failed, please retry later\n")
+		}
 		return c.Status(fiber.StatusInternalServerError).SendString("查询失败，请稍后重试\n")
 	}
 
-	return c.SendString(formatIPIntelText(intel))
+	projected := service.ProjectIPIntel(intel, lang)
+	return c.SendString(formatIPIntelText(projected, lang))
 }
 
-func formatIPIntelText(intel *model.IPIntel) string {
+func formatIPIntelText(intel *model.IPIntel, lang string) string {
 	var b strings.Builder
-	b.WriteString("DetectRadar · 终端出口信息\n")
-	fmt.Fprintf(&b, "IP:       %s\n", intel.IP)
-	fmt.Fprintf(&b, "地区:     %s\n", formatIntelLocation(intel))
-
 	operator := strings.TrimSpace(intel.ISP)
 	if operator == "" {
 		operator = strings.TrimSpace(intel.Org)
 	}
+
+	if lang == util.LangEN {
+		b.WriteString("DetectRadar · Terminal Egress\n")
+		fmt.Fprintf(&b, "IP:            %s\n", intel.IP)
+		fmt.Fprintf(&b, "Location:      %s\n", formatIntelLocation(intel, lang))
+		if operator == "" {
+			operator = "Unknown"
+		}
+		if asn := normalizeASN(intel.ASN); asn != "" {
+			fmt.Fprintf(&b, "Operator:      %s (%s)\n", operator, asn)
+		} else {
+			fmt.Fprintf(&b, "Operator:      %s\n", operator)
+		}
+		fmt.Fprintf(&b, "Type:          %s\n", formatIntelTypeLine(intel, lang))
+		if intel.HumanRatio != nil {
+			pct := math.Max(0, math.Min(100, *intel.HumanRatio))
+			fmt.Fprintf(&b, "Human Traffic: %.1f%% (Cloudflare Radar 30d ASN)\n", pct)
+		}
+		b.WriteString("Full Check:    https://detectradar.com/en/\n")
+		return b.String()
+	}
+
+	b.WriteString("DetectRadar · 终端出口信息\n")
+	fmt.Fprintf(&b, "IP:       %s\n", intel.IP)
+	fmt.Fprintf(&b, "地区:     %s\n", formatIntelLocation(intel, lang))
 	if operator == "" {
 		operator = "未知"
 	}
@@ -106,7 +133,7 @@ func formatIPIntelText(intel *model.IPIntel) string {
 		fmt.Fprintf(&b, "运营商:   %s\n", operator)
 	}
 
-	fmt.Fprintf(&b, "类型:     %s\n", formatIntelTypeLine(intel))
+	fmt.Fprintf(&b, "类型:     %s\n", formatIntelTypeLine(intel, lang))
 
 	if intel.HumanRatio != nil {
 		pct := math.Max(0, math.Min(100, *intel.HumanRatio))
@@ -117,8 +144,11 @@ func formatIPIntelText(intel *model.IPIntel) string {
 	return b.String()
 }
 
-func formatIntelLocation(intel *model.IPIntel) string {
+func formatIntelLocation(intel *model.IPIntel, lang string) string {
 	if intel.UsageType == "private" || intel.Country == "LOCAL" {
+		if lang == util.LangEN {
+			return "Private Network (LOCAL)"
+		}
 		return "内网地址 (LOCAL)"
 	}
 	var parts []string
@@ -139,6 +169,9 @@ func formatIntelLocation(intel *model.IPIntel) string {
 	if loc == "" {
 		if cc := strings.TrimSpace(intel.Country); cc != "" {
 			return cc
+		}
+		if lang == util.LangEN {
+			return "Unknown"
 		}
 		return "未知"
 	}
@@ -169,21 +202,38 @@ func normalizeASN(raw string) string {
 	return s
 }
 
-func formatIntelTypeLine(intel *model.IPIntel) string {
+func formatIntelTypeLine(intel *model.IPIntel, lang string) string {
 	var base string
-	switch intel.UsageType {
-	case "private":
-		base = "内网地址 (private)"
-	case "hosting":
-		base = "机房 IP (hosting)"
-	case "isp":
-		if intel.IsMobile {
-			base = "移动网络 (isp)"
-		} else {
-			base = "普通宽带 (isp)"
+	if lang == util.LangEN {
+		switch intel.UsageType {
+		case "private":
+			base = "Private Network (private)"
+		case "hosting":
+			base = "Datacenter IP (hosting)"
+		case "isp":
+			if intel.IsMobile {
+				base = "Mobile Network (isp)"
+			} else {
+				base = "Residential / Broadband (isp)"
+			}
+		default:
+			base = "Unknown (unknown)"
 		}
-	default:
-		base = "类型未定 (unknown)"
+	} else {
+		switch intel.UsageType {
+		case "private":
+			base = "内网地址 (private)"
+		case "hosting":
+			base = "机房 IP (hosting)"
+		case "isp":
+			if intel.IsMobile {
+				base = "移动网络 (isp)"
+			} else {
+				base = "普通宽带 (isp)"
+			}
+		default:
+			base = "类型未定 (unknown)"
+		}
 	}
 
 	var tags []string
@@ -191,7 +241,11 @@ func formatIntelTypeLine(intel *model.IPIntel) string {
 		tags = append(tags, "[VPN]")
 	}
 	if intel.IsProxy {
-		tags = append(tags, "[代理]")
+		if lang == util.LangEN {
+			tags = append(tags, "[Proxy]")
+		} else {
+			tags = append(tags, "[代理]")
+		}
 	}
 	if intel.IsTor {
 		tags = append(tags, "[Tor]")

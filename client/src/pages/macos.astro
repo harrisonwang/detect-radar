@@ -41,6 +41,24 @@ const BREW_CMD = 'brew install --cask harrisonwang/tap/detectradar-bar';
 const XATTR_CMD = 'xattr -cr /Applications/DetectRadarBar.app';
 const SKILL_URL = 'https://detectradar.com/SKILL.md';
 const AGENT_PROMPT = `按 ${SKILL_URL} 检查当前终端的出口 IP、IPv6 和 DNS 泄露`;
+const MODULES_REPO_URL = 'https://github.com/harrisonwang/detect-radar/tree/main/modules';
+const PROXY_MODULES = [
+	{
+		name: 'Surge',
+		ext: '.sgmodule',
+		url: 'https://raw.githubusercontent.com/harrisonwang/detect-radar/main/modules/surge/detectradar.sgmodule',
+	},
+	{
+		name: 'Stash',
+		ext: '.stoverride',
+		url: 'https://raw.githubusercontent.com/harrisonwang/detect-radar/main/modules/stash/detectradar.stoverride',
+	},
+	{
+		name: 'Loon',
+		ext: '.plugin',
+		url: 'https://raw.githubusercontent.com/harrisonwang/detect-radar/main/modules/loon/detectradar.plugin',
+	},
+] as const;
 
 const PREVIEWS = [
 	{
@@ -78,7 +96,7 @@ const PREVIEWS = [
 	canonical="/macos/"
 	description="DetectRadar for macOS（DetectRadarBar）：在菜单栏随时看出口 IP 和机房/宽带，IPv6 泄露时提醒。支持安装包与 Homebrew 安装，并附 Antigravity / Claude Code / Codex 终端自检用法。"
 	pageType="software"
-	dateModified="2026-11-25"
+	dateModified="2026-11-26"
 	software={{
 		name: 'DetectRadar for macOS',
 		alternateName: 'DetectRadarBar',
@@ -288,6 +306,55 @@ const PREVIEWS = [
 							<i data-copy-icon class="fa-regular fa-copy text-[13px]" aria-hidden="true"></i>
 						</button>
 					</div>
+				</div>
+			</section>
+
+			<!-- 代理客户端面板模块 -->
+			<section
+				aria-labelledby="proxy-modules"
+				class="mt-10 sm:mt-12 pt-8 sm:pt-10 border-t border-white/[0.08] grid grid-cols-1 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] gap-5 lg:gap-12 items-start lg:items-center"
+			>
+				<div class="min-w-0">
+					<p class="inline-flex items-center gap-2 text-xs text-(--slate-400)">
+						<span class="dot bg-(--slate-400)" style="--_soft: var(--unknown-soft);" aria-hidden="true"></span>
+						<span>代理面板模块</span>
+						<span aria-hidden="true" class="text-slate-700">·</span>
+						<a
+							href={MODULES_REPO_URL}
+							target="_blank"
+							rel="noopener noreferrer"
+							class="font-mono text-[11px] text-(--slate-400) hover:text-white transition-colors"
+						>
+							modules/ ↗
+						</a>
+					</p>
+					<h2 id="proxy-modules" class="mt-2 text-lg font-semibold text-white tracking-[-0.01em]">
+						Surge / Stash / Loon 面板模块
+					</h2>
+					<p class="mt-1.5 text-[13.5px] leading-6 text-(--slate-400)">
+						在代理客户端内直接看出口类型、ASN 人类流量与 IPv6 旁路（本地快查，不触发深度额度）。
+					</p>
+				</div>
+
+				<div class="min-w-0 grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+					{PROXY_MODULES.map((mod) => (
+						<div class="cmd-strip flex items-center justify-between gap-2.5 rounded-xl border border-slate-800/90 bg-[#070d1b]/85 px-3.5 py-2.5 min-w-0">
+							<div class="min-w-0">
+								<p class="text-[13px] font-medium text-(--slate-200) leading-tight">{mod.name}</p>
+								<p class="mt-0.5 font-mono text-[11px] text-(--slate-500) truncate">{mod.ext}</p>
+							</div>
+							<button
+								type="button"
+								data-copy-cmd={mod.url}
+								data-copy-announce={`已复制 ${mod.name} 模块链接`}
+								class="copy-btn shrink-0 inline-flex items-center justify-center w-8 h-8 rounded-lg border border-slate-800 bg-slate-900/90 text-(--slate-300) hover:text-white hover:border-slate-600 transition-colors cursor-pointer"
+								title={`复制 ${mod.name} 导入链接`}
+								aria-label={`复制 ${mod.name} 导入链接`}
+							>
+								<i data-copy-icon class="fa-regular fa-copy text-[13px]" aria-hidden="true"></i>
+							</button>
+						</div>
+					))}
 				</div>
 			</section>
 

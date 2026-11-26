@@ -190,8 +190,9 @@ function drawHeader(ctx: CanvasRenderingContext2D, subtitle: string, timeMs: num
 
 function drawFooter(ctx: CanvasRenderingContext2D, urlText: string) {
   const fy = H - PAD + 14;
-  drawText(ctx, urlText, PAD, fy, { font: font(13, 500, MONO), color: C.slate500 });
-  drawText(ctx, 'IP 已自动脱敏 · 本地生成', W - PAD, fy, { font: font(12), color: C.slate600, align: 'right' });
+  dot(ctx, PAD + 4, fy, C.radar, C.sigSoft, 3.5);
+  drawText(ctx, urlText, PAD + 18, fy, { font: font(14.5, 600, MONO), color: C.slate200 });
+  drawText(ctx, 'IP 已自动脱敏 · 本地生成', W - PAD, fy, { font: font(12.5), color: C.slate500, align: 'right' });
 }
 
 function drawExitColumn(

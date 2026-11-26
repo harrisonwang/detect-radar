@@ -284,10 +284,26 @@
           style:--verdict-color={status.color}
           style:--verdict-soft={status.soft}
         >
-          <p class="card-label">{busy ? '正在重新检测 · 上次结果' : '本次检测'}</p>
-          <p class="verdict-title">
-            <span class="dot" class:loading-dot={busy} aria-hidden="true"></span>{status.title}
-          </p>
+          <div class="diagnosis-head">
+            <div class="min-w-0">
+              <p class="card-label">{busy ? '正在重新检测 · 上次结果' : '本次检测'}</p>
+              <p class="verdict-title">
+                <span class="dot" class:loading-dot={busy} aria-hidden="true"></span>{status.title}
+              </p>
+            </div>
+            {#if !busy}
+              <div class="diagnosis-actions">
+                <button type="button" class="share-pill" onclick={handleCopyText}>
+                  <i class="fa-regular fa-copy" aria-hidden="true"></i>
+                  <span>复制文字</span>
+                </button>
+                <button type="button" class="share-pill" onclick={handleScreenshot}>
+                  <i class="fa-regular fa-image" aria-hidden="true"></i>
+                  <span>保存图片</span>
+                </button>
+              </div>
+            {/if}
+          </div>
           {#if verdict?.note}
             <p class="diagnosis-note">{verdict.note}</p>
           {/if}
@@ -564,7 +580,7 @@
         </p>
         <ul class="rule-note">
           <li>结果来自当前浏览器的 WebRTC 检测，不同公网 IP 仅做归属核对、不留存</li>
-          <li>测到不同地区、不同运营商或绕过代理的公网 IP，判为<strong>泄露</strong></li>
+          <li>测到不同地区、不同运营商或绕过代理的公网 IP，判为<strong>泄露</strong>，完整口径见 <a href="/about/#webrtc" class="text-(--radar-400) underline underline-offset-4">检测说明</a></li>
           <li>同一运营商下的 IPv4 / IPv6 同时在线、同网段 IPv6 或共享出口不判泄露；如需单独排查 IPv6，请使用 <a href="/ipv6-leak-test/" onclick={() => trackEvent('tool-open', { from: 'webrtc', to: 'ipv6', source: 'note' })} class="text-(--radar-400) underline underline-offset-4">IPv6 泄露检测</a></li>
         </ul>
       </aside>

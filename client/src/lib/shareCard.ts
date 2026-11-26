@@ -320,17 +320,25 @@ export async function renderShareCard(
     ? new Date(report.meta.processedAt)
     : new Date();
   const stamp = `${when.getFullYear()}-${String(when.getMonth() + 1).padStart(2, "0")}-${String(when.getDate()).padStart(2, "0")} ${String(when.getHours()).padStart(2, "0")}:${String(when.getMinutes()).padStart(2, "0")}`;
-  text(
-    ctx,
-    `${stamp} · scan ${report.meta.scanId.slice(0, 8)}`,
-    W - PAD,
-    y + 12,
-    {
-      font: font(12, 400, MONO),
-      color: C.slate600,
-      align: "right",
-    },
-  );
+  const rawTier = (report.meta.tier ?? "").trim();
+  const tierLabel =
+    rawTier && rawTier !== "—"
+      ? rawTier.includes("L3")
+        ? `深度核验 (${rawTier})`
+        : `本地库 (${rawTier})`
+      : "";
+  const metaLine = [
+    stamp,
+    tierLabel,
+    `scan ${report.meta.scanId.slice(0, 8)}`,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+  text(ctx, metaLine, W - PAD, y + 12, {
+    font: font(12, 400, MONO),
+    color: C.slate500,
+    align: "right",
+  });
 
   // == 主区：左雷达 / 右判定+破绽 ==
   const topY = y + 44;
@@ -464,15 +472,14 @@ export async function renderShareCard(
   const idCy = idY + (rtt ? 46 : idH / 2); // 上排（IP + 属性读数）的纵向中心
   let ix = PAD + 28;
   text(ctx, "出口 IP", ix, idCy - 25, { font: font(12), color: C.slate500 });
-  text(ctx, report.identity.masked || "—", ix, idCy + 7, {
+  ctx.font = font(26, 600, MONO);
+  const ipText = truncate(ctx, report.identity.masked || "—", 250);
+  text(ctx, ipText, ix, idCy + 7, {
     font: font(26, 600, MONO),
     color: C.white,
   });
   ctx.font = font(26, 600, MONO);
-  const ipW = Math.max(
-    ctx.measureText(report.identity.masked || "—").width,
-    220,
-  );
+  const ipW = Math.min(Math.max(ctx.measureText(ipText).width, 200), 250);
   const usageBadgeState: SignalState =
     report.identity.state === "coherent" &&
     report.identity.usageLabel.includes("机房")
@@ -480,7 +487,7 @@ export async function renderShareCard(
       : report.identity.state;
   chip(
     ctx,
-    ix + ipW + 20,
+    ix + ipW + 18,
     idCy + 3,
     report.identity.usageLabel,
     STATE_COLOR[usageBadgeState],
@@ -488,8 +495,17 @@ export async function renderShareCard(
     13,
   );
 
-  // 右侧读数（与页面 IdentityCard 同风格）
-  const cols = [
+  // 右侧读数（与页面 IdentityCard 6 项同构，补齐 ASN）
+  const rawAsn = (report.identity.asn ?? "").trim();
+  const asnDisplay =
+    !rawAsn || rawAsn === "—"
+      ? "—"
+      : /^as\d+$/i.test(rawAsn)
+        ? rawAsn.toUpperCase()
+        : /^\d+$/.test(rawAsn)
+          ? `AS${rawAsn}`
+          : rawAsn;
+  const cols: { label: string; value: string; color: string; mono?: boolean }[] = [
     {
       label: "归属地",
       value:
@@ -499,6 +515,7 @@ export async function renderShareCard(
       color: C.slate200,
     },
     { label: "运营商", value: report.identity.org, color: C.slate200 },
+    { label: "ASN", value: asnDisplay, color: C.slate200, mono: true },
     {
       label: "欺诈评分",
       // 档位词与页面 IdentityCard 同一分档（很低/较低/偏高/高危）
@@ -542,17 +559,18 @@ export async function renderShareCard(
     },
   ];
   // 归属地/运营商内容长，按权重分列宽
-  const colsX = PAD + 470;
+  const colsX = PAD + 430;
   const colsTotal = W - PAD - 28 - colsX;
-  const weights = [1.45, 1.15, 0.72, 0.62, 0.82];
+  const weights = [1.35, 1.15, 0.72, 0.9, 0.62, 1.18];
   const weightSum = weights.reduce((a, b) => a + b, 0);
   let cx = colsX;
   cols.forEach((c, i) => {
     const colW = (colsTotal * weights[i]) / weightSum;
     text(ctx, c.label, cx, idCy - 16, { font: font(12), color: C.slate500 });
-    ctx.font = font(14, 500);
+    const valFont = font(14, 500, c.mono ? MONO : SANS);
+    ctx.font = valFont;
     text(ctx, truncate(ctx, c.value, colW - 14), cx, idCy + 12, {
-      font: font(14, 500),
+      font: valFont,
       color: c.color,
     });
     cx += colW;
@@ -660,13 +678,14 @@ export async function renderShareCard(
   });
 
   // == 页脚 ==
-  text(ctx, "detectradar.com", PAD, H - PAD + 18, {
-    font: font(13, 500, MONO),
-    color: C.slate500,
+  dot(ctx, PAD + 4, H - PAD + 18, C.radar, C.sigSoft);
+  text(ctx, "detectradar.com", PAD + 18, H - PAD + 18, {
+    font: font(15, 600, MONO),
+    color: C.slate200,
   });
   text(ctx, "核对出口 IP 与浏览器环境 · 检查 WebRTC / DNS / IPv6 泄露", W - PAD, H - PAD + 18, {
-    font: font(12),
-    color: C.slate600,
+    font: font(12.5),
+    color: C.slate500,
     align: "right",
   });
 

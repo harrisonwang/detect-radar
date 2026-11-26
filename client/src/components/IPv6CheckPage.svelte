@@ -241,10 +241,26 @@
           style:--verdict-color={status.color}
           style:--verdict-soft={status.soft}
         >
-          <p class="card-label">{busy ? '正在重新检测 · 上次结果' : '本次检测'}</p>
-          <p class="verdict-title">
-            <span class="dot" class:loading-dot={busy} aria-hidden="true"></span>{status.title}
-          </p>
+          <div class="diagnosis-head">
+            <div class="min-w-0">
+              <p class="card-label">{busy ? '正在重新检测 · 上次结果' : '本次检测'}</p>
+              <p class="verdict-title">
+                <span class="dot" class:loading-dot={busy} aria-hidden="true"></span>{status.title}
+              </p>
+            </div>
+            {#if !busy}
+              <div class="diagnosis-actions">
+                <button type="button" class="share-pill" onclick={handleCopyText}>
+                  <i class="fa-regular fa-copy" aria-hidden="true"></i>
+                  <span>复制文字</span>
+                </button>
+                <button type="button" class="share-pill" onclick={handleScreenshot}>
+                  <i class="fa-regular fa-image" aria-hidden="true"></i>
+                  <span>保存图片</span>
+                </button>
+              </div>
+            {/if}
+          </div>
           {#if verdict?.note}
             <p class="diagnosis-note">{verdict.note}</p>
           {/if}
@@ -350,7 +366,7 @@
         <ul class="rule-note">
           <li>同时测试当前网络的 IPv4 与 IPv6 实际出口</li>
           <li>IPv4 出口在海外，而 IPv6 走中国大陆运营商直连时，判为<strong>泄露</strong></li>
-          <li>海外跨区 IPv6（如分流节点或 WARP）、港澳台节点及国内直连均判为<strong>未泄露</strong></li>
+          <li>海外跨区 IPv6（如分流节点或 WARP）、港澳台节点及国内直连均判为<strong>未泄露</strong>，完整口径见 <a href="/about/#ipv6" class="text-(--radar-400) underline underline-offset-4">检测说明</a></li>
         </ul>
       </aside>
     </div>

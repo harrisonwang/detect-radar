@@ -446,7 +446,16 @@
         />
       </div>
       <div class="lg:col-span-8">
-        <DiagnosisCard report={report} isScanning={isScanning} active={activeDimension === 'identity'} onCopyPromo={handleCopyPromo} onStart={() => runScan('manual')} />
+        <DiagnosisCard
+          report={report}
+          isScanning={isScanning}
+          active={activeDimension === 'identity'}
+          onCopyPromo={handleCopyPromo}
+          onStart={() => runScan('manual')}
+          onCopyText={handleCopyText}
+          onScreenshot={handleScreenshot}
+          shareReady={!!report && !isScanning}
+        />
       </div>
     </div>
 

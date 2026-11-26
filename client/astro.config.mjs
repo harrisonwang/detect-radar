@@ -13,7 +13,7 @@ const SITEMAP_META = {
   '/dns-leak-test/': { priority: 0.9, changefreq: 'weekly', lastmod: '2026-11-25' },
   '/webrtc-leak-test/': { priority: 0.9, changefreq: 'weekly', lastmod: '2026-11-24' },
   '/ipv6-leak-test/': { priority: 0.9, changefreq: 'weekly', lastmod: '2026-11-24' },
-  '/macos/': { priority: 0.7, changefreq: 'weekly', lastmod: '2026-11-25' },
+  '/macos/': { priority: 0.7, changefreq: 'weekly', lastmod: '2026-11-26' },
   '/about/': { priority: 0.8, changefreq: 'weekly', lastmod: '2026-11-25' },
   '/contact/': { priority: 0.3, changefreq: 'yearly', lastmod: '2026-11-21' },
   '/privacy/': { priority: 0.3, changefreq: 'yearly', lastmod: '2026-11-21' },

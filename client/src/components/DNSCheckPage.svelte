@@ -215,8 +215,24 @@
         {/if}
 
         <header class="diagnosis" style:--verdict-color={status.color} style:--verdict-soft={status.soft}>
-          <p class="card-label">{busy ? '正在重新检测 · 上次结果' : error ? '上次结果' : '本次检测'}</p>
-          <p class="verdict-title"><span class="dot" class:loading-dot={busy} aria-hidden="true"></span>{status.title}</p>
+          <div class="diagnosis-head">
+            <div class="min-w-0">
+              <p class="card-label">{busy ? '正在重新检测 · 上次结果' : error ? '上次结果' : '本次检测'}</p>
+              <p class="verdict-title"><span class="dot" class:loading-dot={busy} aria-hidden="true"></span>{status.title}</p>
+            </div>
+            {#if !busy}
+              <div class="diagnosis-actions">
+                <button type="button" class="share-pill" onclick={handleCopyText}>
+                  <i class="fa-regular fa-copy" aria-hidden="true"></i>
+                  <span>复制文字</span>
+                </button>
+                <button type="button" class="share-pill" onclick={handleScreenshot}>
+                  <i class="fa-regular fa-image" aria-hidden="true"></i>
+                  <span>保存图片</span>
+                </button>
+              </div>
+            {/if}
+          </div>
           {#if note}<p class="diagnosis-note">{busy || error ? note.replace(/本次 ?/g, '') : note}</p>{/if}
         </header>
 

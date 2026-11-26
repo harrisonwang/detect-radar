@@ -7,7 +7,7 @@ DetectRadar 可以通过 Docker Compose 启动网站、API、DNS 服务和 HTTPS
 需要准备：
 
 - Linux 服务器和公网 IP；
-- TCP 80、443，以及 TCP/UDP 53 端口；
+- TCP 80、443，TCP/UDP 53，以及 UDP 3478（自建同域 WebRTC STUN）端口；
 - 一个托管在 Cloudflare 的域名；
 - Docker Engine 和 Docker Compose；
 - 一个 Cloudflare API 令牌。
@@ -41,13 +41,15 @@ CF_Token=Cloudflare API 令牌
 ACME_EMAIL=你的邮箱
 ```
 
+非正式主站的测试或验证子域请在 `.env` 中额外设置 `ROBOTS_NOINDEX=1`，由 Nginx 对全站响应下发 `X-Robots-Tag: noindex, nofollow`。
+
 首次启动会自动完成以下工作：
 
-- 创建或更新 Cloudflare DNS 记录；
+- 创建或更新 Cloudflare DNS 记录（主域、`4.`/`6.` 双栈探测子域及 `leak.` 委派）；
 - 生成 API、nginx 和 DNS 配置；
-- 启动网站和 API；
+- 启动网站、API 与同域 UDP STUN 服务；
 - 由 acme 服务申请 HTTPS 证书；
-- 启动云厂商 IP 数据更新服务。
+- 启动云厂商 IP 与网络目录数据更新服务（`crawler/`）。
 
 首次申请证书和等待 DNS 生效可能需要几分钟。
 

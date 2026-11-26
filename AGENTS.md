@@ -15,8 +15,8 @@
 ## 2. 项目结构与技术栈
 
 - `client/`：Astro 5（`trailingSlash: 'always'`，SSG）+ Svelte 5 + Tailwind CSS v4
-- `server/`：Go + Fiber（`CGO_ENABLED=0` 纯 Go，自建权威 NS + DNSTap + L1/L2/L3 IP 情报）
-- `cloud-ip-crawler/`：纯 Go 云厂商与机房 IP 段抓取工具（产出 `hosting.db` / MMDB）
+- `server/`：Go + Fiber（`CGO_ENABLED=0` 纯 Go，自建权威 NS + DNSTap + UDP STUN + L1/L2/L3 IP 情报）
+- `crawler/`：纯 Go 爬虫工具集（`crawler/cloud-ip/` 云厂商与机房 IP 段抓取，`crawler/catalog/` 运营商 ASN/别名/地名增量同步，产出 `hosting.db` / MMDB）
 - `macos/`：Swift 6 + AppKit 状态栏客户端（`DetectRadarBar`，纯 Command Line Tools 环境构建，禁用 `.xcstrings`）
 - `modules/`：Surge / Stash / Loon 代理面板模块（脚本与各端配置，保留 `#!` 协议头）
 - `deploy/`：Docker Compose、Nginx 与 CoreDNS 模板（见 `deploy/README.md`）
@@ -42,7 +42,7 @@
 - NAT 云机上 CoreDNS 须 `bind <内网网卡 IP>`（`ip route get 1.1.1.1` 看 `src`），不可绑公网 IP 或 `0.0.0.0`（冲突 `systemd-resolved`）；zone 记录写公网 IP。
 - 主域及 `ns1.leak.<域名>` 严禁开启 Cloudflare 橙云（Proxy），否则丢真实客户端 IP 与 `$tcpinfo_rtt`。
 - 非正式主站的测试/验证子域须在对应 Nginx server 块添加 `X-Robots-Tag: noindex, nofollow`。
-- 完整运行须放行 TCP `80`/`443` 与 TCP/UDP `53`。
+- 完整运行须放行 TCP `80`/`443`、TCP/UDP `53` 与 UDP `3478`（自建同域 WebRTC STUN）。
 
 ---
 
@@ -56,8 +56,8 @@ cd client && npx astro check && npm run build
 cd server && go test ./...
 cd server && GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -trimpath -ldflags "-s -w" -o /tmp/detectradar-server ./cmd/server
 
-# 云 IP 爬虫格式检查与单测
-cd cloud-ip-crawler && test -z "$(gofmt -l .)" && go vet ./... && go test ./...
+# 爬虫（云 IP + 网络目录）格式检查与单测
+cd crawler && test -z "$(gofmt -l .)" && go vet ./... && go test ./...
 
 # macOS 菜单栏客户端单测与打包（Command Line Tools 环境）
 cd macos && swift test --disable-xctest -Xswiftc -plugin-path -Xswiftc /Library/Developer/CommandLineTools/usr/lib/swift/host/plugins/testing

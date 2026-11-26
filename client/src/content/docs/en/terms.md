@@ -1,11 +1,11 @@
 ---
 title: "Terms of Service"
 h1: "Terms of Service"
-description: "DetectRadar Terms of Service: diagnostic information is provided as-is for reference only; DetectRadar is not a VPN or proxy and provides no anti-detection guarantees."
+description: "DetectRadar Terms of Service: diagnostic reports are provided as-is for reference only. DetectRadar is MIT-licensed, not a VPN, and makes no bypass promises."
 canonical: "/en/terms/"
 locale: "en"
 pageType: "static"
-dateModified: "2026-11-21"
+dateModified: "2026-11-26"
 ---
 
 By using DetectRadar, you agree to these terms.
@@ -24,12 +24,12 @@ DetectRadar inspects and displays observable network identity, leak, and browser
 
 You are responsible for ensuring you have authorization to test your network environment and for complying with applicable laws and third-party terms.
 
-To report abuse or infringement related to this site, email <a class="wrap-break-word" href="mailto:abuse@detectradar.com">abuse@detectradar.com</a>.
+To report abuse or infringement related to this site, email [abuse@detectradar.com](mailto:abuse@detectradar.com).
 
 ## Intellectual Property
 
-Source code is licensed under MIT as published in our repository; the DetectRadar name and site branding remain the property of its maintainer.
+Source code is licensed under MIT as published in our repository; the DetectRadar name and site branding remain the property of the project maintainer.
 
 ## Updates & Contact
 
-Updates to these terms will be posted on this page. General inquiries: <a class="wrap-break-word" href="mailto:admin@detectradar.com">admin@detectradar.com</a>.
+Updates to these terms will be posted on this page. General inquiries: [admin@detectradar.com](mailto:admin@detectradar.com).

@@ -9,7 +9,7 @@
 
 - **在线综合检测（https://detectradar.com/）**：免费、免注册采集浏览器指纹与当前连接出口信息，检查住宅 IP / 机房 IP 属性、环境一致性与代理泄露，生成问题清单与四维雷达图，支持在浏览器本地生成隐藏 IP 的分享图；首页支持「严格模式」（含时区、语言、机房 IP 与指纹 Hook）与「日常模式」（聚焦网络泄露与高危 IP，时区、语言、普通机房 IP 与指纹 Hook 只展示不扣分）无等待切换。
 - **DNS 泄露检测（https://detectradar.com/dns-leak-test/）**：每次使用独立的随机子域名，通过自建权威 DNS 服务识别实际使用的 DNS 服务器及归属地，并在当前浏览器保留最近两次结果，方便换节点或改完 DNS 后对比差别。
-- **WebRTC 泄露检测（https://detectradar.com/webrtc-leak-test/）**：通过浏览器本地 STUN ICE 收集公网与内网候选地址，并与当前出口 IP 比对；展示 mDNS（`*.local`）隐藏状态与 ICE 捕获到的全局 IPv6，支持在同一浏览器保留最近两次检测并对比变化。
+- **WebRTC 泄露检测（https://detectradar.com/webrtc-leak-test/）**：通过自建同域 RFC 5389 UDP STUN（`stun:detectradar.com:3478`）在浏览器本地收集公网与内网 ICE 候选地址（不依赖第三方 Google STUN），并与当前出口 IP 比对（区分普通泄露与反向分流）；展示 mDNS（`*.local`）隐藏状态与 ICE 捕获到的全局 IPv6，支持在同一浏览器保留最近两次检测并对比变化。
 - **IPv6 泄露检测（https://detectradar.com/ipv6-leak-test/）**：独立并发请求纯 IPv4 节点（`4.detectradar.com`）与纯 IPv6 节点（`6.detectradar.com`）实测真实双栈出口，不依赖浏览器 WebRTC，支持在同一浏览器保留最近两次检测并对比变化。
 - **DetectRadar for macOS（https://detectradar.com/macos/）**：Mac 菜单栏客户端（DetectRadarBar，macOS 13+，Apple Silicon / Intel），在菜单栏随时查看出口 IP 和机房/宽带，发现 IPv6 旁路泄露时提醒（事件驱动刷新，无后台轮询）；支持安装包与 Homebrew（`harrisonwang/tap/detectradar-bar`）安装，同页附面向 Antigravity / Claude Code / Codex 的 `SKILL.md` 终端自检用法及 Surge / Stash / Loon 面板模块。
 - **检测说明（https://detectradar.com/about/）**：说明检测内容、DNS / WebRTC / IPv6 泄露判断标准、局限性与隐私保护、终端查询与 AI 助手用法及常见问题。
@@ -35,8 +35,8 @@
 
 ### 3. WebRTC、DNS 与 IPv6 泄露
 
-- **WebRTC**：在浏览器本地收集 STUN ICE 候选，同 IP 与同 IPv6 `/64` 前缀在本地直接比对，出现不同公网 IP 时通过服务端纯本地库（`POST /api/v1/leaks/webrtc/assessment`，不留存）核对国家/地区与 ASN/运营商归属（首页与专项页共用同一套口径），页面状态词固定为 `泄露`、`未泄露`、`无法判断`。跨国家/地区（区分大陆与港澳台）、跨运营商/ASN 或代理/机房出口下暴露的非同网公网 IP（含纯 IPv4 代理漏出原生 IPv6）判为 `泄露`；同 IP、同 IPv6 `/64` 临时隐私地址、同归属 IPv4/IPv6 双栈、直连非机房同运营商 ASN 的 CGNAT 多出口、仅返回 mDNS（`*.local`）或内网地址，以及已禁用 WebRTC 均判为 `未泄露`；缺少出口或归属信息无法比对时判为 `无法判断`。
-- **IPv6**：首页与 `/ipv6-leak-test/` 均并发探测纯 IPv4 节点（`4.detectradar.com`）与纯 IPv6 节点（`6.detectradar.com`），不依赖 WebRTC 接口，即使彻底禁用 WebRTC 也能独立检测。页面状态词固定为 `泄露`、`未泄露`、`无法判断`；当 IPv6 经与 IPv4 不同地区（中国大陆与港澳台分开算）的接入网运营商直连，或 IPv4 走机房/代理而 IPv6 走不同 ASN 的同地区接入网运营商直连时判为 `泄露`；仅连通 IPv4、同地区直连双栈及机房/WARP 双栈分流均判为 `未泄露`；双栈均未连通判为 `无法判断`。
+- **WebRTC**：在浏览器本地通过自建同域 RFC 5389 UDP STUN 服务（`stun:<domain>:3478`，免第三方 Google STUN 依赖、避免直连阻断与分流路径偏差）收集 ICE 候选；同 IP 与同 IPv6 `/64` 前缀在本地直接比对，出现不同公网 IP 时通过服务端纯本地库（`POST /api/v1/leaks/webrtc/assessment`，不留存）核对国家/地区与 ASN/运营商归属，页面状态词固定为 `泄露`、`未泄露`、`无法判断`。跨国家/地区（区分大陆与港澳台）、跨运营商/ASN 或代理/机房出口下暴露的非同网公网 IP（含纯 IPv4 代理漏出原生 IPv6）判为 `泄露`（`reason: "public-leak"`）；当页面走直连接入网出口（`access`）而 WebRTC 候选均为代理/机房节点（`hosting`/`proxy`）时，同样判为 `泄露` 并返回 `reason: "reverse-split"` 与反向分流专属指引（首页 `POST /api/v1/scans` 与 `GET /api/v1/scans/:id` 亦通过可选字段 `analysis.privacy.webrtc.reason` 透出）。同 IP、同 IPv6 `/64` 临时隐私地址、同归属 IPv4/IPv6 双栈、直连非机房同运营商 ASN 的 CGNAT 多出口、仅返回 mDNS（`*.local`）或内网地址（在专项页判 `未泄露`，首页概览标记为 `无法判断` 以提示存在局域网候选），以及已禁用 WebRTC 均不判泄露；缺少出口或归属信息无法比对时判为 `无法判断`。
+- **IPv6**：首页与 `/ipv6-leak-test/` 均并发探测纯 IPv4 节点（`4.detectradar.com`）与纯 IPv6 节点（`6.detectradar.com`），不依赖 WebRTC 接口，即使彻底禁用 WebRTC 也能独立检测。页面状态词固定为 `泄露`、`未泄露`、`无法判断`；当 IPv6 经与 IPv4 不同地区（中国大陆与港澳台分开算）的接入网运营商直连，或 IPv4 走机房/代理而 IPv6 走不同 ASN 的同地区接入网运营商直连时判为 `泄露`；仅连通 IPv4、仅连通 IPv6、同地区直连双栈及机房/WARP 双栈分流均判为 `未泄露`；双栈均未连通或跨区/代理下 IPv6 归属未分类时判为 `无法判断`。
 - **DNS 泄露判断标准（Policy v3）**：
   - 每次测试均生成独立随机子域名，不受历史 DNS 缓存影响。
   - **泄露**：测到了与出口 IP 不同地区（中国大陆与港澳台分开算）的接入网运营商本地 DNS（`cross-region-isp`）；或当前出口为机房/代理，却测到了不同 ASN 的同地区接入网运营商 DNS（`proxy-isp-bypass`）。
@@ -54,7 +54,7 @@
 ## 3. 终端查询与 AI Agent 集成（SKILL.md）
 
 - **查终端当前出口**：命令行直接执行 `curl -s https://detectradar.com`（英文摘要可用 `https://detectradar.com/en/` 或 `?lang=en`，并可分别访问 `https://4.detectradar.com`、`https://6.detectradar.com` 核对双栈真实出口）即可返回纯文本出口摘要；需要 JSON 结构化字段时请求 `https://detectradar.com/api/v1/ip`（支持 `?lang=zh` / `?lang=en`，以及 `4.detectradar.com` 与 `6.detectradar.com`）。返回当前连接的 `ip`、`country`、`city`、`asn`、`org`、`usage_type`（枚举固定为 `isp` / `hosting` / `unknown`）和 `tier`。默认仅走本地 `L1+L2` 或复用服务端同 IP 的深扫缓存，HTTP 响应头固定 `Cache-Control: no-store`；附加 `?deep=true` 才请求第三方 L3 深度识别（受全站每日配额上限保护，超限时自动回退 `L1+L2`）。
-- **终端 3 步 DNS 探测**：`POST https://detectradar.com/api/v1/leaks/dns` 获取 `id` 与 `test_domain` → `dig +short "r1.<test_domain>"` 触发真实解析 → `GET https://detectradar.com/api/v1/leaks/dns/<id>` 获取实际捕获到的 `dns_servers`（对照当前出口判断，或提交至 `POST /api/v1/leaks/dns/assessment`）。
+- **终端 3 步 DNS 探测**：`POST https://detectradar.com/api/v1/leaks/dns` 获取 `id` 与 `test_domain` → `dig +short "r1.<test_domain>"` 触发真实解析 → `GET https://detectradar.com/api/v1/leaks/dns/<id>` 获取实际捕获到的 `dns_servers`（无查询到达时 `assessment.state` 为 `unobserved`，未绑定 `scan_id` 时为 `unknown`；可对照出口判断，或将 `{ exit: { ip, country, network, asn, type }, resolvers, observed_rounds: 1, total_rounds: 1 }` 提交至 `POST /api/v1/leaks/dns/assessment`，其中 `exit.type` 为 `access` / `hosting` / `proxy`）。
 - **Agent 技能文件**：https://detectradar.com/SKILL.md （英文版 https://detectradar.com/en/SKILL.md，纯文本 Markdown，供 Antigravity、Claude Code、Codex 等直接读取）。
 
 ---
@@ -64,7 +64,7 @@
 - 只分析发起检测的当前连接，不提供任意 IP 查询，也不根据单个 IP 猜测连接用途。
 - 终端命令仅能观测终端进程的出口 IP 与 DNS，无法检测浏览器 WebRTC、时区/语言一致性及浏览器指纹。
 - “未见明显异常”只代表本次检测没有命中已知矛盾或暴露项，不代表在任何第三方平台上一定安全或不会被风控拦截。
-- Canvas、Audio、WebGL 的渲染特征与扩展列表均在浏览器本地计算为不可逆哈希值后再提交，不上传原始画面（仅 WebGL 显卡型号字段原文用于与操作系统比对）。
+- Canvas 绘图结果在浏览器本地计算为不可逆哈希值后再提交（不上传原始画面）；Audio 仅检查原生接口是否被改写；WebGL 仅提交显卡渲染器型号原文用于与操作系统比对。
 - 右上角「分享」支持「复制文字」与「保存图片」，均在浏览器本地完成且自动隐藏完整 IP。
 
 ---

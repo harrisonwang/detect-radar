@@ -1,11 +1,11 @@
 ---
 title: "服务条款"
 h1: "服务条款"
-description: "DetectRadar 服务条款：本工具提供网络身份与环境一致性的检测与信息呈现，仅供参考；不隐藏身份、不是 VPN / 代理，也不保证你不被平台关联或封号。"
+description: "DetectRadar 服务条款：说明本站仅提供网络身份、代理泄露与浏览器环境一致性的事实检测与信息呈现，仅供参考；不隐藏身份、不是 VPN 或代理，也不保证通过第三方风控。同时载明第三方数据免责、合法授权使用规范、MIT 开源协议及侵权与一般咨询联系方式。"
 canonical: "/terms/"
 locale: "zh-CN"
 pageType: "static"
-dateModified: "2026-11-21"
+dateModified: "2026-11-26"
 ---
 
 使用 DetectRadar 即表示你已阅读并同意本条款。
@@ -24,12 +24,12 @@ DetectRadar 提供的是网络身份与环境一致性的检测与信息呈现�
 
 你应确保对被检测的网络环境拥有合法使用权，并遵守所在地法律及相关平台的条款。你对自己使用本工具的行为负责。
 
-与本站有关的滥用或侵权举报，请联系 <a class="wrap-break-word" href="mailto:abuse@detectradar.com">abuse@detectradar.com</a>。
+与本站有关的滥用或侵权举报，请联系 [abuse@detectradar.com](mailto:abuse@detectradar.com)。
 
 ## 知识产权
 
-DetectRadar 的名称、界面与内容归其所有者所有，未经许可不得用于商业性再分发。
+项目源码依仓库公布的 MIT 协议开源；DetectRadar 的名称、站点品牌标识及相关内容归项目维护者所有。
 
 ## 变更与联系
 
-条款更新会在本页公布。一般咨询：<a class="wrap-break-word" href="mailto:admin@detectradar.com">admin@detectradar.com</a>。
+条款更新会在本页公布。一般咨询：[admin@detectradar.com](mailto:admin@detectradar.com)。

@@ -21,6 +21,7 @@ services:
       SERVER_IPV4: ${SERVER_IPV4:-auto}
       SERVER_IPV6: ${SERVER_IPV6:-}
       DNS_LISTEN_IP: ${DNS_LISTEN_IP:-auto}
+      ROBOTS_NOINDEX: ${ROBOTS_NOINDEX:-0}
       SERVER_LAT: ${SERVER_LAT:-}
       SERVER_LON: ${SERVER_LON:-}
       IPAPIIS_KEY: ${IPAPIIS_KEY:-}
@@ -86,6 +87,7 @@ services:
     entrypoint: ["/bin/sh", "/acme-conf/bootstrap.sh"]
     environment:
       DOMAIN: ${DOMAIN}
+      SERVER_IPV6: ${SERVER_IPV6:-}
       CF_Token: ${CF_Token}
       ACME_EMAIL: ${ACME_EMAIL}
     depends_on:
@@ -105,7 +107,7 @@ services:
     image: ${REGISTRY:-ghcr.io/harrisonwang}/cloud-ip-crawler:${CRAWLER_TAG:-latest}
     entrypoint: ["/bin/sh", "-c"]
     command:
-      - while true; do /usr/local/bin/cloud-ip-crawler --db /data/hosting.db; echo "[crawler] done, sleep ${CRAWL_INTERVAL:-86400}s"; sleep "${CRAWL_INTERVAL:-86400}"; done
+      - while true; do /usr/local/bin/cloud-ip-crawler --db /data/hosting.db; /usr/local/bin/catalog-crawler --db /data/hosting.db --seed /usr/local/share/detectradar/catalog_seed.json; echo "[crawler] done, sleep ${CRAWL_INTERVAL:-86400}s"; sleep "${CRAWL_INTERVAL:-86400}"; done
     volumes:
       - radar_data:/data
     restart: unless-stopped

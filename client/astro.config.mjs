@@ -15,9 +15,9 @@ const SITEMAP_META = {
   '/ipv6-leak-test/': { priority: 0.9, changefreq: 'weekly', lastmod: '2026-11-26' },
   '/macos/': { priority: 0.7, changefreq: 'weekly', lastmod: '2026-11-26' },
   '/about/': { priority: 0.8, changefreq: 'weekly', lastmod: '2026-11-26' },
-  '/contact/': { priority: 0.3, changefreq: 'yearly', lastmod: '2026-11-21' },
-  '/privacy/': { priority: 0.3, changefreq: 'yearly', lastmod: '2026-11-21' },
-  '/terms/': { priority: 0.3, changefreq: 'yearly', lastmod: '2026-11-21' },
+  '/contact/': { priority: 0.3, changefreq: 'yearly', lastmod: '2026-11-26' },
+  '/privacy/': { priority: 0.3, changefreq: 'yearly', lastmod: '2026-11-26' },
+  '/terms/': { priority: 0.3, changefreq: 'yearly', lastmod: '2026-11-26' },
 };
 
 export default defineConfig({
@@ -39,15 +39,16 @@ export default defineConfig({
       i18n: {
         defaultLocale: 'zh',
         locales: {
-          zh: 'zh-CN',
+          zh: 'zh',
           en: 'en',
         },
       },
       serialize(item) {
         const parsed = new URL(item.url);
         const basePath = parsed.pathname.replace(/^\/en(?=\/|$)/, '') || '/';
-        const meta = SITEMAP_META[basePath];
-        const defaultUrl = new URL(basePath, parsed.origin).href;
+        const meta = SITEMAP_META[parsed.pathname] ?? SITEMAP_META[basePath];
+        const enPath = basePath === '/' ? '/en/' : `/en${basePath}`;
+        const defaultUrl = new URL(enPath, parsed.origin).href;
         const links = item.links ? [...item.links] : [];
         if (!links.some((l) => l.lang === 'x-default')) {
           links.push({ lang: 'x-default', url: defaultUrl });

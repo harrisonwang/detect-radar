@@ -81,8 +81,10 @@ upsert() { # type name content [proxiable]
 }
 
 upsert A "${DOMAIN}" "${SERVER_IPV4}" y
+upsert A "4.${DOMAIN}" "${SERVER_IPV4}" y
 if [ -n "${SERVER_IPV6:-}" ]; then
   upsert AAAA "${DOMAIN}" "${SERVER_IPV6}" y
+  upsert AAAA "6.${DOMAIN}" "${SERVER_IPV6}" y
 fi
 upsert A "ns1.${LEAK_ZONE}" "${SERVER_IPV4}" y
 if [ -n "${SERVER_IPV6:-}" ]; then
@@ -90,7 +92,12 @@ if [ -n "${SERVER_IPV6:-}" ]; then
 fi
 upsert NS "${LEAK_ZONE}" "ns1.${LEAK_ZONE}"
 
-export DOMAIN LEAK_ZONE SERVER_IPV4 SERVER_LAT SERVER_LON \
+ROBOTS_NOINDEX_HEADER=""
+if [ "${ROBOTS_NOINDEX:-0}" = "1" ]; then
+  ROBOTS_NOINDEX_HEADER='    add_header X-Robots-Tag "noindex, nofollow" always;'
+fi
+
+export DOMAIN LEAK_ZONE SERVER_IPV4 SERVER_IPV6 SERVER_LAT SERVER_LON ROBOTS_NOINDEX_HEADER \
        IPAPIIS_KEY BIGDATACLOUD_KEY IPREGISTRY_KEY IP2LOCATION_KEY CLOUDFLARE_RADAR_TOKEN
 BIND_IPS="${DNS_LISTEN_IP}${SERVER_IPV6:+ ${SERVER_IPV6}}"
 ZONE_SERIAL=$(date +%s)
@@ -100,7 +107,7 @@ mkdir -p /out/server /out/nginx /out/coredns/zones /out/acme /out/certs
 
 envsubst '${DOMAIN} ${LEAK_ZONE} ${SERVER_LAT} ${SERVER_LON} ${IPAPIIS_KEY} ${BIGDATACLOUD_KEY} ${IPREGISTRY_KEY} ${IP2LOCATION_KEY} ${CLOUDFLARE_RADAR_TOKEN}' \
   < /templates/config.yaml.tpl > /out/server/config.yaml
-envsubst '${DOMAIN}' < /templates/site.conf.tpl > /out/nginx/site.conf
+envsubst '${DOMAIN} ${ROBOTS_NOINDEX_HEADER}' < /templates/site.conf.tpl > /out/nginx/site.conf
 envsubst '${LEAK_ZONE}' < /templates/leak.conf.tpl > /out/nginx/leak.conf
 envsubst '${LEAK_ZONE} ${BIND_IPS}' < /templates/Corefile.tpl > /out/coredns/Corefile
 envsubst '${DOMAIN} ${LEAK_ZONE} ${SERVER_IPV4} ${ZONE_SERIAL}' \

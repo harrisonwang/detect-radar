@@ -6,9 +6,12 @@ server {
     server_name *.${LEAK_ZONE};
     access_log off;
 
+    add_header X-Robots-Tag "noindex, nofollow" always;
+
     location = /pixel.gif {
         empty_gif;
         add_header Cache-Control "no-store" always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
     }
     location / { return 204; }
 }
@@ -23,9 +26,12 @@ server {
     ssl_protocols TLSv1.2 TLSv1.3;
     access_log off;
 
+    add_header X-Robots-Tag "noindex, nofollow" always;
+
     location = /pixel.gif {
         empty_gif;
         add_header Cache-Control "no-store" always;
+        add_header X-Robots-Tag "noindex, nofollow" always;
     }
     location / { return 204; }
 }

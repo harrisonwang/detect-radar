@@ -9,9 +9,9 @@
 
 - **Network Environment Radar (https://detectradar.com/en/)**: Inspects your current exit IP, ISP vs. datacenter classification, 30-day ASN human traffic ratio, timezone/language alignment, DNS/WebRTC/IPv6 leaks, and browser fingerprint integrity. Supports instant switching between **Strict** mode (includes timezone, language, datacenter IP, and fingerprint hooks) and **Daily** mode (focuses on network leaks and high-risk IP flags).
 - **DNS Leak Test (https://detectradar.com/en/dns-leak-test/)**: Uses fresh random subdomains on a self-hosted authoritative nameserver (CoreDNS + DNSTap) to capture real recursive resolvers and stores the last two runs locally in your browser for before/after comparison.
-- **WebRTC Leak Test (https://detectradar.com/en/webrtc-leak-test/)**: Gathers browser STUN ICE candidates locally, compares exposed public IPs against your exit IP via local attribution databases (no retention), shows LAN/CGNAT/Fake-IP vs. mDNS (`*.local`) masking and global IPv6, and keeps the last two runs locally.
+- **WebRTC Leak Test (https://detectradar.com/en/webrtc-leak-test/)**: Gathers browser ICE candidates locally via a self-hosted same-domain RFC 5389 UDP STUN server (`stun:detectradar.com:3478`, removing third-party Google STUN dependencies), compares exposed public IPs against your exit IP via local network lookup databases with zero retention (distinguishing classic `public-leak` from `reverse-split`), shows LAN/CGNAT/Fake-IP vs. mDNS (`*.local`) masking and global IPv6, and keeps the last two runs locally.
 - **IPv6 Leak Test (https://detectradar.com/en/ipv6-leak-test/)**: Concurrently probes dedicated IPv4-only (`4.detectradar.com`) and IPv6-only (`6.detectradar.com`) endpoints independently of WebRTC, storing the last two runs locally for comparison.
-- **DetectRadar for macOS (https://detectradar.com/en/macos/)**: Native macOS 13+ menu bar app (`DetectRadarBar`, Apple Silicon / Intel) for live exit IP and IPv6 bypass alerts, downloadable as `.dmg` or via Homebrew (`harrisonwang/tap/detectradar-bar`), alongside AI agent `SKILL.md` and Surge/Stash/Loon panel modules.
+- **DetectRadar for macOS (https://detectradar.com/en/macos/)**: Native macOS 13+ menu bar app (`DetectRadarBar`, Apple Silicon / Intel) downloadable as `.dmg` or via Homebrew (`harrisonwang/tap/detectradar-bar`), alongside English AI agent `SKILL.md` and Surge/Stash/Loon panel modules. Note: `DetectRadarBar` and the proxy panel modules currently ship with Simplified Chinese UI and Mainland China-focused IPv6 alerts.
 - **How It Works (https://detectradar.com/en/about/)**: Methodology, data sources, CLI usage, privacy boundaries, and FAQs.
 - **Legal & Contact**: [Privacy Policy](https://detectradar.com/en/privacy/), [Terms of Service](https://detectradar.com/en/terms/), [Contact](https://detectradar.com/en/contact/).
 
@@ -21,10 +21,10 @@
 
 ### 1. Exit IP Intelligence
 
-- Reports geolocation, ASN, operator, and network classification (`isp` / `hosting` / `unknown`).
-- Combines offline IP2Location / DB-IP databases, ip2region, cloud provider CIDR & hosting ASN tables, curated global residential/mobile access-ISP ASNs, live Team Cymru BGP lookups, and rDNS heuristics.
+- Reports geolocation, ASN, ISP/organization, and network classification (`isp` / `hosting` / `unknown`).
+- Combines offline IP2Location / DB-IP databases, ip2region, cloud provider CIDR & hosting ASN tables, curated global residential/mobile ISP ASNs, live Team Cymru BGP lookups, and rDNS heuristics.
 - Displays Cloudflare Radar 30-day ASN-level HTTP human traffic ratio (cached 24h in Redis; reflects overall ASN background, not a single-IP score).
-- Checks public DNSBL blocklists (Spamhaus, SpamCop, Barracuda, DroneBL), Shodan InternetDB open proxy ports, Tor exit lists, and optional deep reputation (`?deep=true`).
+- Checks public DNSBL blocklists (Spamhaus, SpamCop, Barracuda, DroneBL), Shodan InternetDB open proxy ports, Tor exit lists, and external proxy/VPN intelligence during web scans (`GET /api/v1/ip/reputation` checks blocklists/ports/Tor; `GET /api/v1/ip?deep=true` checks external proxy/VPN intelligence).
 - Physical RTT metrics (HTTP RTT, server TCP RTT, delta) are informational only and are never penalized.
 
 ### 2. Browser Consistency
@@ -35,12 +35,12 @@
 
 ### 3. WebRTC, DNS, and IPv6 Leak Rules
 
-- **WebRTC**: Compares local STUN ICE candidates against your exit IP. Same IP and same IPv6 `/64` prefix are verified locally; differing public IPs are checked via `POST /api/v1/leaks/webrtc/assessment` using local databases with zero retention. Cross-region, cross-operator/ASN, or proxy/datacenter bypass public IPs are flagged as **Leak detected**; same IP, same `/64` temporary IPv6, same-ISP dual-stack, same-ISP CGNAT shared exits, mDNS (`*.local`) / LAN-only candidates, and disabled WebRTC are **No leak**; missing exit or attribution is **Inconclusive**.
-- **IPv6**: Probes `4.detectradar.com` and `6.detectradar.com` concurrently. Flagged as **Leak detected** when IPv6 exits directly through a cross-region access ISP (treating Mainland China, Hong Kong, Macao, and Taiwan distinctly) or when IPv4 exits via a datacenter/proxy while IPv6 exits directly via a local access ISP on a different ASN. IPv4-only, same-region direct dual-stack, and datacenter/WARP split routing are **No leak**; unreachable on both stacks is **Inconclusive**.
+- **WebRTC**: Gathers browser ICE candidates via our self-hosted same-domain RFC 5389 UDP STUN server (`stun:<domain>:3478`), eliminating third-party Google STUN dependencies, regional blockage, and split-tunnel routing divergence. Same IP and same IPv6 `/64` prefix are verified locally; differing public IPs are checked via `POST /api/v1/leaks/webrtc/assessment` using local databases with zero retention. Cross-region (treating Mainland China, Hong Kong, Macao, and Taiwan distinctly), cross-ISP/ASN, or proxy/datacenter bypass public IPs are flagged as **Leak detected** (`verdict.reason: "public-leak"`); when the HTTP exit is a direct residential/mobile ISP (`access`) while all differing WebRTC public candidates are proxy/datacenter nodes (`hosting`/`proxy`), it is still flagged as **Leak detected** with `verdict.reason: "reverse-split"` and dedicated reverse split-tunnel guidance (also exposed via optional `analysis.privacy.webrtc.reason` on `POST /api/v1/scans` and `GET /api/v1/scans/:id`). Same IP, same `/64` temporary IPv6, same-ISP dual-stack, same-ISP CGNAT shared exits, mDNS (`*.local`) / LAN-only candidates (on the dedicated WebRTC test page), and disabled WebRTC are **No leak**; missing exit IP or incomplete lookup data is **Inconclusive**.
+- **IPv6**: Probes `4.detectradar.com` and `6.detectradar.com` concurrently. Flagged as **Leak detected** when IPv6 exits directly through a cross-region ISP (treating Mainland China, Hong Kong, Macao, and Taiwan distinctly) or when IPv4 exits via a datacenter/proxy while IPv6 exits directly via a local ISP on a different ASN. IPv4-only, IPv6-only, same-region direct dual-stack, and datacenter/WARP split routing are **No leak**; unreachable on both stacks or unclassified cross-region/proxy IPv6 is **Inconclusive**.
 - **DNS (Policy v3)**:
-  - **Leak detected**: Observed access-ISP resolvers (`network_type == "access"`) in a different region than the exit IP (`cross-region-isp`), or local access-ISP resolvers on a different ASN bypassing a datacenter/proxy exit (`proxy-isp-bypass`).
+  - **Leak detected**: Observed local ISP resolvers (`network_type == "access"`) in a different region than the exit IP (treating Mainland China, Hong Kong, Macao, and Taiwan distinctly; `cross-region-isp`), or local ISP resolvers on a different ASN bypassing a datacenter/proxy exit (`proxy-isp-bypass`).
   - **No leak**: Same-region direct ISP traffic, or public DNS resolvers (Cloudflare, Google, Quad9, OpenDNS, NextDNS, Control D, AdGuard, Mullvad DNS, AliDNS, DNSPod, etc.) and datacenter resolvers.
-  - **No DNS result / Inconclusive**: Shown when blockers/timeouts prevent queries from reaching our NS, or when exit/resolver attribution is incomplete.
+  - **No DNS result / Inconclusive**: Shown when blockers/timeouts prevent queries from reaching our NS, or when exit/resolver network data is incomplete.
 
 ### 4. Browser Fingerprint & Automation
 
@@ -53,8 +53,8 @@
 ## 3. CLI & AI Agent API Contracts
 
 - **Plain-text CLI summary**: `curl -s https://detectradar.com/en/` (or `?lang=en` on `4.detectradar.com` / `6.detectradar.com`).
-- **Structured JSON IP lookup**: `GET https://detectradar.com/api/v1/ip?lang=en` (also on `4.` and `6.` subdomains). `usage_type` is strictly `isp`, `hosting`, or `unknown` (never `datacenter`). Responses always include `Cache-Control: no-store`. Default requests use fast local `L1+L2`; append `&deep=true` for quota-protected `L3` proxy checks.
-- **3-step CLI DNS check**: `POST /api/v1/leaks/dns` → `dig +short "r1.<test_domain>"` → `GET /api/v1/leaks/dns/<id>` (optional `POST /api/v1/leaks/dns/assessment`).
+- **Structured JSON IP lookup**: `GET https://detectradar.com/api/v1/ip?lang=en` (also on `4.` and `6.` subdomains). `usage_type` is strictly `isp`, `hosting`, or `unknown` (never `datacenter`). Responses always include `Cache-Control: no-store`. Default requests use fast local `L1+L2` (or reuse an existing 24h deep-scan cache entry for the same IP); append `&deep=true` to trigger quota-protected `L3` proxy checks.
+- **3-step CLI DNS check**: `POST /api/v1/leaks/dns` → `dig +short "r1.<test_domain>"` → `GET /api/v1/leaks/dns/<id>?lang=en` (`assessment.state` is `"unobserved"` if no queries arrive, or `"unknown"` when unbound; optionally submit `{ exit: { ip, country, network, asn, type }, resolvers, observed_rounds: 1, total_rounds: 1 }` to `POST /api/v1/leaks/dns/assessment` with `exit.type`: `"access"` | `"hosting"` | `"proxy"`).
 - **AI Agent skill file**: https://detectradar.com/en/SKILL.md
 
 ---
@@ -64,4 +64,18 @@
 - Inspects only the caller's live connection; arbitrary third-party IP lookup is not offered.
 - CLI endpoints cannot inspect browser WebRTC, timezone/language, or browser fingerprints.
 - "No obvious issues" means no contradictions or leaks were observed in our probes — never a guarantee against third-party risk engines.
-- Canvas, Audio, WebGL rendering output, and extension checks are hashed irreversibly in your browser before submission. Share text and PNG cards are generated locally with full IP addresses automatically masked.
+- Canvas rendering output is hashed irreversibly in your browser before submission (raw pixels are never uploaded); Audio checks inspect only native method integrity, and WebGL submits only the GPU renderer string to verify OS consistency. Share text and PNG cards are generated locally with full IP addresses automatically masked.
+
+---
+
+## 5. Related Links
+
+- Home Environment Check: https://detectradar.com/en/ (ZH: https://detectradar.com/)
+- DNS Leak Test: https://detectradar.com/en/dns-leak-test/ (ZH: https://detectradar.com/dns-leak-test/)
+- WebRTC Leak Test: https://detectradar.com/en/webrtc-leak-test/ (ZH: https://detectradar.com/webrtc-leak-test/)
+- IPv6 Leak Test: https://detectradar.com/en/ipv6-leak-test/ (ZH: https://detectradar.com/ipv6-leak-test/)
+- How It Works & CLI Guide: https://detectradar.com/en/about/ (ZH: https://detectradar.com/about/)
+- DetectRadar for macOS: https://detectradar.com/en/macos/ (ZH: https://detectradar.com/macos/)
+- AI Agent Skill File: https://detectradar.com/en/SKILL.md (ZH: https://detectradar.com/SKILL.md)
+- Sitemap: https://detectradar.com/sitemap.xml
+- Source Repository: https://github.com/harrisonwang/detect-radar

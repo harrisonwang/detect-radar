@@ -1,16 +1,16 @@
 ---
 title: "隐私政策"
 h1: "隐私政策"
-description: "DetectRadar 检测数据与反馈的处理方式，以及隐私联系方式。"
+description: "DetectRadar 隐私政策：说明出口 IP 与浏览器环境诊断数据的处理与留存原则、Canvas 本地哈希、专项页浏览器本地历史记录、选填反馈与回复邮箱用途、本地脱敏分享图片机制，以及个人记录查询或删除的隐私联系邮箱与响应方式，绝不出售个人数据。"
 canonical: "/privacy/"
 locale: "zh-CN"
 pageType: "static"
-dateModified: "2026-11-21"
+dateModified: "2026-11-26"
 ---
 
 ## 检测数据
 
-我们收集出口 IP、浏览器环境信息和网络泄露检测结果，用于生成报告，并保存检测记录以供排查问题和改进检测。Canvas、Audio、WebGL 指纹以哈希形式提交。
+我们收集出口 IP、浏览器环境信息和网络泄露检测结果，用于生成报告，并保存检测记录以供排查问题和改进检测。Canvas 绘图结果仅在浏览器本地计算为不可逆哈希后提交（不上传原始画面）；Audio 仅核对原生方法是否被改写，WebGL 仅提交显卡渲染器型号用于核对操作系统。
 
 DNS、WebRTC 与 IPv6 专项检测页会在当前浏览器本地保留最近两次成功的结果，方便比较变化。
 
@@ -26,4 +26,4 @@ DNS、WebRTC 与 IPv6 专项检测页会在当前浏览器本地保留最近两�
 
 我们不出售或交易你的个人数据。
 
-如需查询或删除相关记录，请联系 <a class="wrap-break-word" href="mailto:privacy@detectradar.com">privacy@detectradar.com</a>。
+如需查询或删除相关记录，请联系 [privacy@detectradar.com](mailto:privacy@detectradar.com)。

@@ -7,11 +7,13 @@ server:
   trusted_proxies:
     - "127.0.0.1"
     - "::1"
-  proxy_header: "X-Forwarded-For"
+  proxy_header: "X-Real-IP"
 
 cors:
   allow_origins:
     - "https://${DOMAIN}"
+    - "https://4.${DOMAIN}"
+    - "https://6.${DOMAIN}"
   allow_methods:
     - "GET"
     - "POST"
@@ -28,6 +30,9 @@ dns:
   domain: "${LEAK_ZONE}"
   ttl: 1h
   dnstap_addr: "127.0.0.1:6000"
+
+stun:
+  addr: ":3478"
 
 ipintel:
   city_db_path: "./data/dbip-city-lite.mmdb"

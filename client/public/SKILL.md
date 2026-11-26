@@ -55,7 +55,7 @@ dig +short "r1.${domain}" >/dev/null && sleep 2
 curl -sS -m 5 "https://detectradar.com/api/v1/leaks/dns/${id}"
 ```
 
-说明：单跑这 3 步时返回的 `assessment.state` 会是 `unknown`（未绑定出口）。拿 `dns_servers` 对照第 2 步的出口归属判断，或把 `{ exit, resolvers }` 发给 `POST https://detectradar.com/api/v1/leaks/dns/assessment` 拿标准结论。
+说明：单跑这 3 步时，若无解析记录到达 `assessment.state` 为 `unobserved`，捕获到记录但未绑定出口时为 `unknown`。拿 `dns_servers` 对照第 2 步的出口归属判断，或把 `{ exit: { ip, country, network, asn, type }, resolvers, observed_rounds: 1, total_rounds: 1 }` 发给 `POST https://detectradar.com/api/v1/leaks/dns/assessment` 拿标准结论（`exit.network` 取 `isp`/`org`，`exit.type` 可填 `access` / `hosting` / `proxy`，`resolvers` 填 `dns_servers`）。
 
 ---
 
@@ -65,9 +65,9 @@ curl -sS -m 5 "https://detectradar.com/api/v1/leaks/dns/${id}"
 | --- | --- |
 | `usage_type` | 只有三个值：`isp`（普通宽带/移动）、`hosting`（机房/云服务器）、`unknown`（未知）；**没有** `datacenter` |
 | `human_ratio` | Cloudflare Radar 近 30 天**所属 ASN 网段**的人类流量占比（`0–100`）；只作网段参考，**不是单个 IP 的评分**；没返回说明该网段暂无数据 |
-| `is_vpn` / `is_proxy` | 默认走本地快查（`tier` 不含 `L3`），值为 `false` 只表示本地未标记，别说成“绝对不是代理”。确需深查再加 `?deep=true`（受全站每日配额限制，超限自动回退本地） |
+| `is_vpn` / `is_proxy` | 默认走本地快查 `L1+L2`（或复用 24h 内同 IP 深扫缓存），值为 `false` 只表示本地未标记，别说成“绝对不是代理”。确需深查再加 `?deep=true`（受全站每日配额限制，超限自动回退本地） |
 | **DNS 泄露** | **判泄露条件（Policy v3）**：抓到与出口不同地区（大陆与港澳台分开算）的接入网运营商 DNS（`network_type == "access"`），**或**当前为机房/代理出口却抓到不同 ASN 的同地区接入网运营商 DNS。同地区直连，以及 Cloudflare/Google/Quad9/OpenDNS/NextDNS/Control D/AdGuard/Mullvad/阿里/DNSPod 等公共 DNS 和常规机房 DNS，**均不算泄露** |
-| **IPv6 泄露** | **判泄露条件**：IPv6 经跨地区（大陆与港澳台分开算）接入网运营商直连，**或** IPv4 为机房/代理出口而 IPv6 经不同 ASN 的同地区接入网运营商直连。仅 IPv4、同地区直连双栈以及机房/WARP 双栈分流**均不算泄露** |
+| **IPv6 泄露** | **判泄露条件**：IPv6 经跨地区（大陆与港澳台分开算）接入网运营商直连，**或** IPv4 为机房/代理出口而 IPv6 经不同 ASN 的同地区接入网运营商直连。仅 IPv4、仅 IPv6、同地区直连双栈以及机房/WARP 双栈分流**均不算泄露** |
 
 ---
 

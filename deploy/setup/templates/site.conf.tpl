@@ -8,14 +8,20 @@ map "$request_method:$detectradar_cli_ua:$http_accept" $detectradar_cli_ip {
     "~*^(GET|HEAD):1:(?!.*text/html)" 1;
 }
 
+map $args $detectradar_cli_en_query {
+    "" "lang=en";
+    default "lang=en&$args";
+}
+
 server {
     listen 80;
     listen [::]:80;
-    server_name ${DOMAIN};
+    server_name ${DOMAIN} 4.${DOMAIN} 6.${DOMAIN};
+${ROBOTS_NOINDEX_HEADER}
 
     # 证书走 DNS-01，不需要 HTTP-01 webroot，80 只做跳转
     location / {
-        return 301 https://${DOMAIN}$request_uri;
+        return 301 https://$host$request_uri;
     }
 }
 
@@ -23,7 +29,7 @@ server {
     listen 443 ssl;
     listen [::]:443 ssl;
     http2 on;
-    server_name ${DOMAIN};
+    server_name ${DOMAIN} 4.${DOMAIN} 6.${DOMAIN};
 
     ssl_certificate     /etc/nginx/certs/${DOMAIN}/fullchain.cer;
     ssl_certificate_key /etc/nginx/certs/${DOMAIN}/key.pem;
@@ -55,26 +61,31 @@ server {
 
     add_header Strict-Transport-Security "max-age=63072000" always;
     add_header X-Content-Type-Options "nosniff" always;
+${ROBOTS_NOINDEX_HEADER}
 
     location = /health {
         proxy_pass http://127.0.0.1:8080/api/v1/health;
+        add_header Strict-Transport-Security "max-age=63072000" always;
+        add_header X-Content-Type-Options "nosniff" always;
         add_header X-Robots-Tag "noindex, nofollow" always;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header Connection "";
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
 
-    location /api/ {
+    location ^~ /api/ {
         proxy_pass http://127.0.0.1:8080/api/;
+        add_header Strict-Transport-Security "max-age=63072000" always;
+        add_header X-Content-Type-Options "nosniff" always;
         add_header X-Robots-Tag "noindex, nofollow" always;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header Connection "";
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Host $host;
 
@@ -88,16 +99,21 @@ server {
         proxy_read_timeout 30s;
     }
 
-    location /_astro/ {
+    location ^~ /_astro/ {
         try_files $uri =404;
+        add_header Strict-Transport-Security "max-age=63072000" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    ${ROBOTS_NOINDEX_HEADER}
         add_header Cache-Control "public, max-age=31536000, immutable";
         access_log off;
     }
 
     location ~* \.(jpg|jpeg|png|gif|ico|css|js|svg|webp|woff2?)$ {
         try_files $uri =404;
-        expires 30d;
-        add_header Cache-Control "public, immutable";
+        add_header Strict-Transport-Security "max-age=63072000" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    ${ROBOTS_NOINDEX_HEADER}
+        add_header Cache-Control "public, max-age=2592000, immutable";
         access_log off;
     }
 
@@ -105,6 +121,9 @@ server {
         default_type text/markdown;
         charset utf-8;
         charset_types text/markdown;
+        add_header Strict-Transport-Security "max-age=63072000" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    ${ROBOTS_NOINDEX_HEADER}
         try_files $uri =404;
     }
 
@@ -115,8 +134,21 @@ server {
         error_page 418 = @cli_ip;
         add_header Strict-Transport-Security "max-age=63072000" always;
         add_header X-Content-Type-Options "nosniff" always;
-        add_header Vary "User-Agent, Accept, Accept-Language" always;
+    ${ROBOTS_NOINDEX_HEADER}
+        add_header Vary "User-Agent, Accept" always;
         try_files /index.html =404;
+    }
+
+    location = /en {
+        if ($detectradar_cli_ip = 1) {
+            return 418;
+        }
+        error_page 418 = @cli_ip_en;
+        add_header Strict-Transport-Security "max-age=63072000" always;
+        add_header X-Content-Type-Options "nosniff" always;
+    ${ROBOTS_NOINDEX_HEADER}
+        add_header Vary "User-Agent, Accept" always;
+        return 301 https://${DOMAIN}/en/$is_args$args;
     }
 
     location = /en/ {
@@ -126,7 +158,8 @@ server {
         error_page 418 = @cli_ip_en;
         add_header Strict-Transport-Security "max-age=63072000" always;
         add_header X-Content-Type-Options "nosniff" always;
-        add_header Vary "User-Agent, Accept, Accept-Language" always;
+    ${ROBOTS_NOINDEX_HEADER}
+        add_header Vary "User-Agent, Accept" always;
         try_files /en/index.html =404;
     }
 
@@ -136,7 +169,7 @@ server {
         proxy_set_header Host $host;
         proxy_set_header Connection "";
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Host $host;
         proxy_connect_timeout 5s;
@@ -145,12 +178,12 @@ server {
     }
 
     location @cli_ip_en {
-        proxy_pass http://127.0.0.1:8080/api/v1/ip/text?lang=en&$args;
+        proxy_pass http://127.0.0.1:8080/api/v1/ip/text?$detectradar_cli_en_query;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
         proxy_set_header Connection "";
         proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-For $remote_addr;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-Host $host;
         proxy_connect_timeout 5s;

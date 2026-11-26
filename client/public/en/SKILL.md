@@ -6,7 +6,7 @@ description: Run zero-signup terminal exit IP (IPv4/IPv6), residential vs. datac
 # DetectRadar Terminal Self-Check Skill (`SKILL.md`)
 
 Designed for AI coding agents with terminal access (Antigravity, Claude Code, Codex, OpenClaw, etc.). Zero installation, zero API keys required.
-中文版: https://detectradar.com/SKILL.md
+Chinese version: https://detectradar.com/SKILL.md
 
 - **What this checks**: Current terminal exit IP (IPv4 / IPv6), region / ISP / ASN, residential vs. datacenter classification, Cloudflare Radar 30-day ASN human traffic ratio, and real recursive DNS resolvers.
 - **What this cannot check**: Arbitrary third-party IP addresses, or browser-side WebRTC, timezone/language consistency, and browser fingerprints.
@@ -52,10 +52,10 @@ id=$(printf '%s' "$resp" | sed -n 's/.*"id":"\([^"]*\)".*/\1/p')
 domain=$(printf '%s' "$resp" | sed -n 's/.*"test_domain":"\([^"]*\)".*/\1/p')
 
 dig +short "r1.${domain}" >/dev/null && sleep 2
-curl -sS -m 5 "https://detectradar.com/api/v1/leaks/dns/${id}"
+curl -sS -m 5 "https://detectradar.com/api/v1/leaks/dns/${id}?lang=en"
 ```
 
-Note: Standalone probes return `assessment.state: "unknown"` (unbound exit). Compare `dns_servers` against your exit IP from Step 2, or POST `{ exit, resolvers }` to `https://detectradar.com/api/v1/leaks/dns/assessment` for the canonical verdict.
+Note: Standalone probes return `assessment.state: "unobserved"` if no queries arrive, or `"unknown"` when resolvers arrive without a bound exit. Compare `dns_servers` against your exit IP from Step 2, or POST `{ exit: { ip, country, network, asn, type }, resolvers, observed_rounds: 1, total_rounds: 1 }` to `https://detectradar.com/api/v1/leaks/dns/assessment` for the canonical verdict (`exit.network` from `isp`/`org`, `exit.type`: `"access"` | `"hosting"` | `"proxy"`, `resolvers` from `dns_servers`).
 
 ---
 
@@ -65,13 +65,13 @@ Note: Standalone probes return `assessment.state: "unknown"` (unbound exit). Com
 | --- | --- |
 | `usage_type` | Strictly one of three values: `isp` (residential/mobile), `hosting` (cloud/datacenter), `unknown` — **never** `datacenter` |
 | `human_ratio` | Cloudflare Radar 30-day **ASN-level** HTTP human traffic percentage (`0–100`); network background context only, **not** an individual IP score; omitted when unavailable |
-| `is_vpn` / `is_proxy` | Default requests use fast local `L1+L2` (`tier` excludes `L3`); `false` only means not flagged locally, not guaranteed non-proxy. Append `&deep=true` only when needed (subject to global daily quota with automatic local fallback) |
-| **DNS Leak** | **Policy v3**: Flagged as a leak when an access-ISP resolver (`network_type == "access"`) is observed in a different region than the exit IP, **or** when a datacenter/proxy exit leaks to a local access-ISP resolver on a different ASN. Same-region direct ISP traffic, public DNS (Cloudflare, Google, Quad9, OpenDNS, NextDNS, Control D, AdGuard, Mullvad DNS, AliDNS, DNSPod, etc.), and datacenter resolvers are **not** leaks |
-| **IPv6 Leak** | Flagged as a leak when IPv6 connects directly through an access ISP in a different region than IPv4 (Mainland China, HK, MO, TW counted distinctly), **or** when IPv4 exits via a datacenter/proxy while IPv6 connects directly via a local ISP on a different ASN. IPv4-only, same-region direct dual-stack, and hosting/WARP split routing are **not** leaks |
+| `is_vpn` / `is_proxy` | Default requests use fast local `L1+L2` (or reuse an existing 24h deep-scan cache entry for the same IP); `false` only means not flagged locally and does not guarantee a non-proxy IP. Append `&deep=true` only when needed (subject to global daily quota with automatic local fallback) |
+| **DNS Leak** | **Policy v3**: Flagged as a leak when a local ISP resolver (`network_type == "access"`) is observed in a different region than the exit IP (Mainland China, HK, MO, TW treated as distinct regions), **or** when a datacenter/proxy exit leaks to a local ISP resolver on a different ASN. Same-region direct ISP traffic, public DNS (Cloudflare, Google, Quad9, OpenDNS, NextDNS, Control D, AdGuard, Mullvad DNS, AliDNS, DNSPod, etc.), and datacenter resolvers are **not** leaks |
+| **IPv6 Leak** | Flagged as a leak when IPv6 connects directly through an ISP in a different region than IPv4 (Mainland China, HK, MO, TW treated as distinct regions), **or** when IPv4 exits via a datacenter/proxy while IPv6 connects directly via a local ISP on a different ASN. IPv4-only, IPv6-only, same-region direct dual-stack, and datacenter/WARP split routing are **not** leaks |
 
 ---
 
-## 4 Reporting Rules
+## Reporting Rules
 
 1. **State the observed path first**: Clarify whether the terminal used `HTTPS_PROXY` or connected directly, and never confuse terminal routing with browser routing.
 2. **Mask full IPs by default**: Write `203.0.*.*` or `2001:db8:*` unless the user explicitly asks for the full address.

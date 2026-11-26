@@ -27,5 +27,6 @@ RUN apk add --no-cache ca-certificates tzdata
 WORKDIR /app
 COPY --from=build /out/detectradar-server /app/detectradar-server
 COPY --from=geodata /seed /app/seed
+COPY data/catalog_seed.json /app/seed/catalog_seed.json
 COPY deploy/server/entrypoint.sh /app/entrypoint.sh
 ENTRYPOINT ["/bin/sh", "/app/entrypoint.sh"]

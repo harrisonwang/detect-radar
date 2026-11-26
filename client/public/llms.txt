@@ -1,16 +1,17 @@
 # DetectRadar
 
-> DetectRadar (https://detectradar.com) 是一个免费、免注册的开源网络环境与代理泄露检测工具。它核对当前出口 IP（区分住宅 IP 与机房 IP）和浏览器的时区、语言及浏览器指纹，同时检查 WebRTC、DNS 和 IPv6 泄露，生成诊断报告与雷达图并支持分享，打开网页即可检测。
-> Free, zero-signup, open-source network environment, IP purity (residential vs. datacenter), DNS/WebRTC/IPv6 leak, and browser fingerprint diagnostic tool.
+> DetectRadar (https://detectradar.com/) 是一个免费、免注册的开源网络环境与代理泄露检测工具。它核对当前出口 IP（区分住宅 IP 与机房 IP）和浏览器的时区、语言及浏览器指纹，同时检查 WebRTC、DNS 和 IPv6 泄露，生成诊断报告与雷达图并支持分享，打开网页即可检测。
+> Free, zero-signup, open-source network environment, IP reputation (residential vs. datacenter), DNS/WebRTC/IPv6 leak, and browser fingerprint diagnostic tool.
 
 ## English Pages (`/en/`)
 
 - [Network Environment Radar (EN)](https://detectradar.com/en/): Check your exit IP (residential vs. datacenter), ASN and 30-day human traffic ratio, timezone/language consistency, DNS/WebRTC/IPv6 leaks, and browser fingerprint integrity.
 - [DNS Leak Test (EN)](https://detectradar.com/en/dns-leak-test/): Authoritative nameserver + DNSTap test revealing real recursive DNS resolvers, catching cross-region ISP and proxy-bypass leaks with local before/after comparison.
-- [WebRTC Leak Test (EN)](https://detectradar.com/en/webrtc-leak-test/): Local STUN ICE candidate check comparing exposed public/LAN IPs and mDNS (`*.local`) masking against your exit IP.
+- [WebRTC Leak Test (EN)](https://detectradar.com/en/webrtc-leak-test/): Same-domain self-hosted UDP STUN (`stun:detectradar.com:3478`) ICE candidate check comparing exposed public/LAN IPs and mDNS (`*.local`) masking against your exit IP, including reverse split-tunnel detection.
 - [IPv6 Leak Test (EN)](https://detectradar.com/en/ipv6-leak-test/): Concurrent IPv4-only (`4.detectradar.com`) and IPv6-only (`6.detectradar.com`) dual-stack test catching ISP bypass leaks independently of WebRTC.
 - [How It Works (EN)](https://detectradar.com/en/about/): Full methodology for DNS/WebRTC/IPv6 leaks, data sources, CLI usage, privacy boundaries, and FAQs.
-- [DetectRadar for macOS (EN)](https://detectradar.com/en/macos/): Menu bar app (`DetectRadarBar`, macOS 13+, Apple Silicon / Intel) + AI agent `SKILL.md` + Surge/Stash/Loon modules.
+- [CLI & Agent Guide (EN)](https://detectradar.com/en/about/#cli): Zero-install `curl` / `dig` terminal egress, IPv6, and DNS probe usage and boundaries.
+- [DetectRadar for macOS (EN)](https://detectradar.com/en/macos/): Menu bar app (`DetectRadarBar`, macOS 13+, Apple Silicon / Intel; UI currently in Chinese, IPv6 alerts Mainland China-focused) + English AI agent `SKILL.md` + Surge/Stash/Loon modules (Chinese UI).
 - [AI Agent Skill (EN)](https://detectradar.com/en/SKILL.md): Concise Markdown instructions for Antigravity, Claude Code, and Codex to run terminal exit IP, IPv6, and DNS checks (`?lang=en`).
 - [Full Documentation (EN)](https://detectradar.com/en/llms-full.txt): Complete English technical specification, API contracts, leak policies, and boundaries.
 
@@ -18,7 +19,7 @@
 
 - [网络环境一致性检测雷达](https://detectradar.com/): 免费、免注册核对当前出口 IP 的归属地、ASN、运营商、住宅 IP / 机房 IP 属性与 Cloudflare Radar 近 30 天网段人类流量占比，比对浏览器时区、语言一致性，排查 WebRTC、DNS、IPv6 代理泄露以及 Canvas、Audio、WebGL 等浏览器指纹特征，生成诊断报告并支持分享。
 - [DNS 泄露检测](https://detectradar.com/dns-leak-test/): 基于自建权威 DNS 服务检测实际使用的 DNS 服务器归属地，识别跨地区接入网与代理旁路 DNS 泄露，区分公共 DNS 与机房解析，同一浏览器内保留最近两次结果以便对比变化。
-- [WebRTC 泄露检测](https://detectradar.com/webrtc-leak-test/): 通过浏览器本地 STUN ICE 候选核对公网候选 IP 与当前出口 IP 是否一致，检查内网地址与 mDNS（`*.local`）隐私保护状态，支持改配置后同页对比。
+- [WebRTC 泄露检测](https://detectradar.com/webrtc-leak-test/): 通过自建同域 UDP STUN（`stun:detectradar.com:3478`）在浏览器本地收集 ICE 候选，核对公网候选 IP 与当前出口 IP 是否一致（区分普通泄露与反向分流），检查内网地址与 mDNS（`*.local`）隐私保护状态，支持改配置后同页对比。
 - [IPv6 泄露检测](https://detectradar.com/ipv6-leak-test/): 独立并发探测纯 IPv4（`4.detectradar.com`）与纯 IPv6（`6.detectradar.com`）真实双栈出口，不依赖 WebRTC 即可检出接入网运营商 IPv6 旁路泄露。
 
 ## 中文检测说明、终端查询与文档

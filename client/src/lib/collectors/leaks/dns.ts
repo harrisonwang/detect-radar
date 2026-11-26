@@ -42,8 +42,6 @@ export async function collectDNSLeak(scanId?: string): Promise<CollectorResult<D
     return {
       status: 'success',
       data: {
-        leaked: result.leaked,
-        assessed: !!result.assessment,
         test_id: result.id,
         resolvers: result.dns_servers.map((server) => server.ip).filter(Boolean),
       },

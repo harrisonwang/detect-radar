@@ -68,26 +68,6 @@ func (c *RedisCache) SetDeep(ctx context.Context, ip string, intel *model.IPInte
 	return c.set(ctx, c.deepKey(ip), intel)
 }
 
-func (c *RedisCache) Delete(ctx context.Context, ip string) error {
-	keys := []string{c.basicKey(ip), c.deepKey(ip)}
-	return c.client.Del(ctx, keys...).Err()
-}
-
-func (c *RedisCache) Clear(ctx context.Context) error {
-	iter := c.client.Scan(ctx, 0, keyPrefix+"*", 0).Iterator()
-	var keys []string
-	for iter.Next(ctx) {
-		keys = append(keys, iter.Val())
-	}
-	if err := iter.Err(); err != nil {
-		return err
-	}
-	if len(keys) > 0 {
-		return c.client.Del(ctx, keys...).Err()
-	}
-	return nil
-}
-
 func (c *RedisCache) IncrDailyCounter(ctx context.Context, name, day string, ttl time.Duration) (int64, error) {
 	key := keyPrefix + name + ":" + day
 	n, err := c.client.Incr(ctx, key).Result()
@@ -132,8 +112,4 @@ func (c *RedisCache) set(ctx context.Context, key string, intel *model.IPIntel) 
 
 func (c *RedisCache) Client() *redis.Client {
 	return c.client
-}
-
-func (c *RedisCache) TTL() time.Duration {
-	return c.ttl
 }

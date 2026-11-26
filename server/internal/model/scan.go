@@ -11,7 +11,6 @@ type CollectorResult[T any] struct {
 
 type ScanRequest struct {
 	ScanID      string          `json:"scan_id"`
-	Timestamp   int64           `json:"timestamp"`
 	Scenario    string          `json:"scenario"`
 	Fingerprint ScanFingerprint `json:"fingerprint"`
 	Environment ScanEnvironment `json:"environment"`
@@ -30,64 +29,36 @@ type CanvasData struct {
 	HashSampleA string `json:"hash_sample_a"`
 	HashSampleB string `json:"hash_sample_b"`
 	NativeCode  string `json:"native_code"`
-	DataLength  int    `json:"data_length"`
 }
 
 type AudioData struct {
-	HashSample string  `json:"hash_sample"`
-	EntropyRaw float64 `json:"entropy_raw"`
-	NativeCode string  `json:"native_code"`
+	NativeCode string `json:"native_code"`
 }
 
 type WebGLData struct {
-	ContextName      string `json:"context_name"`
-	BaseVendor       string `json:"base_vendor"`
-	BaseRenderer     string `json:"base_renderer"`
-	UnmaskedVendor   string `json:"unmasked_vendor"`
 	UnmaskedRenderer string `json:"unmasked_renderer"`
-	NativeCode       string `json:"native_code"`
 }
 
 type ScanEnvironment struct {
 	Navigator     *CollectorResult[NavigatorData]     `json:"navigator,omitempty"`
 	UserAgentData *CollectorResult[UserAgentDataInfo] `json:"userAgentData,omitempty"`
-	Screen        *CollectorResult[ScreenData]        `json:"screen,omitempty"`
 	Timezone      *CollectorResult[TimezoneData]      `json:"timezone,omitempty"`
 }
 
 type NavigatorData struct {
-	UserAgent           string   `json:"userAgent"`
-	Platform            string   `json:"platform"`
-	Language            string   `json:"language"`
-	Languages           []string `json:"languages"`
-	HardwareConcurrency int      `json:"hardwareConcurrency"`
-	DeviceMemory        *float64 `json:"deviceMemory"`
-	MaxTouchPoints      int      `json:"maxTouchPoints"`
-	Webdriver           *bool    `json:"webdriver"`
-	Vendor              string   `json:"vendor"`
-	PluginsLength       int      `json:"plugins_length"`
+	Platform      string   `json:"platform"`
+	Language      string   `json:"language"`
+	Languages     []string `json:"languages"`
+	Webdriver     *bool    `json:"webdriver"`
+	PluginsLength int      `json:"plugins_length"`
 }
 
 type UserAgentDataInfo struct {
-	Brands   []UABrand `json:"brands"`
-	Mobile   bool      `json:"mobile"`
-	Platform string    `json:"platform"`
-}
-
-type UABrand struct {
-	Brand   string `json:"brand"`
-	Version string `json:"version"`
-}
-
-type ScreenData struct {
-	Width            int     `json:"width"`
-	Height           int     `json:"height"`
-	DevicePixelRatio float64 `json:"devicePixelRatio"`
+	Mobile bool `json:"mobile"`
 }
 
 type TimezoneData struct {
-	Timezone       string `json:"timezone"`
-	TimezoneOffset int    `json:"timezoneOffset"`
+	Timezone string `json:"timezone"`
 }
 
 type ScanLeaks struct {
@@ -97,10 +68,8 @@ type ScanLeaks struct {
 }
 
 type WebRTCLeakData struct {
-	Leaked    bool     `json:"leaked"`
 	LocalIPs  []string `json:"local_ips"`
 	PublicIPs []string `json:"public_ips"`
-	STUNIPs   []string `json:"stun_ips"`
 }
 
 type DNSLeakData struct {
@@ -130,8 +99,7 @@ type RTTData struct {
 }
 
 type FPJSAudit struct {
-	VisitorID string        `json:"visitorId,omitempty"`
-	Hook      FPJSHookAudit `json:"hook"`
+	Hook FPJSHookAudit `json:"hook"`
 }
 
 type FPJSHookAudit struct {
@@ -274,6 +242,5 @@ type AutomationAnalysis struct {
 type ScanServerData struct {
 	ClientIP    string   `json:"client_ip"`
 	IPIntel     *IPIntel `json:"ip_intel,omitempty"`
-	JA3Hash     string   `json:"ja3_hash,omitempty"`
 	HTTPVersion string   `json:"http_version,omitempty"`
 }

@@ -11,7 +11,6 @@
 
   import { collectFingerprints } from '../lib/collectors/fingerprint';
   import { collectEnvironment } from '../lib/collectors/environment';
-  import { collectDeviceSignals, type DeviceSignals } from '../lib/collectors/environment/device';
   import { collectLeaks, collectDNSLeak } from '../lib/collectors/leaks';
   import { collectRTT } from '../lib/collectors/network/rtt';
   import { collectFingerprintAudit } from '../lib/collectors/fingerprintAudit';
@@ -26,7 +25,6 @@
 
   interface ScanSignals {
     collectors: AllCollectorResults;
-    device: DeviceSignals;
     fpjs: Awaited<ReturnType<typeof collectFingerprintAudit>>;
   }
 
@@ -56,10 +54,10 @@
   ];
 
   const PLACEHOLDER_GROUPS = [
-    { key: 'identity', label: '网络身份', score: 0, state: 'unknown', passed: 0, total: 1, note: '' },
-    { key: 'consistency', label: '环境一致性', score: 0, state: 'unknown', passed: 0, total: 1, note: '' },
-    { key: 'leak', label: 'DNS/IP 泄露', score: 0, state: 'unknown', passed: 0, total: 1, note: '' },
-    { key: 'environment', label: '环境指纹', score: 0, state: 'unknown', passed: 0, total: 1, note: '' },
+    { key: 'identity', label: '网络身份', score: 0, state: 'unknown', passed: 0, total: 1 },
+    { key: 'consistency', label: '环境一致性', score: 0, state: 'unknown', passed: 0, total: 1 },
+    { key: 'leak', label: 'DNS/IP 泄露', score: 0, state: 'unknown', passed: 0, total: 1 },
+    { key: 'environment', label: '环境指纹', score: 0, state: 'unknown', passed: 0, total: 1 },
   ] as const;
 
   let report = $state<ReportModel | null>(null);
@@ -143,28 +141,25 @@
       onStageComplete?.('leak');
       return value;
     });
-    const devicePromise = collectDeviceSignals();
     const fpjsPromise = collectFingerprintAudit();
-    const environmentReady = Promise.all([fingerprintPromise, devicePromise, fpjsPromise]).then(() => {
+    const environmentReady = Promise.all([fingerprintPromise, fpjsPromise]).then(() => {
       onStageComplete?.('environment');
     });
 
-    const [fingerprint, environment, leaks, device, fpjs] = await Promise.all([
+    const [fingerprint, environment, leaks, fpjs] = await Promise.all([
       fingerprintPromise,
       environmentPromise,
       leaksPromise,
-      devicePromise,
       fpjsPromise,
     ]);
     await environmentReady;
     const rtt = await collectRTT();
-    return { collectors: { fingerprint, environment, leaks, network: { rtt } }, device, fpjs };
+    return { collectors: { fingerprint, environment, leaks, network: { rtt } }, fpjs };
   }
 
   function buildRequest(s: ScanSignals): ScanRequest {
     return {
       scan_id: crypto?.randomUUID ? crypto.randomUUID() : `scan_${Date.now()}`,
-      timestamp: Date.now(),
       scenario,
       fingerprint: s.collectors.fingerprint as Record<string, unknown>,
       environment: s.collectors.environment as Record<string, unknown>,
@@ -200,7 +195,7 @@
         resp.scenario && resp.scenario !== scenario
           ? await api.getScan(resp.scan_id, scenario).catch(() => resp)
           : resp;
-      report = buildReport(synced, signals.collectors, signals.device);
+      report = buildReport(synced, signals.collectors);
       completeStage('identity');
       queueReadyReveals();
 
@@ -228,14 +223,12 @@
       const dns = await collectDNSLeak(scanId);
       if (!report || !scanId || dns.status !== 'success' || !dns.data || dns.data.resolvers.length === 0) return;
       const targetScenario = scenario;
-      let updated = dns.data.assessed
-        ? await api.getScan(scanId, targetScenario)
-        : await api.updateScanDNS(scanId, dns.data.leaked);
-      if (scenario !== targetScenario && dns.data.assessed) {
+      let updated = await api.getScan(scanId, targetScenario);
+      if (scenario !== targetScenario) {
         updated = await api.getScan(scanId, scenario);
       }
       if (report?.meta.scanId === scanId && lastSignals) {
-        report = buildReport(updated, lastSignals.collectors, lastSignals.device);
+        report = buildReport(updated, lastSignals.collectors);
       }
     } catch {
     }
@@ -258,7 +251,7 @@
     try {
       const updated = await api.getScan(currentId, next);
       if (token !== scenarioSwitchToken || report?.meta.scanId !== currentId) return;
-      report = buildReport(updated, signals.collectors, signals.device);
+      report = buildReport(updated, signals.collectors);
     } catch (err) {
       if (token !== scenarioSwitchToken) return;
       if (err instanceof api.ApiError && err.status === 404) {
@@ -460,7 +453,6 @@
           title="环境一致性" icon="fa-globe"
           rows={report?.consistency ?? []}
           state={report?.groups[1]?.state ?? 'unknown'}
-          note={report?.groups[1]?.note ?? ''}
           referenceOnly={scenario === 'daily'}
           isScanning={isScanning} settled={revealedKeys.includes('consistency')} active={activeDimension === 'consistency'}
         />
@@ -468,14 +460,12 @@
           title="DNS/IP 泄露" icon="fa-shield-halved"
           rows={report?.leaks ?? []}
           state={report?.groups[2]?.state ?? 'unknown'}
-          note={report?.groups[2]?.note ?? ''}
           isScanning={isScanning} settled={revealedKeys.includes('leak')} active={activeDimension === 'leak'}
         />
         <ReadoutCard
           title="环境指纹" icon="fa-fingerprint"
           rows={report?.environment ?? []}
           state={report?.groups[3]?.state ?? 'unknown'}
-          note={report?.groups[3]?.note ?? ''}
           isScanning={isScanning} settled={revealedKeys.includes('environment')} active={activeDimension === 'environment'}
         />
       </div>

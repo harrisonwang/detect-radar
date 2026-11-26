@@ -1,7 +1,6 @@
 package model
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -44,29 +43,8 @@ type IPIntel struct {
 	FetchedAt time.Time `json:"fetched_at"`
 }
 
-type IPInfo struct {
-	IP       string `json:"ip"`
-	Hostname string `json:"hostname,omitempty"`
-	City     string `json:"city,omitempty"`
-	Region   string `json:"region,omitempty"`
-	Country  string `json:"country,omitempty"`
-	Loc      string `json:"loc,omitempty"`
-	Org      string `json:"org,omitempty"`
-	Postal   string `json:"postal,omitempty"`
-	Timezone string `json:"timezone,omitempty"`
-	Source   string `json:"source,omitempty"`
-}
-
 func (i *IPIntel) HasProxy() bool {
 	return i.IsVPN || i.IsProxy || i.IsTor || i.IsRelay || i.IsAnonymous
-}
-
-func (i *IPIntel) HasRisk() bool {
-	return i.HasProxy() || i.IsHosting
-}
-
-func (i *IPIntel) IsClean() bool {
-	return !i.HasRisk() && (i.UsageType == "isp" || i.IsMobile)
 }
 
 func (i *IPIntel) InferUsageType() string {
@@ -96,23 +74,4 @@ func (i *IPIntel) InferUsageType() string {
 	}
 
 	return "unknown"
-}
-
-func (i *IPIntel) ToIPInfo() *IPInfo {
-	loc := ""
-	if i.Latitude != 0 || i.Longitude != 0 {
-		loc = fmt.Sprintf("%.4f,%.4f", i.Latitude, i.Longitude)
-	}
-	return &IPInfo{
-		IP:       i.IP,
-		Hostname: i.Hostname,
-		City:     i.City,
-		Region:   i.Region,
-		Country:  i.Country,
-		Loc:      loc,
-		Org:      i.Org,
-		Postal:   i.Postal,
-		Timezone: i.Timezone,
-		Source:   i.Source,
-	}
 }

@@ -10,8 +10,7 @@ import (
 )
 
 type SQLiteDB struct {
-	db   *sql.DB
-	path string
+	db *sql.DB
 }
 
 type SQLiteConfig struct {
@@ -37,8 +36,7 @@ func NewSQLiteDB(cfg SQLiteConfig) (*SQLiteDB, error) {
 	}
 
 	sqlite := &SQLiteDB{
-		db:   db,
-		path: cfg.Path,
+		db: db,
 	}
 
 	if err := sqlite.initTables(); err != nil {
@@ -113,10 +111,6 @@ func (s *SQLiteDB) DB() *sql.DB {
 
 func (s *SQLiteDB) Close() error {
 	return s.db.Close()
-}
-
-func (s *SQLiteDB) Path() string {
-	return s.path
 }
 
 func (s *SQLiteDB) Stats() (map[string]int64, error) {

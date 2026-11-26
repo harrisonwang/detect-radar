@@ -76,12 +76,6 @@ export const getScan = (id: string, scenario?: ScanScenario) => {
   return request<ScanResponse>(`/scans/${encodeURIComponent(id)}${qs}`);
 };
 
-export const updateScanDNS = (id: string, leaked: boolean) =>
-  request<ScanResponse>(`/scans/${encodeURIComponent(id)}/dns`, {
-    method: 'POST',
-    body: JSON.stringify({ leaked }),
-  });
-
 export type FeedbackCategory =
   | 'false_positive'
   | 'missed_detection'

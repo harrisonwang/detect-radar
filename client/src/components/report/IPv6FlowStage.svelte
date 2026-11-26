@@ -5,7 +5,6 @@
   import {
     stackRegionLabel,
     type IPv6Progress,
-    type IPv6VerdictReason,
     type IPv6VerdictState,
     type StackExit,
   } from '../../lib/ipv6Check';
@@ -17,7 +16,6 @@
     v4: StackExit | null;
     v6: StackExit | null;
     verdictState: IPv6VerdictState;
-    verdictReason?: IPv6VerdictReason;
     verdictNote?: string;
     revealExit: boolean;
     busy?: boolean;
@@ -29,7 +27,6 @@
     v4,
     v6,
     verdictState,
-    verdictReason,
     verdictNote = '',
     revealExit,
     busy = false,
@@ -545,7 +542,7 @@
       ? 'IPv6 路径图：等待同时测试 4.detectradar.com 与 6.detectradar.com'
       : busy && !hasResult
         ? 'IPv6 路径图：正在同时测试 IPv4 与 IPv6 出口'
-        : `IPv6 实测路径图：IPv4 为 ${v4Name}（${v4DisplayIP}）；IPv6 为 ${v6Name}（${v6DisplayIP}）；结论：${verdictTitleText}${verdictReason ? '' : ''}`,
+        : `IPv6 实测路径图：IPv4 为 ${v4Name}（${v4DisplayIP}）；IPv6 为 ${v6Name}（${v6DisplayIP}）；结论：${verdictTitleText}`,
   );
 </script>
 

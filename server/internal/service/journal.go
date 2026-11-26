@@ -189,12 +189,3 @@ func (j *Journal) DNSLifecycle(eventType, instanceID, scanID, testID string) err
 		"scan_id": scanID, "test_id": testID,
 	})
 }
-
-func (j *Journal) DNSUpdateEvent(instanceID string, resp *model.ScanResponse, leaked bool) error {
-	return j.append(instanceID, "", map[string]any{
-		"event": "dns_update", "ts": time.Now().UTC().Format(time.RFC3339Nano),
-		"scan_id": resp.ScanID, "leaked": leaked, "score": resp.Score,
-		"risk_level": resp.RiskLevel, "diagnosis": firedRules(resp.Diagnosis),
-		"analysis": resp.Analysis,
-	})
-}

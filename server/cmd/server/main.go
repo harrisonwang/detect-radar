@@ -86,7 +86,7 @@ func main() {
 		defer func() { cancelCleanup(); <-cleanupDone }()
 	}
 
-	consistencyService := service.NewConsistencyService(ipIntelService)
+	consistencyService := service.NewConsistencyService()
 	reputationService := service.NewReputationService(cfg.Reputation)
 	dnsService := service.NewDNSService(cfg.DNS, ipIntelService, journal)
 	dnsTapService := service.NewDNSTapService(cfg.DNS.Domain, dnsService)
@@ -210,7 +210,6 @@ func setupRoutes(app *fiber.App, services *Services) {
 	scanHandler := handler.NewScanHandler(services.Scan, services.Journal)
 	api.Post("/scans", scanHandler.CreateScan)
 	api.Get("/scans/:id", scanHandler.GetScan)
-	api.Post("/scans/:id/dns", scanHandler.UpdateDNS)
 	api.Post("/scans/:id/feedback", scanHandler.SubmitFeedback)
 
 	dnsHandler := handler.NewDNSHandler(services.DNS)

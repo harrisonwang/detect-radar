@@ -83,46 +83,6 @@ func (r *HostingKeywordRepository) GetBestMatch(org string) *HostingKeyword {
 	return best
 }
 
-func (r *HostingKeywordRepository) Insert(keyword *HostingKeyword) error {
-	query := `
-		INSERT OR REPLACE INTO hosting_keywords
-		(keyword, provider, weight, is_standalone)
-		VALUES (?, ?, ?, ?)
-	`
-
-	_, err := r.db.Exec(query,
-		keyword.Keyword, keyword.Provider, keyword.Weight, keyword.IsStandalone,
-	)
-	return err
-}
-
-func (r *HostingKeywordRepository) InsertBatch(keywords []HostingKeyword) error {
-	tx, err := r.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	stmt, err := tx.Prepare(`
-		INSERT OR REPLACE INTO hosting_keywords
-		(keyword, provider, weight, is_standalone)
-		VALUES (?, ?, ?, ?)
-	`)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	for _, k := range keywords {
-		_, err := stmt.Exec(k.Keyword, k.Provider, k.Weight, k.IsStandalone)
-		if err != nil {
-			return err
-		}
-	}
-
-	return tx.Commit()
-}
-
 func (r *HostingKeywordRepository) Count() (int64, error) {
 	var count int64
 	err := r.db.QueryRow("SELECT COUNT(*) FROM hosting_keywords").Scan(&count)
@@ -150,14 +110,4 @@ func tokenize(org string) []string {
 	}
 
 	return tokens
-}
-
-func (r *HostingKeywordRepository) InitDefaultKeywords() error {
-	keywords := []HostingKeyword{
-		{Keyword: "datacenter", Provider: "Datacenter", Weight: 90, IsStandalone: false},
-		{Keyword: "data center", Provider: "Datacenter", Weight: 90, IsStandalone: false},
-		{Keyword: "colocation", Provider: "Colocation", Weight: 90, IsStandalone: false},
-	}
-
-	return r.InsertBatch(keywords)
 }

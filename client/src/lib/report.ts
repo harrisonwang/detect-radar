@@ -1,6 +1,5 @@
 
 import type { AllCollectorResults } from "./collectors/types";
-import type { DeviceSignals } from "./collectors/environment/device";
 import type {
   ScanResponse,
   ScanScenario,
@@ -25,9 +24,7 @@ export interface Finding {
   severity: Severity;
   title: string;
   fact: string;
-  meaning: string;
   fix: string;
-  platformNote?: string;
 }
 
 export interface ReportGroup {
@@ -37,7 +34,6 @@ export interface ReportGroup {
   state: SignalState;
   passed: number;
   total: number;
-  note: string;
 }
 
 export interface ReadoutRow {
@@ -62,7 +58,6 @@ export interface IdentityReadout {
   tier?: string;
   method?: string;
   humanRatio?: number;
-  ceilingNote?: string;
   flags: string[];
   fraudScore: number;
   blacklist: string[];
@@ -218,7 +213,6 @@ function buildIdentity(
   const geoParts = [intel?.city, intel?.country_name || intel?.country].filter(
     Boolean,
   );
-  const ceilingNote: string | undefined = undefined;
 
   return {
     ip: intel?.ip || "",
@@ -234,7 +228,6 @@ function buildIdentity(
     tier: intel?.tier,
     method: intel?.detect_method,
     humanRatio: normalizeHumanRatio(intel?.human_ratio ?? a.human_ratio),
-    ceilingNote,
     flags,
     fraudScore: a.fraud_score,
     blacklist: a.blacklist_hits ?? [],
@@ -258,31 +251,7 @@ const GROUP_LABEL: Record<ReportGroup["key"], string> = {
   environment: "环境指纹",
 };
 
-function groupNote(key: ReportGroup["key"], state: SignalState, scenario: ScanScenario): string {
-  switch (key) {
-    case "identity":
-      return state === "leak"
-        ? "出口 IP 携带代理/黑名单特征"
-        : state === "contradiction"
-          ? "机房 / 托管 IP"
-          : state === "unknown"
-            ? "类型无法高置信判定"
-            : "出口正常";
-    case "consistency":
-      if (scenario === "daily") return "日常模式下仅作展示";
-      return state === "coherent"
-        ? "时区 / 语言与 IP 相符"
-        : "存在与 IP 不符的环境项";
-    case "environment":
-      return state === "coherent"
-        ? "指纹正常、无自动化痕迹"
-        : "指纹 / 自动化存在异常";
-    default:
-      return "";
-  }
-}
-
-function buildGroups(dims: DimensionScore[], scenario: ScanScenario): ReportGroup[] {
+function buildGroups(dims: DimensionScore[]): ReportGroup[] {
   const byKey = new Map(dims.map((d) => [d.key, d]));
   return GROUP_ORDER.map((key) => {
     const d = byKey.get(key);
@@ -294,7 +263,6 @@ function buildGroups(dims: DimensionScore[], scenario: ScanScenario): ReportGrou
         state: "unknown" as SignalState,
         passed: 0,
         total: 1,
-        note: "",
       };
     }
     const state = d.state as SignalState;
@@ -305,7 +273,6 @@ function buildGroups(dims: DimensionScore[], scenario: ScanScenario): ReportGrou
       state,
       passed: d.passed,
       total: d.total,
-      note: groupNote(key, state, scenario),
     };
   });
 }
@@ -315,13 +282,12 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
   const push = (f: Finding) => F.push(f);
 
   const pv = a.privacy;
-  if (pv.webrtc.status === "danger" && !isExpectedDualStackWebRTC(pv, id.ip)) {
+  if (pv.webrtc.status === "danger") {
     push({
       id: "webrtc-leak",
       severity: "leak",
       title: "WebRTC 公网地址与出口 IP 不一致",
       fact: `网页可获取额外公网地址${pv.webrtc.leaked_ips[0] ? `（${pv.webrtc.leaked_ips[0]}）` : ""}`,
-      meaning: "若正在使用代理，这可能暴露另一条公网出口。",
       fix: "检查代理是否覆盖 WebRTC，或关闭浏览器 WebRTC 公网候选。",
     });
   }
@@ -331,7 +297,6 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
       severity: "leak",
       title: "DNS 泄露",
       fact: dnsVerdictNote(pv.dns.assessment),
-      meaning: "国内运营商参与了本次域名解析。",
       fix: "在 DNS 泄露检测页复测，核对测到的解析网络。",
     });
   }
@@ -341,7 +306,6 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
       severity: "leak",
       title: "IPv6 与出口 IP 不一致",
       fact: `检测到全局 IPv6 地址${pv.ipv6.address ? `（${pv.ipv6.address}）` : ""}`,
-      meaning: "IPv6 与当前出口不一致，可能形成另一条公网出口。",
       fix: "在 IPv6 泄露检测页复测，检查代理是否接管 IPv6 或在路由层关闭 IPv6 直连。",
     });
   }
@@ -352,18 +316,16 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
       severity: "leak",
       title: "出口 IP 命中黑名单",
       fact: `命中 ${id.blacklist.join("、")}`,
-      meaning: "被公开黑名单收录的 IP 会被大量站点拒绝或加验。",
       fix: "立即更换出口 IP。",
     });
   }
-  const proxyFlags = id.flags.filter((f) => f !== "Hosting");
+  const proxyFlags = id.flags;
   if (proxyFlags.length > 0) {
     push({
       id: "proxy-flag",
       severity: "leak",
       title: `IP 被标记为 ${proxyFlags.join(" / ")}`,
       fact: `第三方数据源将该 IP 标记为 ${proxyFlags.join(" / ")}`,
-      meaning: "被标记的匿名网络出口会被直接归为高风险。",
       fix: "更换未被标记的网络出口。",
     });
   }
@@ -373,7 +335,6 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
       severity: "leak",
       title: "出口为 Tor 出口节点",
       fact: "该 IP 在公开的 Tor 出口列表中",
-      meaning: "Tor 出口公开可查，几乎所有平台都会拦。",
       fix: "改用普通网络出口。",
     });
   }
@@ -388,7 +349,6 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
       severity: "caution",
       title: "出口为机房 IP",
       fact: `服务商 ${id.org}`,
-      meaning: "机房 IP 常被平台风控识别为非自然流量。",
       fix: "如需更高可信度，改用更稳定的网络出口。",
     });
   }
@@ -398,7 +358,6 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
       severity: "contradiction",
       title: "IP 开放代理端口",
       fact: "扫描到该 IP 开放了常见代理端口",
-      meaning: "开放代理端口是主动暴露的代理特征。",
       fix: "关闭对外代理端口，或更换 IP。",
     });
   }
@@ -408,7 +367,6 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
       severity: "caution",
       title: `IP 欺诈评分偏高（${a.identity.fraud_score}/100）`,
       fact: `第三方数据源给出的欺诈评分为 ${a.identity.fraud_score}`,
-      meaning: "高欺诈分的 IP 更容易被风控预先标记。",
       fix: "更换信誉更好的 IP。",
     });
   }
@@ -420,7 +378,6 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
       severity: "contradiction",
       title: "浏览器时区与 IP 归属地冲突",
       fact: `浏览器时区为${tzToZone(tz.browser)}，IP 归属地时区为${tzToZone(tz.expected)}`,
-      meaning: "时区对不上是最常见的环境破绽，单项就足以拉低可信度。",
       fix: "把系统时区改成与 IP 归属地一致。",
     });
   }
@@ -431,7 +388,6 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
       severity: "contradiction",
       title: "系统语言与 IP 国家不匹配",
       fact: `浏览器语言 ${langName(lang.browser)}，IP 国家（${lang.ip_country || "?"}）当地常用 ${langName((lang.expected || [])[0] || "")}`,
-      meaning: "语言与地理位置对不上，是环境不一致的直接证据。",
       fix: "把浏览器首选语言调成 IP 归属地对应语言。",
     });
   }
@@ -442,7 +398,6 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
       severity: "leak",
       title: "检测到自动化控制标记",
       fact: "navigator.webdriver = true，暴露了自动化控制",
-      meaning: "这是自动化最直接的自证，平台可据此直接封禁。",
       fix: "使用未打标的浏览器或反检测方案。",
     });
   }
@@ -454,7 +409,6 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
       fact:
         fp.webgl.mismatch_reason ||
         "显卡信息与操作系统 / 硬件声明物理上不可能共存",
-      meaning: "硬件指纹自相矛盾，是伪装环境最难圆的破绽。",
       fix: "确保显卡信息与声称的系统、硬件逻辑一致。",
     });
   }
@@ -470,7 +424,6 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
       severity: "caution",
       title: `${which} 指纹被篡改`,
       fact: `${which} 的原生方法被改写（反指纹工具痕迹）`,
-      meaning: "过度伪造本身就可疑——完全屏蔽比留噪音更扎眼。",
       fix: "指纹保护改用 noise 模式，避免完全屏蔽。",
     });
   }
@@ -481,7 +434,6 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
         severity: "info",
         title: "桌面浏览器无插件",
         fact: "桌面浏览器插件列表为空，偏离常见环境",
-        meaning: "单项风险低，但与其他异常叠加会抬高可疑度。",
         fix: "通常无需处理。",
       });
       break;
@@ -508,7 +460,6 @@ function consistencyRows(a: ScanAnalysis, scenario: ScanScenario): ReadoutRow[] 
       value: `${tzToZone(tz.browser)} ↔ ${tzToZone(tz.expected)}`,
       state: tzUnknown ? "unknown" : tz.passed ? "coherent" : daily ? "unknown" : "contradiction",
       compare: { browser: tzToZone(tz.browser), ip: tzToZone(tz.expected) },
-      hint: tzUnknown ? "IP 时区未知" : !tz.passed && daily ? "日常模式下仅作展示" : undefined,
     },
     {
       label: "语言",
@@ -518,7 +469,6 @@ function consistencyRows(a: ScanAnalysis, scenario: ScanScenario): ReadoutRow[] 
         browser: langName(lang.browser),
         ip: langName((lang.expected || [])[0] || ""),
       },
-      hint: !lang.passed && daily ? "日常模式下仅作展示" : undefined,
     },
   ];
 }
@@ -613,7 +563,6 @@ function leakRows(a: ScanAnalysis, exit: DNSExit | null): ReadoutRow[] {
 function environmentRows(
   a: ScanAnalysis,
   c: AllCollectorResults,
-  d: DeviceSignals,
   scenario: ScanScenario,
 ): ReadoutRow[] {
   const fp = a.fingerprint;
@@ -639,13 +588,11 @@ function environmentRows(
       label: "Canvas 指纹",
       value: fp.canvas.is_hooked ? "被篡改" : "正常",
       state: fp.canvas.is_hooked ? (daily ? "unknown" : "contradiction") : "coherent",
-      hint: fp.canvas.is_hooked && daily ? "日常模式下仅作展示" : undefined,
     },
     {
       label: "Audio 指纹",
       value: fp.audio.is_hooked ? "被篡改" : "正常",
       state: fp.audio.is_hooked ? (daily ? "unknown" : "contradiction") : "coherent",
-      hint: fp.audio.is_hooked && daily ? "日常模式下仅作展示" : undefined,
     },
     {
       label: "自动化",
@@ -662,9 +609,8 @@ function environmentRows(
     },
     {
       label: "硬件",
-      value: `${nav?.hardwareConcurrency ?? "?"} 核 / ${nav?.deviceMemory ?? "?"}GB / ${d.maxTouchPoints} 触控点`,
+      value: `${nav?.hardwareConcurrency ?? "?"} 核 / ${nav?.deviceMemory ?? "?"}GB / ${nav?.maxTouchPoints ?? 0} 触控点`,
       state: "coherent",
-      hint: "CPU / 内存 / 触控",
     },
   ];
 }
@@ -726,11 +672,10 @@ function buildVerdict(groups: ReportGroup[], scenario: ScanScenario): ReportMode
 export function buildReport(
   resp: ScanResponse,
   collectors: AllCollectorResults,
-  device: DeviceSignals,
 ): ReportModel {
   const a = resp.analysis;
   const scenario: ScanScenario = resp.scenario === "daily" ? "daily" : "strict";
-  const groups = buildGroups(resp.dimensions ?? [], scenario);
+  const groups = buildGroups(resp.dimensions ?? []);
   const identity = buildIdentity(a.identity, resp.server_data.ip_intel);
   const exit = resp.server_data.ip_intel ? browserExit(resp.server_data.ip_intel) : null;
   const idGroup = groups.find((g) => g.key === "identity");
@@ -747,7 +692,7 @@ export function buildReport(
     findings: buildFindings(a, identity, scenario),
     consistency: consistencyRows(a, scenario),
     leaks: leakRows(a, exit),
-    environment: environmentRows(a, collectors, device, scenario),
+    environment: environmentRows(a, collectors, scenario),
     rtt: buildRTT(a),
     meta: {
       scanId: resp.scan_id,

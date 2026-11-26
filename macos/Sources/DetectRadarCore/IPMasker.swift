@@ -204,7 +204,7 @@ public enum IPMasker {
         if intel.isHosting == true { return true }
         let usage = (intel.usageType ?? "").lowercased()
         let raw = (intel.usageTypeRaw ?? "").lowercased()
-        return usage == "hosting" || usage == "datacenter" || raw == "hosting" || raw == "datacenter"
+        return usage == "hosting" || raw == "hosting" || raw == "datacenter"
     }
 
     public static func usageShortLabel(for intel: IPIntel) -> String {
@@ -242,14 +242,6 @@ public enum IPMasker {
             return "\(provider) · \(city)"
         }
         return provider
-    }
-
-    public static func locationLine(for intel: IPIntel?) -> String {
-        let badge = countryBadgeLine(for: intel)
-        if let city = nonRedundantCity(for: intel) {
-            return "\(badge) · \(city)"
-        }
-        return badge
     }
 
     public static func menuBarTitle(snapshot: EgressSnapshot?, isLoading: Bool) -> String {

@@ -27,7 +27,7 @@
 
   function typeIcon(label: string): string {
     if (label.includes('机房')) return 'fa-server';
-    if (label.includes('住宅')) return 'fa-house';
+    if (label.includes('普通网络')) return 'fa-house';
     if (label.includes('移动')) return 'fa-mobile-screen';
     return 'fa-circle-question';
   }
@@ -166,10 +166,6 @@
         </div>
       </div>
     </div>
-
-    {#if identity.ceilingNote}
-      <p class="mt-5 text-xs text-(--slate-500) leading-relaxed border-l-2 pl-3" style="border-color:var(--unknown)">{identity.ceilingNote}</p>
-    {/if}
 
     {#if identity.flags.length || identity.exposure.length}
       <div class="mt-3 flex flex-wrap gap-1.5">

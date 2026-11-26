@@ -1,17 +1,8 @@
 
-import type { CollectorResult, UserAgentDataInfo, UADataBrand } from '../types';
+import type { CollectorResult, UserAgentDataInfo } from '../types';
 
 interface NavigatorUAData {
-  brands: UADataBrand[];
   mobile: boolean;
-  platform: string;
-  getHighEntropyValues: (hints: string[]) => Promise<{
-    architecture?: string;
-    bitness?: string;
-    model?: string;
-    platformVersion?: string;
-    fullVersionList?: UADataBrand[];
-  }>;
 }
 
 interface ExtendedNavigator extends Navigator {
@@ -32,34 +23,11 @@ export const collectUserAgentData = async (): Promise<CollectorResult<UserAgentD
       };
     }
 
-    const uaData = nav.userAgentData;
-
-    const baseData: UserAgentDataInfo = {
-      brands: uaData.brands || [],
-      mobile: uaData.mobile,
-      platform: uaData.platform
-    };
-
-    try {
-      const highEntropy = await uaData.getHighEntropyValues([
-        'architecture',
-        'bitness',
-        'model',
-        'platformVersion',
-        'fullVersionList'
-      ]);
-
-      baseData.architecture = highEntropy.architecture;
-      baseData.bitness = highEntropy.bitness;
-      baseData.model = highEntropy.model;
-      baseData.platformVersion = highEntropy.platformVersion;
-      baseData.fullVersionList = highEntropy.fullVersionList;
-    } catch {
-    }
-
     return {
       status: 'success',
-      data: baseData,
+      data: {
+        mobile: nav.userAgentData.mobile
+      },
       timing: performance.now() - start
     };
   } catch (e) {

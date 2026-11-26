@@ -102,17 +102,6 @@ func (a *LocalAdapter) Name() string { return "local" }
 
 func (a *LocalAdapter) Tier() string { return "L1" }
 
-func (a *LocalAdapter) Capabilities() Capabilities {
-	return Capabilities{
-		HasGeo:       a.cityDB != nil,
-		HasASN:       a.asnDB != nil,
-		HasTimezone:  a.cityDB != nil,
-		HasPrivacy:   false,
-		HasUsageType: false,
-		HasRiskScore: false,
-	}
-}
-
 func (a *LocalAdapter) Lookup(ctx context.Context, ip string) (*model.IPIntel, error) {
 	parsedIP := net.ParseIP(ip)
 	if parsedIP == nil {
@@ -137,8 +126,6 @@ func (a *LocalAdapter) Lookup(ctx context.Context, ip string) (*model.IPIntel, e
 			log.Printf("[LocalAdapter] ASN 数据库查询失败 IP=%s: %v", ip, err)
 		}
 	}
-
-	a.inferProperties(intel)
 
 	return intel, nil
 }
@@ -190,10 +177,6 @@ func (a *LocalAdapter) lookupASN(ip net.IP, intel *model.IPIntel) error {
 	intel.Org = record.ASOrg
 
 	return nil
-}
-
-func (a *LocalAdapter) inferProperties(intel *model.IPIntel) {
-	_ = intel
 }
 
 func (a *LocalAdapter) Close() error {

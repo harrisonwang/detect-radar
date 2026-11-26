@@ -6,13 +6,11 @@ export const collectTimezone = async (): Promise<CollectorResult<TimezoneData>> 
 
   try {
     const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const timezoneOffset = new Date().getTimezoneOffset();
 
     return {
       status: 'success',
       data: {
-        timezone,
-        timezoneOffset
+        timezone
       },
       timing: performance.now() - start
     };

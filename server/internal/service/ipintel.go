@@ -18,8 +18,6 @@ type ipIntelCache interface {
 	GetDeep(ctx context.Context, ip string) (*model.IPIntel, error)
 	SetBasic(ctx context.Context, ip string, intel *model.IPIntel) error
 	SetDeep(ctx context.Context, ip string, intel *model.IPIntel) error
-	Delete(ctx context.Context, ip string) error
-	Clear(ctx context.Context) error
 	IncrDailyCounter(ctx context.Context, name, day string, ttl time.Duration) (int64, error)
 }
 
@@ -32,7 +30,6 @@ type inflightLookup struct {
 type IPIntelService struct {
 	registry        *adapter.Registry
 	cache           ipIntelCache
-	cacheTTL        time.Duration
 	hostingDetector *HostingDetector
 	radarService    *RadarService
 	cnGeo           *adapter.IP2RegionCN
@@ -57,7 +54,6 @@ func NewIPIntelService(registry *adapter.Registry, redisCache *cache.RedisCache,
 	return &IPIntelService{
 		registry:        registry,
 		cache:           intelCache,
-		cacheTTL:        24 * time.Hour,
 		hostingDetector: hostingDetector,
 		radarService:    radarService,
 		cnGeo:           cnGeo,
@@ -83,13 +79,12 @@ type LookupOptions struct {
 	DeepScan     bool
 	LocalOnly    bool
 	PreferSource string
-	SkipCache    bool
 }
 
 func (s *IPIntelService) Lookup(ctx context.Context, ip string, opts LookupOptions) (*model.IPIntel, error) {
 	ip = util.CanonicalIP(ip)
 
-	if !opts.SkipCache && s.cache != nil {
+	if s.cache != nil {
 		if cached, fromDeep := s.getCache(ctx, ip, opts); cached != nil {
 			cp := cloneIntel(cached)
 			if normalized := util.CanonicalIP(cp.IP); normalized != "" {
@@ -108,7 +103,7 @@ func (s *IPIntelService) Lookup(ctx context.Context, ip string, opts LookupOptio
 		}
 	}
 
-	if !opts.SkipCache && opts.PreferSource == "" {
+	if opts.PreferSource == "" {
 		return s.lookupCoalesced(ctx, ip, opts)
 	}
 
@@ -277,19 +272,11 @@ func (s *IPIntelService) lookupUncached(ctx context.Context, ip string, opts Loo
 	}
 	intel.Tip = generateTip(intel)
 
-	if !opts.SkipCache && s.cache != nil {
+	if s.cache != nil {
 		s.setCache(ctx, ip, intel, opts.DeepScan && !l3QuotaBlocked)
 	}
 
 	return intel, nil
-}
-
-func (s *IPIntelService) LookupBasic(ctx context.Context, ip string) (*model.IPIntel, error) {
-	return s.Lookup(ctx, ip, LookupOptions{DeepScan: false})
-}
-
-func (s *IPIntelService) LookupDeep(ctx context.Context, ip string) (*model.IPIntel, error) {
-	return s.Lookup(ctx, ip, LookupOptions{DeepScan: true})
 }
 
 func (s *IPIntelService) tryConsumeL3Quota(ctx context.Context) bool {
@@ -558,24 +545,6 @@ func (s *IPIntelService) setCache(ctx context.Context, ip string, intel *model.I
 	if err != nil {
 		log.Printf("[IPIntel] Cache set error for %s: %v", ip, err)
 	}
-}
-
-func (s *IPIntelService) ClearCache(ctx context.Context) error {
-	if s.cache == nil {
-		return nil
-	}
-	return s.cache.Clear(ctx)
-}
-
-func (s *IPIntelService) ClearCacheForIP(ctx context.Context, ip string) error {
-	if s.cache == nil {
-		return nil
-	}
-	return s.cache.Delete(ctx, ip)
-}
-
-func (s *IPIntelService) HasCache() bool {
-	return s.cache != nil
 }
 
 func generateTip(intel *model.IPIntel) string {

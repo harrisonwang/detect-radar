@@ -8,13 +8,12 @@
     icon: string;
     rows: ReadoutRow[];
     state: SignalState;
-    note?: string;
     referenceOnly?: boolean;
     isScanning?: boolean;
     settled?: boolean;
     active?: boolean;
   }
-  let { title, icon, rows, state, note = '', referenceOnly = false, isScanning = false, settled = false, active = false }: Props = $props();
+  let { title, icon, rows, state, referenceOnly = false, isScanning = false, settled = false, active = false }: Props = $props();
 </script>
 
 <div class="glass-card rounded-xl p-5 h-full" class:scan-focus={active}>

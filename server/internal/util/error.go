@@ -17,7 +17,6 @@ const (
 	ProblemTypeInvalidParameter   = "https://detectradar.com/problems/invalid-parameter"
 	ProblemTypeMissingParameter   = "https://detectradar.com/problems/missing-parameter"
 	ProblemTypeResourceNotFound   = "https://detectradar.com/problems/resource-not-found"
-	ProblemTypeRateLimitExceeded  = "https://detectradar.com/problems/rate-limit-exceeded"
 	ProblemTypeInternalError      = "https://detectradar.com/problems/internal-error"
 	ProblemTypeServiceUnavailable = "https://detectradar.com/problems/service-unavailable"
 )

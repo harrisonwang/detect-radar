@@ -12,7 +12,6 @@ func shortProviderAndDisplayFormatting() {
     #expect(IPMasker.shortProviderName(for: provider) == "Example")
     #expect(IPMasker.countryBadgeLine(for: provider) == "🇺🇸 美国")
     #expect(IPMasker.providerDetailLine(for: provider) == "Example · Los Angeles")
-    #expect(IPMasker.locationLine(for: provider) == "🇺🇸 美国 · Los Angeles")
     #expect(IPMasker.usageShortLabel(for: provider) == "机房")
 
     let cf = IPIntel(ip: "1.1.1.1", country: "US", isp: "Cloudflare, Inc.", usageType: "hosting", isHosting: true)
@@ -93,7 +92,7 @@ func systemProxyParsingAndLocalIPv6() {
     ]
     let ep = SystemProxyReader.parseSystemProxyDict(sysDict)
     #expect(ep?.port == 7890)
-    #expect(ep?.companionSocksPort == 7891)
+    #expect(ep?.scheme == .http)
 
     #expect(LocalIPv6Detector.isGlobalUnicastIPv6([0x24, 0x0e, 0x03, 0x90, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]) == true)
     #expect(LocalIPv6Detector.isGlobalUnicastIPv6([0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]) == false)

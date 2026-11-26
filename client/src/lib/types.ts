@@ -1,25 +1,11 @@
 import type { RTTData } from './collectors/types';
 
 export type ScanScenario = 'strict' | 'daily';
-export type ScenarioId = 'general' | 'ecommerce' | 'social';
 
 export interface DiagnosisItem {
   status: 'success' | 'warning' | 'error';
   text: string;
 }
-
-export interface ScenarioData {
-  id: ScenarioId;
-  label: string;
-  score: number;
-  color: string;
-  badge: string;
-  analysis: DiagnosisItem[];
-  showAd: boolean;
-  adText?: string;
-}
-
-export type DetectStatus = 'safe' | 'warning' | 'danger' | 'loading';
 
 export interface NetworkIdentity {
   ip: string;
@@ -52,75 +38,10 @@ export interface NetworkIdentity {
   is_anonymous?: boolean;
 }
 
-export interface ConsistencyData {
-  timezone: {
-    match: boolean;
-    value: string;
-  };
-  language: {
-    match: boolean;
-    value: string;
-  };
-}
-
-export interface NetworkPrivacy {
-  webrtc: {
-    value: string;
-    status: DetectStatus;
-  };
-  dns: {
-    value: string;
-    status: DetectStatus;
-  };
-  ipv6: {
-    value: string;
-    status: DetectStatus;
-  };
-  tcpws: {
-    value: string;
-    status: DetectStatus;
-    latencyDiff?: number;
-  };
-}
-
-export interface DeepFingerprint {
-  tcpip: {
-    os: string;
-    match: boolean;
-    mismatchInfo?: string;
-  };
-  canvas: {
-    value: string;
-    status: DetectStatus;
-  };
-  audio: {
-    value: string;
-    status: DetectStatus;
-  };
-  webgl: {
-    value: string;
-    status: DetectStatus;
-  };
-}
-
-export interface DeepDetection {
-  isProxy: boolean;
-  proxyType?: string;
-  fraudScore: number;
-  isBlacklisted: boolean;
-  blacklistSource?: string;
-}
-
 export interface FingerprintHookAudit {
   status: 'SAFE' | 'DANGER';
   message: string;
   methods: string[];
-}
-
-export interface FingerprintAuditPayload {
-  visitorId?: string;
-  canvasSummary?: string;
-  hook: FingerprintHookAudit;
 }
 
 export type IPIntel = NetworkIdentity;
@@ -133,15 +54,12 @@ export interface CollectorResult<T = unknown> {
 }
 
 export interface FPJSAudit {
-  visitorId?: string;
-  canvasSummary?: string;
   hook: FingerprintHookAudit;
 }
 
 export interface ScanRequest {
   scan_id: string;
-  timestamp: number;
-  scenario: ScanScenario | ScenarioId;
+  scenario: ScanScenario;
   fingerprint: Record<string, unknown>;
   environment: Record<string, unknown>;
   leaks: Record<string, unknown>;
@@ -185,7 +103,7 @@ export interface PrivacyAnalysis {
     leaked_ips: string[];
     matches_exit_ip: boolean;
   };
-  dns: { status: 'safe' | 'warning' | 'danger' | 'unknown' | 'blocked'; matches_exit_ip: boolean; country?: string; isp?: string; assessment?: DNSVerdict };
+  dns: { status: 'safe' | 'danger' | 'unknown' | 'blocked'; matches_exit_ip: boolean; country?: string; isp?: string; assessment?: DNSVerdict };
   ipv6: { status: 'safe' | 'danger' | 'disabled'; address?: string };
   overall_status: 'safe' | 'warning' | 'danger' | 'disabled';
 }
@@ -245,7 +163,6 @@ export interface RTTAnalysis {
 export interface ScanServerData {
   client_ip: string;
   ip_intel?: IPIntel;
-  ja3_hash?: string;
   http_version?: string;
 }
 
@@ -356,181 +273,4 @@ export interface WebRTCAssessmentResponse {
   };
   exit?: WebRTCNetworkInfo;
   candidates: WebRTCNetworkInfo[];
-}
-
-export type PrivacyLeakStatus = 'safe' | 'blocked' | 'warning' | 'danger' | 'disabled';
-
-export interface WebRTCLeakData {
-  status: PrivacyLeakStatus;
-  publicIP?: string;
-  localIP?: string;
-  matchesExitIP: boolean;
-}
-
-export interface DNSLeakData {
-  status: PrivacyLeakStatus;
-  location?: string;
-  matchesExitIP: boolean;
-  serverCount?: number;
-  provider?: string;
-  suggestion?: string;
-}
-
-export interface IPv6LeakData {
-  status: PrivacyLeakStatus;
-  address?: string;
-  matchesExitIPv4?: boolean;
-  location?: string;
-  suggestion?: string;
-}
-
-export interface PrivacyLeakDetection {
-  overallStatus: PrivacyLeakStatus;
-  webrtc: WebRTCLeakData;
-  dns: DNSLeakData;
-  ipv6: IPv6LeakData;
-}
-
-export type FingerprintStatus = 'native' | 'protected' | 'conflict' | 'unknown';
-
-export interface FingerprintFeatures {
-  overallStatus: FingerprintStatus;
-  canvas: {
-    hash: string;
-    status: 'native' | 'noise' | 'blocked';
-    isStable: boolean;
-  };
-  webgl: {
-    vendor: string;
-    renderer: string;
-    status: 'match' | 'mismatch' | 'unknown';
-    mismatchReason?: string;
-  };
-  audio: {
-    hash: string;
-    status: 'native' | 'noise' | 'blocked';
-  };
-  screen: {
-    resolution: string;
-    viewport: string;
-    colorDepth: number;
-    status: 'normal' | 'fixed' | 'suspicious';
-    hasWindowChrome: boolean;
-  };
-}
-
-export interface IPReputationData {
-  ipType: 'residential' | 'datacenter' | 'commercial' | 'mobile' | 'unknown';
-  ipTypeLabel: string;
-  ipTypeQuality: 'excellent' | 'good' | 'warning' | 'danger';
-  fraudScore: number;
-  fraudLevel: 'safe' | 'low' | 'medium' | 'high';
-  blacklistStatus: 'clean' | 'hit';
-  blacklistSources?: string[];
-}
-
-export interface HardwareLogicData {
-  cpuCores: number;
-  memory: number;
-  gpuVendor: string;
-  gpuRenderer: string;
-  os: string;
-  isLogical: boolean;
-  issues?: string[];
-}
-
-export interface MobileEmulationData {
-  touchPoints: number;
-  touchStatus: 'normal' | 'suspicious' | 'missing';
-  orientation: 'portrait' | 'landscape';
-  gyroscope: 'real' | 'emulated' | 'missing';
-  battery: { supported: boolean; level?: number; charging?: boolean };
-  screenSize: string;
-}
-
-export interface BotDetectionData {
-  webdriver: boolean;
-  cdcProperty: boolean;
-  headlessFeatures: boolean;
-  automationTraces: string[];
-  overallStatus: 'safe' | 'suspicious' | 'detected';
-}
-
-export interface TLSFingerprintData {
-  ja3Hash?: string;
-  ja3Match: 'chrome' | 'firefox' | 'safari' | 'custom' | 'unknown';
-  httpVersion: 'HTTP/1.1' | 'HTTP/2' | 'HTTP/3';
-  quicSupported: boolean;
-}
-
-export interface CheckGroup {
-  passed: number;
-  total: number;
-  status: 'pass' | 'warn' | 'fail';
-  subtitle?: string;
-}
-
-export interface HealthStatus {
-  score: number;
-  level: 'ready' | 'warning' | 'fatal';
-  summary: string;
-  checks: {
-    privacyLeak: CheckGroup;
-    ipQuality: CheckGroup;
-    consistency: CheckGroup;
-  };
-}
-
-export interface ActionableIssue {
-  id: string;
-  severity: 'fatal' | 'warning' | 'info';
-  title: string;
-  problem: string;
-  consequence: string;
-  fix: string;
-}
-
-export interface PrivacyLeakCheckData {
-  webrtc: {
-    status: 'safe' | 'blocked' | 'danger';
-    leakedIP?: string;
-  };
-  dns: {
-    status: 'safe' | 'warning' | 'danger';
-    location: string;
-    matchesExitIP: boolean;
-  };
-  ipv6: {
-    status: 'safe' | 'disabled' | 'danger';
-    address?: string;
-  };
-}
-
-export interface IPQualityData {
-  ipType: string;
-  ipTypeLabel: string;
-  ipTypeQuality: 'excellent' | 'good' | 'warning' | 'danger';
-  fraudScore: number;
-  fraudLevel: 'safe' | 'low' | 'medium' | 'high';
-  blacklistStatus: 'clean' | 'hit';
-  blacklistSources?: string[];
-}
-
-export interface EnvironmentConsistencyData {
-  timezoneMatch: boolean;
-  timezoneOffset: number;
-  languageMatch: boolean;
-  systemLanguage: string;
-  ipCountryLanguage: string;
-  cpuCores: number;
-  memory: number;
-  gpuVendor: string;
-  gpuRenderer: string;
-  os: string;
-  isLogical: boolean;
-  hardwareIssues?: string[];
-  canvasStatus: 'native' | 'noise' | 'blocked';
-  webglMatch: boolean;
-  webglMismatchDetail?: string;
-  audioStatus: 'native' | 'noise' | 'blocked';
 }

@@ -249,13 +249,8 @@ export function toWebRTCLeakResult(g: RTCGatherResult): CollectorResult<WebRTCLe
   return {
     status: 'success',
     data: {
-      leaked: g.publicIPs.length > 0,
       local_ips: g.localIPs,
       public_ips: g.publicIPs,
-      stun_ips: g.stunIPs,
     },
   };
 }
-
-export const collectWebRTCLeak = async (): Promise<CollectorResult<WebRTCLeakData>> =>
-  toWebRTCLeakResult(await gatherRTCCandidates());

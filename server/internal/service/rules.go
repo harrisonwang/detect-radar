@@ -111,12 +111,6 @@ var scoreRules = []scoreRule{
 		}
 		return 0, ""
 	}},
-	{"DNS_SUSPECTED", dimLeak, "warning", func(a model.ScanAnalysis, _ *model.IPIntel) (int, string) {
-		if a.Privacy.DNS.Status == "warning" {
-			return 10, "疑似 DNS 泄露"
-		}
-		return 0, ""
-	}},
 	{"IPV6_LEAK", dimLeak, "warning", func(a model.ScanAnalysis, _ *model.IPIntel) (int, string) {
 		if a.Privacy.IPv6.Status == "danger" {
 			return 10, "检测到真实 IPv6 地址泄露"
@@ -269,7 +263,7 @@ func buildDimensions(a model.ScanAnalysis, intel *model.IPIntel, rawPenalty map[
 	dnsUncertain := pv.DNS.Status == "blocked" || pv.DNS.Status == "unknown"
 	leakChecks := []bool{
 		pv.WebRTC.Status != "danger",
-		pv.DNS.Status != "danger" && pv.DNS.Status != "warning" && !dnsUncertain,
+		pv.DNS.Status != "danger" && !dnsUncertain,
 		pv.IPv6.Status != "danger",
 	}
 	leakPassed := 0
@@ -282,8 +276,6 @@ func buildDimensions(a model.ScanAnalysis, intel *model.IPIntel, rawPenalty map[
 	switch {
 	case pv.WebRTC.Status == "danger" || pv.DNS.Status == "danger" || pv.IPv6.Status == "danger":
 		leakState = "leak"
-	case pv.DNS.Status == "warning":
-		leakState = "contradiction"
 	case pv.WebRTC.Status == "warning" || dnsUncertain:
 		leakState = "unknown"
 	}

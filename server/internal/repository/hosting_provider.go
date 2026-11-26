@@ -100,97 +100,10 @@ func (r *HostingProviderRepository) Insert(provider *HostingProvider) error {
 	return err
 }
 
-func (r *HostingProviderRepository) InsertBatch(providers []HostingProvider) error {
-	tx, err := r.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	stmt, err := tx.Prepare(`
-		INSERT OR REPLACE INTO hosting_providers
-		(asn, name, normalized_name, category, confidence)
-		VALUES (?, ?, ?, ?, ?)
-	`)
-	if err != nil {
-		return err
-	}
-	defer stmt.Close()
-
-	for _, p := range providers {
-		_, err := stmt.Exec(p.ASN, p.Name, p.NormalizedName, p.Category, p.Confidence)
-		if err != nil {
-			return err
-		}
-	}
-
-	return tx.Commit()
-}
-
 func (r *HostingProviderRepository) Count() (int64, error) {
 	var count int64
 	err := r.db.QueryRow("SELECT COUNT(*) FROM hosting_providers").Scan(&count)
 	return count, err
-}
-
-type HostingProviderExclusion struct {
-	ASN    uint64
-	Reason string
-}
-
-func (r *HostingProviderRepository) AddExclusion(asn uint64, reason string) error {
-	_, err := r.db.Exec(
-		`INSERT OR REPLACE INTO hosting_provider_exclusions (asn, reason) VALUES (?, ?)`,
-		asn, reason,
-	)
-	return err
-}
-
-func (r *HostingProviderRepository) ListExclusions() ([]HostingProviderExclusion, error) {
-	rows, err := r.db.Query(`SELECT asn, reason FROM hosting_provider_exclusions ORDER BY asn`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var out []HostingProviderExclusion
-	for rows.Next() {
-		var e HostingProviderExclusion
-		if err := rows.Scan(&e.ASN, &e.Reason); err != nil {
-			return nil, err
-		}
-		out = append(out, e)
-	}
-	return out, rows.Err()
-}
-
-func (r *HostingProviderRepository) GetAll() ([]HostingProvider, error) {
-	query := `
-		SELECT id, asn, name, normalized_name, category, confidence
-		FROM hosting_providers
-		WHERE asn NOT IN (SELECT asn FROM hosting_provider_exclusions)
-	`
-
-	rows, err := r.db.Query(query)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	var providers []HostingProvider
-	for rows.Next() {
-		var p HostingProvider
-		var category sql.NullString
-		if err := rows.Scan(&p.ID, &p.ASN, &p.Name, &p.NormalizedName, &category, &p.Confidence); err != nil {
-			return nil, err
-		}
-		if category.Valid {
-			p.Category = category.String
-		}
-		providers = append(providers, p)
-	}
-
-	return providers, rows.Err()
 }
 
 func NormalizeName(name string) string {

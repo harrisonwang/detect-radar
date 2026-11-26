@@ -12,12 +12,10 @@ import (
 
 var tzOffsetRe = regexp.MustCompile(`^([+-])(\d{2}):?(\d{2})$`)
 
-type ConsistencyService struct {
-	ipIntel *IPIntelService
-}
+type ConsistencyService struct{}
 
-func NewConsistencyService(ipIntel *IPIntelService) *ConsistencyService {
-	return &ConsistencyService{ipIntel: ipIntel}
+func NewConsistencyService() *ConsistencyService {
+	return &ConsistencyService{}
 }
 
 func (s *ConsistencyService) Evaluate(browser model.BrowserInfo, intel *model.IPIntel) model.ConsistencyChecks {
@@ -47,10 +45,9 @@ func (s *ConsistencyService) checkTimezone(browserTZ, ipTZ string) model.Timezon
 	}
 
 	return model.TimezoneCheck{
-		Passed:      false,
-		Browser:     browserTZ,
-		Expected:    ipTZ,
-		OffsetHours: s.timezoneOffset(browserTZ, ipTZ),
+		Passed:   false,
+		Browser:  browserTZ,
+		Expected: ipTZ,
 	}
 }
 
@@ -99,21 +96,6 @@ func (s *ConsistencyService) checkLanguage(browserLang string, browserLangs []st
 	}
 	check.Passed = false
 	return check
-}
-
-func (s *ConsistencyService) timezoneOffset(tz1, tz2 string) int {
-	offsets := map[string]int{
-		"America/Los_Angeles": -8, "America/New_York": -5, "America/Chicago": -6,
-		"Europe/London": 0, "Europe/Paris": 1, "Europe/Berlin": 1, "Europe/Moscow": 3,
-		"Asia/Shanghai": 8, "Asia/Hong_Kong": 8, "Asia/Tokyo": 9, "Asia/Singapore": 8,
-		"Asia/Kolkata": 5, "Australia/Sydney": 10,
-	}
-	o1, ok1 := offsets[tz1]
-	o2, ok2 := offsets[tz2]
-	if ok1 && ok2 {
-		return o1 - o2
-	}
-	return 0
 }
 
 func countryLanguages(country string) []string {

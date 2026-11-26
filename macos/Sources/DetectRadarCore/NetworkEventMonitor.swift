@@ -49,24 +49,6 @@ public final class NetworkEventMonitor: @unchecked Sendable {
         }
     }
 
-    public func stop() {
-        queue.async { [weak self] in
-            guard let self else { return }
-            self.debounceWorkItem?.cancel()
-            self.debounceWorkItem = nil
-            self.pathMonitor?.cancel()
-            self.pathMonitor = nil
-            if let store = self.proxyStore {
-                SCDynamicStoreSetDispatchQueue(store, nil)
-                self.proxyStore = nil
-            }
-            if let observer = self.wakeObserver {
-                NSWorkspace.shared.notificationCenter.removeObserver(observer)
-                self.wakeObserver = nil
-            }
-        }
-    }
-
     deinit {
         pathMonitor?.cancel()
         if let store = proxyStore {

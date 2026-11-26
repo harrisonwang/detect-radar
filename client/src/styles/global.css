@@ -41,17 +41,6 @@ html {
   --line: rgba(255, 255, 255, 0.08);
 }
 
-[data-theme="dark"] {
-  --color-primary: #4ade80;
-  --color-primary-content: #020617;
-  --color-secondary: #22c55e;
-  --color-accent: #3b82f6;
-  --color-base-100: #020617;
-  --color-base-200: #0f172a;
-  --color-base-300: #1e293b;
-  --color-base-content: #e2e8f0;
-}
-
 body {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   background-color: var(--space-950);

@@ -4,7 +4,6 @@ import (
 	"detect-radar/internal/model"
 	"detect-radar/internal/service"
 	"detect-radar/internal/util"
-	"errors"
 	"log"
 	"strings"
 
@@ -49,30 +48,6 @@ func (h *ScanHandler) GetScan(c *fiber.Ctx) error {
 		return util.MissingParameter(c, "缺少扫描标识")
 	}
 	result, ok := h.service.GetWithScenario(id, c.Query("scenario"))
-	if !ok {
-		return util.ResourceNotFound(c, "扫描 '"+id+"' 不存在或已过期")
-	}
-	return c.JSON(result)
-}
-
-func (h *ScanHandler) UpdateDNS(c *fiber.Ctx) error {
-	id := c.Params("id")
-	if id == "" || !util.IsValidScanID(id) {
-		return util.InvalidParameter(c, "scan_id 格式非法")
-	}
-	var body struct {
-		Leaked bool `json:"leaked"`
-	}
-	if err := c.BodyParser(&body); err != nil {
-		return util.InvalidParameter(c, "请求内容无效："+err.Error())
-	}
-	result, ok, err := h.service.UpdateDNSLeak(id, body.Leaked)
-	if errors.Is(err, service.ErrAmbiguousScan) {
-		return ambiguousScan(c)
-	}
-	if err != nil {
-		return storageUnavailable(c, err)
-	}
 	if !ok {
 		return util.ResourceNotFound(c, "扫描 '"+id+"' 不存在或已过期")
 	}

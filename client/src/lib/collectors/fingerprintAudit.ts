@@ -1,6 +1,4 @@
-import type { FingerprintAuditPayload, FingerprintHookAudit } from '../types';
-
-const FPJS_CDN = 'https://openfpcdn.io/fingerprintjs/v4';
+import type { FPJSAudit, FingerprintHookAudit } from '../types';
 
 function isNativeFunction(fn: Function): boolean {
   try {
@@ -26,13 +24,6 @@ function auditEnvironment(): FingerprintHookAudit {
     }
   });
 
-  try {
-    if (!isNativeFunction(HTMLCanvasElement.prototype.toDataURL)) {
-      hookedMethods.push('toDataURL(DeepCheck)');
-    }
-  } catch {
-  }
-
   if (hookedMethods.length > 0) {
     return {
       status: 'DANGER',
@@ -44,25 +35,7 @@ function auditEnvironment(): FingerprintHookAudit {
   return { status: 'SAFE', message: '原生环境 (未检测到 Hook)', methods: [] };
 }
 
-async function loadFingerprintJS() {
-  const module = await import(/* @vite-ignore */ FPJS_CDN);
-  return module.default ?? module;
-}
-
-function summarizeCanvasComponent(component: unknown): string | undefined {
-  if (!component) {
-    return undefined;
-  }
-  try {
-    const canvasStr = JSON.stringify(component);
-    const snippet = canvasStr.slice(0, 150);
-    return `${snippet}${canvasStr.length > 150 ? '... ' : ' '}(${canvasStr.length})`;
-  } catch {
-    return 'canvas component stringify failed';
-  }
-}
-
-export async function collectFingerprintAudit(): Promise<FingerprintAuditPayload> {
+export async function collectFingerprintAudit(): Promise<FPJSAudit> {
   if (typeof window === 'undefined') {
     return {
       hook: {
@@ -73,22 +46,7 @@ export async function collectFingerprintAudit(): Promise<FingerprintAuditPayload
     };
   }
 
-  const hookAudit = auditEnvironment();
-  let visitorId: string | undefined;
-  let canvasSummary: string | undefined;
-
-  try {
-    const FingerprintJS = await loadFingerprintJS();
-    const fp = await FingerprintJS.load();
-    const result = await fp.get();
-    visitorId = result?.visitorId;
-    canvasSummary = summarizeCanvasComponent(result?.components?.canvas?.value);
-  } catch {
-  }
-
   return {
-    visitorId,
-    canvasSummary,
-    hook: hookAudit
+    hook: auditEnvironment()
   };
 }

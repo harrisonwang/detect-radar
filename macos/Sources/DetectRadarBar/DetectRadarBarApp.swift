@@ -64,7 +64,7 @@ private enum PopoverPreviewRenderer {
             ip: "2001:db8:390::1", country: "CN", region: "上海市",
             isp: "China Telecom", usageType: "isp", isHosting: false
         )
-        let proxy = ProxyEndpoint(scheme: .http, host: "127.0.0.1", port: 7890, companionSocksPort: 7891)
+        let proxy = ProxyEndpoint(scheme: .http, host: "127.0.0.1", port: 7890)
 
         let cleanSnap = EgressSnapshot(
             timestamp: Date(),

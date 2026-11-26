@@ -70,17 +70,6 @@ func NewIP2LocationAdapter(apiKey string) *IP2LocationAdapter {
 	}
 }
 
-func (a *IP2LocationAdapter) Capabilities() Capabilities {
-	return Capabilities{
-		HasGeo:       true,
-		HasASN:       true,
-		HasTimezone:  true,
-		HasPrivacy:   true,
-		HasUsageType: true,
-		HasRiskScore: true,
-	}
-}
-
 func (a *IP2LocationAdapter) Lookup(ctx context.Context, ip string) (*model.IPIntel, error) {
 	url := fmt.Sprintf("%s/?key=%s&ip=%s&format=json", a.BaseURL(), a.APIKey(), ip)
 

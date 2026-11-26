@@ -19,9 +19,8 @@ type mapIntelAdapter struct {
 	byIP map[string]*model.IPIntel
 }
 
-func (m *mapIntelAdapter) Name() string                       { return "local" }
-func (m *mapIntelAdapter) Tier() string                       { return "L1" }
-func (m *mapIntelAdapter) Capabilities() adapter.Capabilities { return adapter.Capabilities{} }
+func (m *mapIntelAdapter) Name() string { return "local" }
+func (m *mapIntelAdapter) Tier() string { return "L1" }
 func (m *mapIntelAdapter) Lookup(_ context.Context, ip string) (*model.IPIntel, error) {
 	if v, ok := m.byIP[ip]; ok {
 		cp := *v

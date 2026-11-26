@@ -23,7 +23,6 @@ cors:
 rate_limit:
   max: 100
   expiration: 60s
-  lookup_max: 10
 
 dns:
   domain: "${LEAK_ZONE}"

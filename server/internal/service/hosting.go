@@ -55,20 +55,17 @@ var ispNameKeywords = []string{
 }
 
 type HostingResult struct {
-	IP            string   `json:"ip"`
-	ASN           uint64   `json:"asn"`
-	ASNStr        string   `json:"asn_str"`
-	Org           string   `json:"org"`
-	AllASNs       []string `json:"all_asns,omitempty"`
-	IsHosting     bool     `json:"is_hosting"`
-	IsResidential bool     `json:"is_residential"`
-	IsUnknown     bool     `json:"is_unknown"`
-	ASNStale      bool     `json:"asn_stale,omitempty"`
-	Provider      string   `json:"provider,omitempty"`
-	Confidence    int      `json:"confidence"`
-	Method        string   `json:"method,omitempty"`
-	RDNS          string   `json:"rdns,omitempty"`
-	NeedsDeepScan bool     `json:"needs_deep_scan"`
+	IP            string `json:"ip"`
+	ASN           uint64 `json:"asn"`
+	ASNStr        string `json:"asn_str"`
+	Org           string `json:"org"`
+	IsHosting     bool   `json:"is_hosting"`
+	IsResidential bool   `json:"is_residential"`
+	ASNStale      bool   `json:"asn_stale,omitempty"`
+	Confidence    int    `json:"confidence"`
+	Method        string `json:"method,omitempty"`
+	RDNS          string `json:"rdns,omitempty"`
+	NeedsDeepScan bool   `json:"needs_deep_scan"`
 }
 
 type ASNRecord struct {
@@ -229,7 +226,6 @@ func (d *HostingDetector) Detect(ipStr string) (*HostingResult, error) {
 		cloudRange, err := d.cloudIPRepo.FindByIP(ip)
 		if err == nil && cloudRange != nil {
 			result.IsHosting = true
-			result.Provider = cloudRange.Provider
 			result.Confidence = 100
 			result.Method = "cloud_ip_range"
 			return result, nil
@@ -247,10 +243,6 @@ func (d *HostingDetector) Detect(ipStr string) (*HostingResult, error) {
 
 	cymruASNs, cymruErr := d.cachedLookupCymru(ipStr)
 	if cymruErr == nil && len(cymruASNs) > 0 {
-		for _, ca := range cymruASNs {
-			result.AllASNs = append(result.AllASNs, fmt.Sprintf("AS%d(%s)", ca.ASN, ca.CIDR))
-		}
-
 		result.ASNStale = !containsASN(cymruASNs, record.ASNumber)
 
 		if cymruASNs[0].ASN != record.ASNumber {
@@ -263,7 +255,6 @@ func (d *HostingDetector) Detect(ipStr string) (*HostingResult, error) {
 
 		if provider, matchedASN := d.checkASNsInBlacklist(cymruASNs); provider != nil {
 			result.IsHosting = true
-			result.Provider = provider.Name
 			result.Confidence = provider.Confidence
 			if result.Org == "" {
 				result.Org = provider.Name
@@ -282,7 +273,6 @@ func (d *HostingDetector) Detect(ipStr string) (*HostingResult, error) {
 		provider, err := d.providerRepo.FindByASN(record.ASNumber)
 		if err == nil && provider != nil {
 			result.IsHosting = true
-			result.Provider = provider.Name
 			result.Confidence = provider.Confidence
 			result.Method = "asn_match"
 			return result, nil
@@ -293,7 +283,6 @@ func (d *HostingDetector) Detect(ipStr string) (*HostingResult, error) {
 		provider, err := d.providerRepo.FindByNormalizedName(record.ASOrg)
 		if err == nil && provider != nil {
 			result.IsHosting = true
-			result.Provider = provider.Name
 			result.Confidence = 90
 			result.Method = "name_match"
 			return result, nil
@@ -313,7 +302,6 @@ func (d *HostingDetector) Detect(ipStr string) (*HostingResult, error) {
 
 	if result.ASNStale {
 		result.IsHosting = false
-		result.IsUnknown = true
 		result.Confidence = 50
 		result.Method = "asn_stale"
 		result.NeedsDeepScan = true
@@ -324,7 +312,6 @@ func (d *HostingDetector) Detect(ipStr string) (*HostingResult, error) {
 		match := d.keywordRepo.GetBestMatch(record.ASOrg)
 		if match != nil && match.Weight >= 70 {
 			result.IsHosting = true
-			result.Provider = match.Provider
 			result.Confidence = match.Weight
 			result.Method = "keyword_match"
 			return result, nil
@@ -335,7 +322,6 @@ func (d *HostingDetector) Detect(ipStr string) (*HostingResult, error) {
 
 	if isLikelyISP {
 		result.IsHosting = false
-		result.IsUnknown = true
 		result.Confidence = 60
 		result.Method = "isp_static"
 		result.NeedsDeepScan = true
@@ -343,7 +329,6 @@ func (d *HostingDetector) Detect(ipStr string) (*HostingResult, error) {
 	}
 
 	result.IsHosting = false
-	result.IsUnknown = true
 	result.Confidence = 50
 	result.Method = "unknown"
 	result.NeedsDeepScan = true
@@ -390,42 +375,6 @@ func (d *HostingDetector) isLikelyISPByName(org string) bool {
 	return false
 }
 
-func (d *HostingDetector) DetectBatch(ips []string) ([]*HostingResult, error) {
-	results := make([]*HostingResult, 0, len(ips))
-	for _, ip := range ips {
-		result, err := d.Detect(ip)
-		if err != nil {
-			results = append(results, &HostingResult{
-				IP:         ip,
-				IsHosting:  false,
-				Confidence: 0,
-				Method:     "error",
-			})
-			continue
-		}
-		results = append(results, result)
-	}
-	return results, nil
-}
-
-func (d *HostingDetector) LookupASN(ipStr string) (*ASNRecord, error) {
-	ip := net.ParseIP(ipStr)
-	if ip == nil {
-		return nil, fmt.Errorf("无效的 IP 地址: %s", ipStr)
-	}
-
-	d.mu.RLock()
-	defer d.mu.RUnlock()
-
-	var record ASNRecord
-	err := d.asnDB.Lookup(ip, &record)
-	if err != nil {
-		return nil, fmt.Errorf("ASN 查询失败: %w", err)
-	}
-
-	return &record, nil
-}
-
 func (d *HostingDetector) GetStats() map[string]interface{} {
 	stats := map[string]interface{}{
 		"db_path": d.dbPath,
@@ -450,12 +399,11 @@ func (d *HostingDetector) GetStats() map[string]interface{} {
 }
 
 type CymruASNInfo struct {
-	ASN    uint64
-	CIDR   string
-	CC     string
-	RIR    string
-	Date   string
-	OrgStr string
+	ASN  uint64
+	CIDR string
+	CC   string
+	RIR  string
+	Date string
 }
 
 func (d *HostingDetector) lookupCymruASNs(ipStr string) ([]CymruASNInfo, error) {

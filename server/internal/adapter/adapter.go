@@ -16,17 +16,6 @@ type Adapter interface {
 	Tier() string
 
 	Lookup(ctx context.Context, ip string) (*model.IPIntel, error)
-
-	Capabilities() Capabilities
-}
-
-type Capabilities struct {
-	HasGeo       bool
-	HasASN       bool
-	HasTimezone  bool
-	HasPrivacy   bool
-	HasUsageType bool
-	HasRiskScore bool
 }
 
 type Registry struct {

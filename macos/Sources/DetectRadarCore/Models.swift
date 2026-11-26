@@ -68,18 +68,15 @@ public struct ProxyEndpoint: Equatable, Sendable {
     public let scheme: ProxyScheme
     public let host: String
     public let port: Int
-    public let companionSocksPort: Int?
 
     public init(
         scheme: ProxyScheme,
         host: String,
-        port: Int,
-        companionSocksPort: Int? = nil
+        port: Int
     ) {
         self.scheme = scheme
         self.host = host
         self.port = port
-        self.companionSocksPort = companionSocksPort
     }
 }
 

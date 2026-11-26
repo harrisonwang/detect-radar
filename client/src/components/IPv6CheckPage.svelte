@@ -221,7 +221,6 @@
           v4={current.v4}
           v6={current.v6}
           verdictState={verdict?.state ?? 'unknown'}
-          verdictReason={verdict?.reason}
           verdictNote={verdict?.note}
           {revealExit}
           {busy}

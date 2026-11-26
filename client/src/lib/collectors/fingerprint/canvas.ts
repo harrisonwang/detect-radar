@@ -50,8 +50,7 @@ export const collectCanvas = async (): Promise<CollectorResult<CanvasFingerprint
       data: {
         hash_sample_a: hash1,
         hash_sample_b: hash2,
-        native_code: nativeCode,
-        data_length: data1.length
+        native_code: nativeCode
       },
       timing: performance.now() - start
     };

@@ -53,10 +53,6 @@ func IsValidScanID(id string) bool {
 	return scanIDRe.MatchString(id)
 }
 
-func IsValidIP(ip string) bool {
-	return net.ParseIP(ip) != nil
-}
-
 // IsPrivateIP checks if an IP address is a private/local address
 // This includes RFC 1918 (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16),
 // loopback (127.0.0.0/8, ::1), link-local, and other non-routable addresses

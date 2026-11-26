@@ -14,6 +14,6 @@ export const collectLeaks = async (): Promise<LeaksResults> => {
   };
 };
 
-export { collectWebRTCLeak, gatherRTCCandidates } from './webrtc';
+export { gatherRTCCandidates } from './webrtc';
 export { collectIPv6Leak } from './ipv6';
 export { collectDNSLeak } from './dns';

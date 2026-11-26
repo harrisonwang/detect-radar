@@ -85,17 +85,6 @@ func NewIPRegistryAdapter(apiKey string) *IPRegistryAdapter {
 	}
 }
 
-func (a *IPRegistryAdapter) Capabilities() Capabilities {
-	return Capabilities{
-		HasGeo:       true,
-		HasASN:       true,
-		HasTimezone:  true,
-		HasPrivacy:   true,
-		HasUsageType: true,
-		HasRiskScore: false,
-	}
-}
-
 func (a *IPRegistryAdapter) Lookup(ctx context.Context, ip string) (*model.IPIntel, error) {
 	url := fmt.Sprintf("%s/%s?key=%s", a.BaseURL(), ip, a.APIKey())
 

@@ -182,68 +182,31 @@ func (s *ScanService) InstanceID(scanID string) (string, error) {
 	return id, nil
 }
 
-func (s *ScanService) UpdateDNSLeak(scanID string, leaked bool) (*model.ScanResponse, bool, error) {
-	id, err := s.InstanceID(scanID)
-	if err != nil {
-		return nil, false, err
-	}
-	if id == "" {
-		return nil, false, nil
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	stored, ok := s.store[id]
-	if !ok || time.Since(stored.createdAt) >= s.ttl {
-		return nil, false, nil
-	}
-	if stored.resp.Analysis.Privacy.DNS.Assessment != nil {
-		return stored.resp, true, nil
-	}
-	expected := "safe"
-	if leaked {
-		expected = "danger"
-	}
-	if stored.resp.Analysis.Privacy.DNS.Status == expected {
-		return stored.resp, true, nil
-	}
-	updated := rescoreDNS(stored.resp, leaked)
-	if err := s.journal.DNSUpdateEvent(id, updated, leaked); err != nil {
-		return nil, true, err
-	}
-	stored.resp = updated
-	s.store[id] = stored
-	return updated, true, nil
-}
-
 func (s *ScanService) UpdateDNSObservation(instanceID, clientID string, result *model.DNSLeakResult) (*model.ScanResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	stored, ok := s.store[instanceID]
 	var updated *model.ScanResponse
-	if ok && time.Since(stored.createdAt) < s.ttl {
-		if result.Assessment == nil {
-			updated = rescoreDNS(stored.resp, result.Leaked)
-		} else {
-			status := "unknown"
-			switch result.Assessment.State {
-			case "suspected":
-				status = "danger"
-			case "clear":
-				status = "safe"
-			case "unobserved":
-				status = "blocked"
-			}
-			dns := model.PrivacyDNS{Status: status, Assessment: result.Assessment}
-			if len(result.Assessment.SuspectIPs) > 0 {
-				for _, resolver := range result.DNSServers {
-					if resolver.IP == result.Assessment.SuspectIPs[0] {
-						dns.Country, dns.ISP = resolver.Country, resolver.ISP
-						break
-					}
+	if ok && time.Since(stored.createdAt) < s.ttl && result.Assessment != nil {
+		status := "unknown"
+		switch result.Assessment.State {
+		case "suspected":
+			status = "danger"
+		case "clear":
+			status = "safe"
+		case "unobserved":
+			status = "blocked"
+		}
+		dns := model.PrivacyDNS{Status: status, Assessment: result.Assessment}
+		if len(result.Assessment.SuspectIPs) > 0 {
+			for _, resolver := range result.DNSServers {
+				if resolver.IP == result.Assessment.SuspectIPs[0] {
+					dns.Country, dns.ISP = resolver.Country, resolver.ISP
+					break
 				}
 			}
-			updated = rescoreDNSStatus(stored.resp, dns)
 		}
+		updated = rescoreDNSStatus(stored.resp, dns)
 	}
 	if err := s.journal.DNSLeakEvent(instanceID, clientID, result, updated); err != nil {
 		return nil, err
@@ -253,16 +216,6 @@ func (s *ScanService) UpdateDNSObservation(instanceID, clientID string, result *
 		s.store[instanceID] = stored
 	}
 	return updated, nil
-}
-
-func rescoreDNS(previous *model.ScanResponse, leaked bool) *model.ScanResponse {
-	dns := model.PrivacyDNS{Status: "safe", MatchesExitIP: !leaked}
-	if leaked {
-		dns.Status = "danger"
-		dns.Country = previous.Analysis.Privacy.DNS.Country
-		dns.ISP = previous.Analysis.Privacy.DNS.ISP
-	}
-	return rescoreDNSStatus(previous, dns)
 }
 
 func rescoreDNSStatus(previous *model.ScanResponse, dns model.PrivacyDNS) *model.ScanResponse {
@@ -278,7 +231,7 @@ func privacyOverallStatus(pv model.PrivacyAnalysis) string {
 	switch {
 	case pv.WebRTC.Status == "danger" || pv.DNS.Status == "danger" || pv.IPv6.Status == "danger":
 		return "danger"
-	case pv.WebRTC.Status == "warning" || pv.DNS.Status == "warning":
+	case pv.WebRTC.Status == "warning":
 		return "warning"
 	default:
 		return "safe"

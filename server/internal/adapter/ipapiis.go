@@ -99,17 +99,6 @@ func NewIPAPIISAdapter(apiKey string) *IPAPIISAdapter {
 	}
 }
 
-func (a *IPAPIISAdapter) Capabilities() Capabilities {
-	return Capabilities{
-		HasGeo:       true,
-		HasASN:       true,
-		HasTimezone:  true,
-		HasPrivacy:   true,
-		HasUsageType: true,
-		HasRiskScore: false,
-	}
-}
-
 func (a *IPAPIISAdapter) Lookup(ctx context.Context, ip string) (*model.IPIntel, error) {
 	url := fmt.Sprintf("%s?q=%s", a.BaseURL(), ip)
 

@@ -10,7 +10,6 @@ import (
 
 const digitaloceanURL = "https://digitalocean.com/geo/google.csv"
 
-// DigitalOceanCrawler DigitalOcean IP 范围爬虫
 type DigitalOceanCrawler struct{}
 
 func (c *DigitalOceanCrawler) Name() string {
@@ -26,8 +25,6 @@ func (c *DigitalOceanCrawler) Crawl() ([]Range, error) {
 	var ranges []Range
 	scanner := bufio.NewScanner(bytes.NewReader(body))
 
-	// CSV 格式: ip_range,country_code,region,city,postal_code
-	// 例如: 104.131.0.0/18,US,NJ,North Bergen,07047
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, "#") {
@@ -46,7 +43,6 @@ func (c *DigitalOceanCrawler) Crawl() ([]Range, error) {
 
 		region := ""
 		if len(parts) >= 4 {
-			// 组合区域信息: 国家-州-城市
 			country := strings.TrimSpace(parts[1])
 			state := strings.TrimSpace(parts[2])
 			city := strings.TrimSpace(parts[3])

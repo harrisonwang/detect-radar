@@ -15,9 +15,9 @@ import (
 )
 
 const (
-	FeedbackFalsePositive   = "false_positive"   // 我是正常网络，被误判
-	FeedbackMissedDetection = "missed_detection" // 在用代理/VPN，但没检出
-	FeedbackDataWrong       = "data_wrong"       // 位置/运营商/ASN 等数据不对
+	FeedbackFalsePositive   = "false_positive"
+	FeedbackMissedDetection = "missed_detection"
+	FeedbackDataWrong       = "data_wrong"
 	FeedbackOther           = "other"
 )
 
@@ -31,7 +31,6 @@ func ValidFeedbackCategory(category string) bool {
 	return false
 }
 
-// NormalizeFeedbackNote 清理控制字符，并限制为 500 个码点。
 func NormalizeFeedbackNote(note string) (string, bool) {
 	var b strings.Builder
 	for _, r := range note {
@@ -39,7 +38,6 @@ func NormalizeFeedbackNote(note string) (string, bool) {
 		case r == '\n' || r == '\r' || r == '\t':
 			b.WriteRune(' ')
 		case unicode.IsControl(r):
-			// 丢弃其余控制字符
 		default:
 			b.WriteRune(r)
 		}

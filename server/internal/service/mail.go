@@ -49,7 +49,6 @@ func (m *Mailer) processNext(ctx context.Context) (bool, error) {
 		return false, err
 	}
 	retry, sendErr := m.send(ctx, job.Message)
-	// 关闭时保留任务，重启后继续发送。
 	if ctx.Err() != nil {
 		return true, ctx.Err()
 	}

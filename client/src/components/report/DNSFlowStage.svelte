@@ -63,7 +63,6 @@
   let pendingVerdictRipple = false;
   let verdictRippleStartAt = 0;
 
-  // 4 节点真实对称拓扑（仅描绘客观存在/实测可见实体）
   const DESKTOP_DNS: readonly Pt[] = [
     [106, 148],
     [186, 84],
@@ -84,7 +83,6 @@
     [654, 148],
   ];
 
-  // 移动端对称菱形拓扑
   const MOBILE_DNS: readonly Pt[] = [
     [170, 42],
     [78, 42],
@@ -181,7 +179,6 @@
   function stepAnimation(now: number) {
     let keepGoing = false;
 
-    // 1. HTTPS 并发探测通道（0.50 处经过“网页出口”节点）
     if (httpsPhase === 'probing') {
       const u = Math.min(1, (now - scanStartAt) / 850);
       httpsT = easeOut(u) * 0.42;
@@ -218,7 +215,6 @@
       }
     }
 
-    // 2. DNS 并发采样通道（直接沿上路并发起飞，0.50 处到达“DNS 解析器”）
     if (dnsPhase === 'probing') {
       dnsActive = true;
       const dur = 2400;
@@ -253,7 +249,6 @@
       }
     }
 
-    // 3. 胶囊均抵达服务端后触发完结定帧扩散
     if (pendingVerdictRipple && httpsPhase === 'docked' && dnsPhase === 'docked') {
       pendingVerdictRipple = false;
       verdictPulsing = true;
@@ -540,7 +535,6 @@
   let activeDnsDesktopPts = $derived(isUnobservedBranch ? DESKTOP_DNS_HALT : DESKTOP_DNS);
   let activeDnsMobilePts = $derived(isUnobservedBranch ? MOBILE_DNS_HALT : MOBILE_DNS);
 
-  // 并行飞行坐标
   let dnsPosDesktop = $derived(pointAlong(activeDnsDesktopPts, dnsT));
   let dnsTrail1Desktop = $derived(pointAlong(activeDnsDesktopPts, dnsT - 0.028));
   let dnsTrail2Desktop = $derived(pointAlong(activeDnsDesktopPts, dnsT - 0.054));
@@ -621,7 +615,6 @@
 </script>
 
 {#snippet isoNodes(prefix: string, pos: Record<NodeId, Pt>, compact: boolean)}
-  <!-- 1. 你的浏览器 -->
   {@const b = pos.browser}
   <g
     class="dfs-node-hit"
@@ -648,7 +641,6 @@
     <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#e2e8f0" font-size={compact ? 11.5 : 12} font-weight="600">你的浏览器</text>
   </g>
 
-  <!-- 2. DNS 解析器塔（桌面位于上方，标签在塔顶上方） -->
   {@const res = pos.resolver}
   <g
     class="dfs-node-hit"
@@ -751,7 +743,6 @@
     {/if}
   </g>
 
-  <!-- 3. HTTPS 网页出口塔（桌面位于下方，标签在底座下方） -->
   {@const ex = pos.exit}
   <g
     class="dfs-node-hit"
@@ -785,7 +776,6 @@
     {/if}
   </g>
 
-  <!-- 4. DetectRadar 服务端 -->
   {@const au = pos.authority}
   <g
     class="dfs-node-hit"
@@ -883,14 +873,11 @@
     </div>
   {/if}
 
-  <!-- 无框 2.5D 4 节点并发路径画布 -->
   <div class="dfs-canvas-wrap">
-    <!-- 桌面端对称菱形画布：上方 DNS 探针，下方 HTTPS 出口 -->
     <svg class="dfs-svg-desktop" viewBox="0 0 760 288">
       {@render svgDefs('d')}
       <rect width="760" height="288" fill="url(#d-iso)" />
 
-      <!-- 底层暗轨 -->
       <path
         d={polyToD(DESKTOP_DNS)}
         fill="none"
@@ -900,7 +887,6 @@
       />
       <path d={polyToD(DESKTOP_HTTPS)} fill="none" stroke="rgba(148,163,184,0.16)" stroke-width="2" />
 
-      <!-- 上路：DNS 解析 -->
       <path
         d={polyToD(activeDnsDesktopPts)}
         fill="none"
@@ -910,7 +896,6 @@
         stroke-dasharray={isUnobservedBranch ? '5 4' : undefined}
       />
 
-      <!-- 下路：HTTPS 出口 -->
       <path
         d={polyToD(DESKTOP_HTTPS)}
         fill="none"
@@ -919,7 +904,6 @@
         stroke-opacity={activeExit?.ip ? 0.78 : 0.45}
       />
 
-      <!-- 支路微标签（落在轨迹旁侧，不遮挡胶囊） -->
       <g transform="translate(252, 106)" opacity="0.88">
         <rect x="-28" y="-9.5" width="56" height="19" rx="9.5" fill="#050d1d" stroke={dnsAccent} stroke-opacity="0.4" />
         <text x="0" y="3.2" text-anchor="middle" fill="#cbd5e1" font-size="9.5" font-family="'JetBrains Mono', ui-monospace, monospace">DNS 递归</text>
@@ -945,7 +929,6 @@
 
       {@render isoNodes('d', NODE_POS_DESKTOP, false)}
 
-      <!-- 并行 HTTPS 飞行胶囊 -->
       {#if httpsActive && httpsT > 0.05}
         {#if httpsT > 0.09 && httpsT < 0.98}
           <circle cx={httpsTrail2Desktop.x} cy={httpsTrail2Desktop.y} r="2.2" fill="var(--sig)" opacity="0.24" />
@@ -968,7 +951,6 @@
         </g>
       {/if}
 
-      <!-- 并行 DNS 飞行胶囊 -->
       {#if dnsActive && dnsT > 0.05}
         {#if dnsT > 0.09 && dnsT < 0.98}
           <circle cx={dnsTrail2Desktop.x} cy={dnsTrail2Desktop.y} r="2.2" fill={dnsAccent} opacity="0.24" />
@@ -992,7 +974,6 @@
       {/if}
     </svg>
 
-    <!-- 移动端对称菱形画布：上浏览器 → 左 DNS / 右 HTTPS → 下服务端 -->
     <svg class="dfs-svg-mobile" viewBox="0 0 340 314">
       {@render svgDefs('m')}
       <rect width="340" height="314" fill="url(#m-iso)" />

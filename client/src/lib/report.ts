@@ -1,10 +1,3 @@
-/**
- * 报告合成层：把后端 ScanResponse（+ 客户端采集）综合成「一份一致性 + 暴露体检报告」。
- *
- * 产品论点：IP 层无法直接证明用户身份，所以产品回答的是「网络与环境是否自洽」。
- * 本文件把四类信号
- * （出口身份 / 一致性 / 泄露 / 环境真实性）综合为：一句判定 + 破绽清单 + 四组读数。
- */
 
 import type { AllCollectorResults } from "./collectors/types";
 import type { DeviceSignals } from "./collectors/environment/device";
@@ -24,7 +17,6 @@ import { browserExit, DNS_POLICY_VERSION, dnsVerdictNote, dnsStatus } from "./dn
 import { isIPv6Address, sameIP } from "./ip";
 import { maskIP } from "./ipDisplay";
 
-// 四态语义（对应 global.css 的 --sig / --warn / --leak / --unknown）
 export type SignalState = "coherent" | "contradiction" | "leak" | "unknown";
 export type Severity = "leak" | "contradiction" | "caution" | "info";
 
@@ -32,16 +24,16 @@ export interface Finding {
   id: string;
   severity: Severity;
   title: string;
-  fact: string; // 检测到什么（事实）
-  meaning: string; // 意味着什么（风险）
-  fix: string; // 怎么修
-  platformNote?: string; // 降级后的场景知识：对哪类平台尤其致命
+  fact: string;
+  meaning: string;
+  fix: string;
+  platformNote?: string;
 }
 
 export interface ReportGroup {
   key: "identity" | "consistency" | "leak" | "environment";
   label: string;
-  score: number; // 0-100 相干度
+  score: number;
   state: SignalState;
   passed: number;
   total: number;
@@ -54,14 +46,14 @@ export interface ReadoutRow {
   state: SignalState;
   href?: string;
   hint?: string;
-  compare?: { browser: string; ip: string }; // 浏览器↔IP 对比行
+  compare?: { browser: string; ip: string };
 }
 
 export interface IdentityReadout {
   ip: string;
   masked: string;
   geo: string;
-  countryCode: string; // ISO alpha-2，用于国旗
+  countryCode: string;
   asn: string;
   org: string;
   usageLabel: string;
@@ -71,23 +63,19 @@ export interface IdentityReadout {
   method?: string;
   humanRatio?: number;
   ceilingNote?: string;
-  flags: string[]; // vpn/proxy/tor/relay/hosting 命中项
+  flags: string[];
   fraudScore: number;
   blacklist: string[];
   openPorts: number[];
   exposure: string[];
-  present: boolean; // ip_intel 是否有效（loopback/失败时为 false）
+  present: boolean;
 }
 
-/**
- * RTT 物理延迟读数（Phase 1）：只呈现测量值，不判定不计分——阈值未标定前，
- * 任何「正常 / 异常」的说法都是拍脑袋。geo 系列刻意不进呈现层（violation 即判定）。
- */
 export interface RTTReadout {
-  clientMinMS?: number; // 浏览器↔服务器 全程（含代理腿）
-  serverTCPMS?: number; // 出口↔服务器（同探测窗口最小服务端 TCP RTT）
-  deltaMS?: number; // 浏览器→出口 这一腿的估计差值（delta_min_ms，展示收口非负）
-  jitterMS?: number; // 客户端多次采样的抖动，悬停提示用
+  clientMinMS?: number;
+  serverTCPMS?: number;
+  deltaMS?: number;
+  jitterMS?: number;
 }
 
 export interface ReportModel {
@@ -101,7 +89,7 @@ export interface ReportModel {
   consistency: ReadoutRow[];
   leaks: ReadoutRow[];
   environment: ReadoutRow[];
-  rtt?: RTTReadout; // 缺失 = 本次未测得（不渲染读数条）
+  rtt?: RTTReadout;
   meta: {
     scanId: string;
     processedAt: string;
@@ -113,8 +101,6 @@ export interface ReportModel {
   };
 }
 
-// ---- 工具 ----
-
 const USAGE_LABEL: Record<string, string> = {
   residential: "普通网络",
   mobile: "移动网络",
@@ -122,7 +108,6 @@ const USAGE_LABEL: Record<string, string> = {
   unknown: "类型未定",
 };
 
-// 语言代码 → 中文名（按前缀匹配）
 const LANG_NAME: Record<string, string> = {
   zh: "简体中文",
   "zh-tw": "繁体中文",
@@ -148,7 +133,6 @@ function langName(code: string): string {
   return LANG_NAME[c] || LANG_NAME[c.split("-")[0]] || code;
 }
 
-// UTC 偏移（分钟）→ 「东八区 / 西五区 / 零时区」
 const CN_NUM = [
   "零",
   "一",
@@ -175,7 +159,6 @@ function offsetToZone(mins: number): string {
   return m === 0 ? `${dir}${hz}区` : `${dir}${hz}区${m}分`;
 }
 
-// 时区（IANA 名 / ±HH:MM 偏移）→ 中文「东N区」表述
 function tzToZone(tz: string): string {
   if (!tz || tz === "unknown" || tz === "-") return "未知";
   if (tz === "UTC" || tz === "GMT" || tz === "Z") return "零时区";
@@ -201,12 +184,9 @@ function tzToZone(tz: string): string {
       return offsetToZone(mins);
     }
   } catch {
-    /* 无法解析则回退原串 */
   }
   return tz;
 }
-
-// ---- 身份读数 ----
 
 function normalizeHumanRatio(v?: number): number | undefined {
   if (typeof v !== "number" || !Number.isFinite(v)) return undefined;
@@ -218,7 +198,6 @@ function buildIdentity(
   intel: IPIntel | undefined,
 ): IdentityReadout {
   const present = !!(intel && intel.ip && intel.country !== "LOCAL");
-  // Hosting 不进标签（类型已显示「机房 IP」，重复无意义）；只保留代理类标记
   const flags: string[] = [];
   if (intel?.is_vpn) flags.push("VPN");
   if (intel?.is_proxy) flags.push("Proxy");
@@ -265,8 +244,6 @@ function buildIdentity(
   };
 }
 
-// ---- 四组维度（纯后端评分，前端只映射展示，不再本地计算分数/状态）----
-
 const GROUP_ORDER: ReportGroup["key"][] = [
   "identity",
   "consistency",
@@ -281,7 +258,6 @@ const GROUP_LABEL: Record<ReportGroup["key"], string> = {
   environment: "环境指纹",
 };
 
-// 维度小注：纯展示文本，随后端语义状态派生（不参与评分）
 function groupNote(key: ReportGroup["key"], state: SignalState, scenario: ScanScenario): string {
   switch (key) {
     case "identity":
@@ -334,13 +310,10 @@ function buildGroups(dims: DimensionScore[], scenario: ScanScenario): ReportGrou
   });
 }
 
-// ---- 破绽清单 ----
-
 function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScenario): Finding[] {
   const F: Finding[] = [];
   const push = (f: Finding) => F.push(f);
 
-  // 泄露类（最高优先级）
   const pv = a.privacy;
   if (pv.webrtc.status === "danger" && !isExpectedDualStackWebRTC(pv, id.ip)) {
     push({
@@ -373,7 +346,6 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
     });
   }
 
-  // 身份类
   if (id.blacklist.length > 0) {
     push({
       id: "blacklist",
@@ -441,7 +413,6 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
     });
   }
 
-  // 一致性类（日常模式下仅作展示，不列为暴露项）
   const tz = a.consistency.timezone;
   if (scenario === "strict" && !tz.passed) {
     push({
@@ -464,7 +435,6 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
       fix: "把浏览器首选语言调成 IP 归属地对应语言。",
     });
   }
-  // 环境指纹类
   const fp = a.fingerprint;
   if (a.automation.webdriver_detected) {
     push({
@@ -527,8 +497,6 @@ function buildFindings(a: ScanAnalysis, id: IdentityReadout, scenario: ScanScena
   return F.sort((x, y) => rank[x.severity] - rank[y.severity]);
 }
 
-// ---- 明细读数 ----
-
 function consistencyRows(a: ScanAnalysis, scenario: ScanScenario): ReadoutRow[] {
   const tz = a.consistency.timezone;
   const lang = a.consistency.language;
@@ -570,7 +538,6 @@ export function isExpectedDualStackWebRTC(
   if (pv.ipv6.address && allSameAddress(extra, pv.ipv6.address)) return true;
   if (exitIP && !isIPv6Address(exitIP) && extra.every((ip) => isIPv6Address(ip)))
     return true;
-  // 本机以 IPv6 出口访问且未触发代理/机房风险（非 danger）时，STUN 返回 IPv4 属正常双栈
   if (
     exitIP &&
     isIPv6Address(exitIP) &&
@@ -590,7 +557,6 @@ function leakRows(a: ScanAnalysis, exit: DNSExit | null): ReadoutRow[] {
   const pv = a.privacy;
   const exitIP = exit?.ip ?? "";
   const dualStack = isExpectedDualStackWebRTC(pv, exitIP);
-  // 仅「danger」且非预期双栈才算真泄露；safe / blocked / 预期双栈均为一致；warning=仅内网或待确认差异
   const webrtcState: SignalState =
     dualStack || pv.webrtc.status === "safe" || pv.webrtc.status === "blocked"
       ? "coherent"
@@ -703,9 +669,6 @@ function environmentRows(
   ];
 }
 
-// ---- RTT 物理延迟读数 ----
-
-// 仅消费同窗口 min 对 min 的 delta_min_ms（展示下限收口到 0）；两侧全缺（或旧缓存无 rtt 字段）时返回 undefined，整条不渲染。
 function buildRTT(a: ScanAnalysis): RTTReadout | undefined {
   const r = a.rtt;
   if (!r || r.status === "unavailable") return undefined;
@@ -725,8 +688,6 @@ function buildRTT(a: ScanAnalysis): RTTReadout | undefined {
   if (out.clientMinMS == null && out.serverTCPMS == null) return undefined;
   return out;
 }
-
-// ---- 顶层判定 ----
 
 function buildVerdict(groups: ReportGroup[], scenario: ScanScenario): ReportModel["verdict"] {
   const has = (s: SignalState) => groups.some((g) => g.state === s);
@@ -762,8 +723,6 @@ function buildVerdict(groups: ReportGroup[], scenario: ScanScenario): ReportMode
   };
 }
 
-// ---- 主入口 ----
-
 export function buildReport(
   resp: ScanResponse,
   collectors: AllCollectorResults,
@@ -775,7 +734,7 @@ export function buildReport(
   const identity = buildIdentity(a.identity, resp.server_data.ip_intel);
   const exit = resp.server_data.ip_intel ? browserExit(resp.server_data.ip_intel) : null;
   const idGroup = groups.find((g) => g.key === "identity");
-  if (idGroup) identity.state = idGroup.state; // 身份卡状态色与后端评分对齐
+  if (idGroup) identity.state = idGroup.state;
   const verdict = buildVerdict(groups, scenario);
 
   return {
@@ -802,7 +761,6 @@ export function buildReport(
   };
 }
 
-/** 供 CSS 变量映射的颜色键 */
 export function stateVar(state: SignalState): string {
   switch (state) {
     case "coherent":
@@ -816,7 +774,6 @@ export function stateVar(state: SignalState): string {
   }
 }
 
-/** 状态点柔光背景 */
 export function stateSoft(state: SignalState): string {
   switch (state) {
     case "coherent":

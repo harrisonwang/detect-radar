@@ -64,7 +64,6 @@
   let pendingVerdictRipple = false;
   let verdictRippleStartAt = 0;
 
-  // 4 节点真实对称拓扑（仅描绘客观存在/实测可见实体，WebRTC 不经由服务端转发）
   const DESKTOP_STUN: readonly Pt[] = [
     [106, 148],
     [186, 84],
@@ -85,7 +84,6 @@
     [654, 148],
   ];
 
-  // 移动端对称菱形拓扑
   const MOBILE_STUN: readonly Pt[] = [
     [170, 42],
     [78, 42],
@@ -695,7 +693,6 @@
 </script>
 
 {#snippet isoNodes(prefix: string, pos: Record<NodeId, Pt>, compact: boolean)}
-  <!-- 1. 你的浏览器 -->
   {@const b = pos.browser}
   <g
     class="dfs-node-hit"
@@ -722,7 +719,6 @@
     <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#e2e8f0" font-size={compact ? 11.5 : 12} font-weight="600">你的浏览器</text>
   </g>
 
-  <!-- 2. WebRTC 地址节点 -->
   {@const st = pos.stun}
   <g
     class="dfs-node-hit"
@@ -827,7 +823,6 @@
     {/if}
   </g>
 
-  <!-- 3. HTTPS 网页出口塔 -->
   {@const ex = pos.exit}
   <g
     class="dfs-node-hit"
@@ -861,7 +856,6 @@
     {/if}
   </g>
 
-  <!-- 4. 出口归属比对 -->
   {@const jg = pos.judge}
   <g
     class="dfs-node-hit"
@@ -963,7 +957,6 @@
     </div>
   {/if}
 
-  <!-- 无框 2.5D 4 节点并发路径画布 -->
   <div class="dfs-canvas-wrap">
     <svg class="dfs-svg-desktop" viewBox="0 0 760 288">
       {@render svgDefs('wd')}

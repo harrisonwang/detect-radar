@@ -1,16 +1,3 @@
-/**
- * DetectRadar 代理客户端面板脚本（兼容 Surge / Stash / Loon）
- *
- * 特点：
- *  - 调用 `4.detectradar.com` 与 `6.detectradar.com` 的 `/api/v1/ip` 接口
- *  - 默认仅走服务端本地库（L1+L2）或复用已有缓存，不触发第三方 L3 额度消耗
- *  - IPv6 旁路判据与网页端（client/src/lib/ipv6Check.ts）一致，排除港澳台与机房双栈
- *
- * 可选参数（通过 $argument 传入，例如：ipv6=true&hide_ip=false）：
- *  - title:   自定义面板标题（默认 "DetectRadar 出口"）
- *  - ipv6:    是否探测 IPv6 旁路（true/false，默认 true）
- *  - hide_ip: 是否对 IP 地址打码（true/false，默认 false）
- */
 
 (function () {
   var V4_TIMEOUT_MS = 6000;

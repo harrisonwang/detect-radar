@@ -55,7 +55,6 @@
     { key: 'analysis', label: '正在汇总检测结果' },
   ];
 
-  // 检测中的占位四轴（雷达在扫描态仍显示四轴骨架）
   const PLACEHOLDER_GROUPS = [
     { key: 'identity', label: '网络身份', score: 0, state: 'unknown', passed: 0, total: 1, note: '' },
     { key: 'consistency', label: '环境一致性', score: 0, state: 'unknown', passed: 0, total: 1, note: '' },
@@ -68,7 +67,6 @@
   let scenarioSwitchToken = 0;
   let isScanning = $state(true);
   let scanError = $state<string | null>(null);
-  // DNS 泄露走独立慢路径（enrichDNS 约 4s），未定前雷达该轴显示待定而非中间值
   let dnsPending = $state(true);
   let ipRevealed = $state(true);
   let scanStage = $state<ScanStage>('identity');
@@ -135,8 +133,6 @@
     revealTimers = [...revealTimers, finishTimer];
   }
 
-  // ============ 扫描管线 ============
-
   async function collectSignals(onStageComplete?: (stage: DimensionKey) => void): Promise<ScanSignals> {
     const fingerprintPromise = collectFingerprints();
     const environmentPromise = collectEnvironment().then((value) => {
@@ -161,10 +157,6 @@
       fpjsPromise,
     ]);
     await environmentReady;
-    // RTT 刻意放在上面这批采集全部结算之后再串行探测：canvas/webgl/audio 是主线程
-    // CPU 密集型任务，与探测并发会通过 CPU 争用推迟 fetch 回调与 performance.now() 读数，
-    // 只会把 RTT 读偏大（噪声单向为正）。min 是承重统计量，测量质量高于这点串行延迟
-    // （典型仅新增 6 次往返的耗时，且有 ~3s 预算封顶，绝不阻塞扫描）。
     const rtt = await collectRTT();
     return { collectors: { fingerprint, environment, leaks, network: { rtt } }, device, fpjs };
   }
@@ -182,10 +174,8 @@
     };
   }
 
-  /** ApiError.message 含请求 URL 与响应体原文，不能直接呈现给用户。 */
   function friendlyError(err: unknown): string {
     if (err instanceof api.ApiError) {
-      // api.ts 以 status 0 表示超时/网络失败，而非后端应答
       if (err.status === 0) return '网络异常，请检查连接后重试';
       if (err.status === 429) return '请求过于频繁，请稍后再试';
       if (err.status >= 500) return '服务暂时不可用，请稍后重试';
@@ -238,7 +228,6 @@
       const dns = await collectDNSLeak(scanId);
       if (!report || !scanId || dns.status !== 'success' || !dns.data || dns.data.resolvers.length === 0) return;
       const targetScenario = scenario;
-      // 新后端已用权威观测重算，旧后端仍走原来的更新接口。
       let updated = dns.data.assessed
         ? await api.getScan(scanId, targetScenario)
         : await api.updateScanDNS(scanId, dns.data.leaked);
@@ -249,7 +238,6 @@
         report = buildReport(updated, lastSignals.collectors, lastSignals.device);
       }
     } catch {
-      /* 忽略：DNS 富化失败不影响已呈现的报告 */
     }
   }
 
@@ -259,7 +247,6 @@
     try {
       window.localStorage.setItem(SCENARIO_KEY, next);
     } catch {
-      /* 忽略无痕/禁用存储 */
     }
     trackEvent('scenario-switch', { to: next });
 
@@ -299,7 +286,6 @@
         scenario = 'daily';
       }
     } catch {
-      /* 忽略无痕/禁用存储 */
     }
     if (isAutomatedCrawler()) {
       isScanning = false;
@@ -308,7 +294,6 @@
       return;
     }
     runScan('auto');
-    // bfcache：浏览器后退会整页恢复旧状态，onMount 不再触发，需手动重扫
     const onPageShow = (e: PageTransitionEvent) => {
       if (e.persisted) runScan('auto');
     };
@@ -318,8 +303,6 @@
       window.removeEventListener('pageshow', onPageShow);
     };
   });
-
-  // ============ 截图 / 分享 / Toast ============
 
   let toast: ReturnType<typeof ReportToast> | undefined = $state();
   let isCapturing = $state(false);
@@ -350,7 +333,6 @@
       isCapturing = true;
       startCaptureProgress();
       toast?.dismiss();
-      // 分享卡由 Canvas 从报告数据直接生成（IP 脱敏），与页面布局和用户环境解耦
       const blob = await renderShareCard(report, {
         riskLabel: RISK_LABEL[report.riskLevel] ?? report.riskLevel,
       });
@@ -360,7 +342,6 @@
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
         clipboardOk = true;
       } catch {
-        /* 剪贴板权限未开 */
       }
       downloadScreenshot(blob);
       trackEvent('share-save-image', { page: 'home' });
@@ -400,7 +381,6 @@
 />
 
 <main class="report-main flex-1 pt-6 sm:pt-10">
-  <!-- 标题与模式切换 -->
   <div class="mb-5 sm:mb-8 flex flex-col gap-3.5 sm:flex-row sm:items-end sm:justify-between min-w-0">
     <div class="min-w-0">
       <h1 class="report-title text-2xl sm:text-3xl md:text-4xl mb-1.5 sm:mb-2">
@@ -431,7 +411,6 @@
   </div>
 
     <div data-nosnippet>
-    <!-- 评分 + 判定 -->
     <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 mb-6">
       <div class="lg:col-span-4">
         <RadarCard
@@ -462,7 +441,6 @@
         >重新检测</button>
       </div>
     {:else}
-      <!-- 网络身份 -->
       <div class="mb-6">
         <IdentityCard
           identity={report?.identity ?? EMPTY_IDENTITY}
@@ -477,7 +455,6 @@
         />
       </div>
 
-      <!-- 三项明细 -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <ReadoutCard
           title="环境一致性" icon="fa-globe"
@@ -503,7 +480,6 @@
         />
       </div>
 
-      <!-- 结果反馈：报告落地后才出现，低调不与主判定争视觉 -->
       {#if report && !isScanning}
         <div class="mt-8">
           <FeedbackCard scanId={report.meta.scanId} />
@@ -515,7 +491,6 @@
 
   <ReportToast bind:this={toast} suppressed={isCapturing} />
 
-  <!-- 截图进度 -->
   {#if isCapturing}
     <div class="fixed inset-0 z-50 pointer-events-none">
       <div class="absolute bottom-8 left-1/2 -translate-x-1/2 w-[320px]">

@@ -1,8 +1,3 @@
-/**
- * 专项检测页（DNS / WebRTC）本地 Canvas 2D 分享图渲染器。
- *
- * 所有 IP 均经 maskIP / maskIPsInText 自动脱敏后绘制，与首页 shareCard.ts 保持同源视觉语言与隐私边界。
- */
 
 import { canonicalIP, sameIP, sameIPv6Prefix64 } from './ip';
 import { maskIP } from './ipDisplay';
@@ -288,7 +283,6 @@ interface FlowDiamondSpec {
   rightSub: string;
 }
 
-/** 绘制共用的 4 节点 2.5D 对称菱形拓扑面板 */
 function drawFlowDiamondStage(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -378,7 +372,6 @@ function drawFlowDiamondStage(
     drawWireBadge(ctx, ax - 204, ey - 22, spec.lowerRightBadge, lowerWireColor, 'rgba(148,163,184,0.3)');
   }
 
-  // 1. 你的浏览器
   ctx.fillStyle = 'rgba(0,0,0,0.48)';
   ctx.beginPath();
   ctx.ellipse(bx, cy + 18, 30, 10, 0, 0, Math.PI * 2);
@@ -389,7 +382,6 @@ function drawFlowDiamondStage(
   drawPolygon(ctx, [[bx - 21, cy + 3], [bx - 21, cy - 17], [bx - 3, cy - 26], [bx - 3, cy - 6]], '#0f2942');
   drawText(ctx, '你的浏览器', bx, cy + 38, { font: font(12, 600), color: C.slate200, align: 'center' });
 
-  // 2. 上路信号节点
   ctx.fillStyle = spec.upperGlow;
   ctx.beginPath();
   ctx.ellipse(mx, ry + 20, 30, 10, 0, 0, Math.PI * 2);
@@ -423,7 +415,6 @@ function drawFlowDiamondStage(
     align: 'center',
   });
 
-  // 3. 下路网页出口服务器
   ctx.fillStyle = 'rgba(74, 222, 128, 0.14)';
   ctx.beginPath();
   ctx.ellipse(mx, ey + 20, 28, 10, 0, 0, Math.PI * 2);
@@ -443,7 +434,6 @@ function drawFlowDiamondStage(
     align: 'center',
   });
 
-  // 4. 右侧汇聚判定塔
   ctx.strokeStyle = spec.rightColor;
   ctx.lineWidth = 1.4;
   ctx.globalAlpha = 0.6;
@@ -528,14 +518,9 @@ export async function saveShareImage(blob: Blob, prefix: string): Promise<string
       new Promise<boolean>((resolve) => setTimeout(() => resolve(false), 450)),
     ]);
   } catch {
-    /* 剪贴板权限未开 */
   }
   return clipboardOk ? '分享图已复制并弹出下载' : '已弹出下载窗口（剪贴板权限未开）';
 }
-
-// =========================================================================
-// DNS 分享卡
-// =========================================================================
 
 export interface DNSShareProviderRow {
   name: string;
@@ -687,10 +672,6 @@ export async function renderDNSShareCard(data: DNSShareCardInput): Promise<Blob>
   drawFooter(ctx, 'detectradar.com/dns-leak-test/');
   return toPngBlob(canvas);
 }
-
-// =========================================================================
-// WebRTC 分享卡（同步 4 节点 2.5D 菱形路径 + 全量 IP 脱敏）
-// =========================================================================
 
 export interface WebRTCShareCardInput {
   time: number;
@@ -962,10 +943,6 @@ export async function renderWebRTCShareCard(data: WebRTCShareCardInput): Promise
   drawFooter(ctx, 'detectradar.com/webrtc-leak-test/');
   return toPngBlob(canvas);
 }
-
-// =========================================================================
-// IPv6 双栈分享卡（4 节点 2.5D 菱形路径 + 全量 IP 脱敏）
-// =========================================================================
 
 export interface IPv6ShareCardInput {
   time: number;

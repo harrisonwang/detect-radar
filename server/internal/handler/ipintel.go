@@ -13,17 +13,14 @@ import (
 	"detect-radar/internal/util"
 )
 
-// IPIntelHandler IP 信息处理器
 type IPIntelHandler struct {
 	svc *service.IPIntelService
 }
 
-// NewIPIntelHandler 创建 IP 信息处理器
 func NewIPIntelHandler(svc *service.IPIntelService) *IPIntelHandler {
 	return &IPIntelHandler{svc: svc}
 }
 
-// privateIPResponse 返回私有 IP 的响应（无需查询后端服务）
 func privateIPResponse(ip string) *model.IPIntel {
 	return &model.IPIntel{
 		IP:           ip,
@@ -50,12 +47,10 @@ func setNoStoreHeaders(c *fiber.Ctx) {
 func (h *IPIntelHandler) resolveClientIPIntel(c *fiber.Ctx) (*model.IPIntel, error) {
 	clientIP := util.CanonicalIP(c.IP())
 
-	// 私有 IP 无需查询后端服务（本地开发环境常见）
 	if util.IsPrivateIP(clientIP) {
 		return privateIPResponse(clientIP), nil
 	}
 
-	// 从 query 参数获取选项：默认 LocalOnly（不触发 L3 远程 API），显式 ?deep=true 才允许深扫
 	deepScan := c.QueryBool("deep", false)
 	opts := service.LookupOptions{
 		DeepScan:  deepScan,
@@ -68,24 +63,17 @@ func (h *IPIntelHandler) resolveClientIPIntel(c *fiber.Ctx) (*model.IPIntel, err
 	return h.svc.Lookup(c.Context(), clientIP, opts)
 }
 
-// GetMyIPIntel 获取客户端 IP 信息
-// GET /api/v1/ip
-// HTTP 响应禁止客户端/代理缓存（避免切换代理后读到旧 IP）；
-// 服务端按真实 clientIP 复用缓存，默认仅跑本地 L1+L2（或复用已有深扫缓存），不主动消耗 L3 额度。
 func (h *IPIntelHandler) GetMyIPIntel(c *fiber.Ctx) error {
 	intel, err := h.resolveClientIPIntel(c)
 	if err != nil {
 		return util.InternalError(c, err.Error())
 	}
 
-	// 禁止客户端与中间代理缓存，切换代理后可立即看到新出口 IP
 	setNoStoreHeaders(c)
 
 	return c.JSON(intel)
 }
 
-// GetMyIPText 以纯文本返回当前连接出口 IP 信息，供 curl 等终端入口直接读取。
-// GET /api/v1/ip/text
 func (h *IPIntelHandler) GetMyIPText(c *fiber.Ctx) error {
 	c.Set("Content-Type", "text/plain; charset=utf-8")
 	setNoStoreHeaders(c)

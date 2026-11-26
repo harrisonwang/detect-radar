@@ -54,7 +54,6 @@ private enum PopoverPreviewRenderer {
         let app = NSApplication.shared
         app.setActivationPolicy(.accessory)
 
-        // 使用 RFC 5737 / RFC 3849 文档保留段固定样例，避免真实节点 IP 泄露到公开预览图。
         let sampleUS = IPIntel(
             ip: "203.0.113.42", country: "US", countryName: "United States",
             region: "California", city: "Los Angeles", asn: "AS14061",
@@ -82,8 +81,6 @@ private enum PopoverPreviewRenderer {
             ipv6Leak: DualStackEvaluator.evaluateIPv6Leak(activeV4: sampleUS, directV6: sampleCNv6)
         )
 
-        // 统一三张预览图的画布高度（对齐告警态最高尺寸 251pt -> 672x502@2x），
-        // 网页三态切换时菜单栏与弹窗顶部原地锁定、零布局跳动（CLS = 0）。
         let unifiedCanvasH: CGFloat = 251
 
         renderPopoverShot(
@@ -210,7 +207,6 @@ private enum PopoverPreviewRenderer {
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = NSGraphicsContext(bitmapImageRep: canvasRep)
         appearance.performAsCurrentDrawingAppearance {
-            // 桌面壁纸底色 + 顶栏
             let desktopBg = dark
                 ? NSColor(srgbRed: 0.055, green: 0.08, blue: 0.125, alpha: 1.0)
                 : NSColor(srgbRed: 0.86, green: 0.895, blue: 0.945, alpha: 1.0)
@@ -224,7 +220,6 @@ private enum PopoverPreviewRenderer {
             NSColor(white: dark ? 1 : 0, alpha: dark ? 0.08 : 0.06).setFill()
             NSRect(x: 0, y: canvasH - menuBarH, width: canvasW, height: 0.5).fill()
 
-            // 按真实 macOS 菜单栏顺序：系统时钟固定在最右端，第三方图标紧靠时钟左侧
             let clockStr = NSAttributedString(
                 string: "周二 14:18",
                 attributes: [
@@ -252,7 +247,6 @@ private enum PopoverPreviewRenderer {
             NSBezierPath(roundedRect: NSRect(x: pillX, y: pillY, width: pillW, height: pillH), xRadius: 5, yRadius: 5).fill()
             titleStr.draw(at: NSPoint(x: pillX + 8, y: pillY + (pillH - ts.height) / 2))
 
-            // 无箭头圆角控制中心玻璃浮层，顶边固定紧贴菜单栏下方
             let panelTopY = canvasH - menuBarH - gapToBar
             let panelRect = NSRect(x: padX, y: panelTopY - panelH, width: panelW, height: panelH)
             let panelPath = NSBezierPath(roundedRect: panelRect, xRadius: cornerRadius, yRadius: cornerRadius)
@@ -271,7 +265,6 @@ private enum PopoverPreviewRenderer {
             panelRep.draw(in: panelRect)
             NSGraphicsContext.restoreGraphicsState()
 
-            // 玻璃外缘微弱描边与亮边高光
             NSColor(white: dark ? 1 : 0, alpha: dark ? 0.18 : 0.08).setStroke()
             panelPath.lineWidth = 0.75
             panelPath.stroke()

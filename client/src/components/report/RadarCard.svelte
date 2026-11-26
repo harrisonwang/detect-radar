@@ -9,9 +9,7 @@
     verdictState: SignalState;
     riskLabel: string;
     isScanning?: boolean;
-    /** 结果尚未返回的组（如慢路径的 DNS 泄露）：该轴显示待定，顶点收在中心 */
     pendingKeys?: string[];
-    /** 已经完成视觉落定的组；扫描中允许雷达逐轴成形 */
     settledKeys?: string[];
     activeKey?: string | null;
     scanStageLabel?: string;
@@ -25,7 +23,6 @@
   const CY = 120;
   const R = 82;
   const rings = [0.33, 0.66, 1];
-  // 雷达轴用短名（明细卡才用全名）
   const SHORT: Record<string, string> = {
     identity: '网络身份', consistency: '环境一致性', leak: 'DNS/IP 泄露', environment: '环境指纹',
   };
@@ -37,7 +34,6 @@
   });
 
   let axisEnds = $derived(groups.map((_, i) => pt(i, R)));
-  // 分数经 Tween 过渡再算顶点：扫描中/待定轴收在中心，结果落地后平滑展开
   let targetScores = $derived(
     groups.map((g) => (isSettled(g.key) && !isPending(g.key) ? Math.max(5, g.score) : 5)),
   );

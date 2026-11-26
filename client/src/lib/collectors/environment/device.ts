@@ -1,15 +1,9 @@
-/**
- * 设备/移动信号采集器
- *
- * 面向社交媒体场景的「移动环境模拟」检测：触控点、屏幕朝向、陀螺仪、电池。
- * 这些都是纯客户端信号，用于判断桌面浏览器是否在冒充移动设备。
- */
 
 export interface DeviceSignals {
   maxTouchPoints: number;
   orientation: 'portrait' | 'landscape';
   gyroscopeSupported: boolean;
-  screenSize: string; // "390 x 844"
+  screenSize: string;
   battery: { supported: boolean; level?: number; charging?: boolean };
 }
 

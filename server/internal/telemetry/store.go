@@ -1,5 +1,3 @@
-// telemetry 使用 SQLite 保存完整的内部扫描记录。
-// 公开扫描查询仍由短期接口缓存提供。
 package telemetry
 
 import (
@@ -26,8 +24,6 @@ const (
 	DefaultFeedbackRetention = 90 * 24 * time.Hour
 )
 
-// Options 控制新增记录的过期时间和定期清理。
-// 关闭清理不会清除已有的过期时间，命令行工具也遵循此规则。
 type Options struct {
 	Path              string
 	RetentionEnabled  bool
@@ -35,8 +31,6 @@ type Options struct {
 	FeedbackRetention time.Duration
 }
 
-// Event 保留完整的事件 JSON。InstanceID 将事件绑定到服务端扫描实例，
-// 避免客户端复用 scan_id 时关联错误。可选的 Key 用于 DNS 重试去重，反馈不设置此值。
 type Event struct {
 	InstanceID string
 	Key        string
@@ -132,8 +126,6 @@ func Open(options Options) (*Store, error) {
 	return s, nil
 }
 
-// OpenReadOnly 只读取数据库，不创建文件或修改表结构、过期时间及持久化配置。
-// WAL 模式下读取的是已提交的一致状态。
 func OpenReadOnly(path string) (*Store, error) {
 	if path == "" {
 		return nil, errors.New("扫描存储：数据库路径不能为空")
@@ -168,8 +160,6 @@ func open(options Options, readOnly bool) (*Store, error) {
 		q.Add("_pragma", "journal_mode(WAL)")
 		q.Add("_pragma", "synchronous(FULL)")
 	}
-	// modernc.org/sqlite 通过重复的 _pragma 参数配置数据库，
-	// 不支持 _journal_mode 和 _synchronous 参数。
 	q.Add("_pragma", "busy_timeout(5000)")
 	q.Add("_pragma", "foreign_keys(1)")
 	u.RawQuery = q.Encode()
@@ -246,7 +236,6 @@ func (s *Store) Append(ctx context.Context, event Event) error {
 	return tx.Commit()
 }
 
-// AppendTx 写入事件，由调用方提交事务。
 func (s *Store) AppendTx(ctx context.Context, tx *sql.Tx, event Event) (string, error) {
 	if s.readOnly {
 		return "", errors.New("扫描存储：数据库为只读模式")
@@ -365,7 +354,6 @@ func updateProjection(ctx context.Context, tx *sql.Tx, instanceID string, p payl
 		return err
 	}
 	if (p.Event == "dns_leak" || p.Event == "dns_update") && (p.Score != nil || p.RiskLevel != "") {
-		// 迟到的观测结果不能覆盖更新的汇总状态，缺失评分也不能清除已有评分。
 		if _, err := tx.ExecContext(ctx, `UPDATE scans SET score=COALESCE(?,score),risk_level=COALESCE(?,risk_level),analysis_json=COALESCE(?,analysis_json),diagnosis_json=COALESCE(?,diagnosis_json),latest_at=?,latest_seq=? WHERE instance_id=? AND (latest_at<? OR (latest_at=? AND latest_seq<?))`, p.Score, nullString(p.RiskLevel), jsonValue(p.Analysis), jsonValue(p.Diagnosis), p.at, seq, instanceID, p.at, p.at, seq); err != nil {
 			return err
 		}
@@ -416,7 +404,6 @@ func (s *Store) ResolveInstance(ctx context.Context, clientID string) (string, s
 	}
 }
 
-// Walk 读取完整事件用于回放。遍历期间占用唯一连接，回调不能再次调用此 Store。
 func (s *Store) Walk(ctx context.Context, visit func([]byte) error) error {
 	rows, err := s.db.QueryContext(ctx, "SELECT payload_json FROM scan_events ORDER BY seq")
 	if err != nil {
@@ -450,8 +437,6 @@ func (s *Store) backfillExpiry(ctx context.Context) error {
 	return tx.Commit()
 }
 
-// Prune 每次最多清理 1000 条过期事件。非反馈事件清理完后才删除对应扫描汇总。
-// 反馈仅解除扫描关联，保留自身过期时间、原始客户端扫描 ID 和完整 JSON 上下文。
 func (s *Store) Prune(ctx context.Context, now time.Time) (int64, error) {
 	if s.readOnly {
 		return 0, errors.New("扫描存储：数据库为只读模式")

@@ -1,18 +1,3 @@
-/**
- * DetectRadar 后端 API 客户端
- *
- * 单一出入口：所有对 server (Go/Fiber) 的调用都走这里，集中处理
- * base URL、超时、JSON 解析与错误。开发环境默认指向本地后端，
- * 生产环境默认使用同源 /api/ 反代；可用 PUBLIC_API_BASE 覆盖。
- *
- * 只覆盖前端实际调用的接口（扫描 IP 恒取自连接本身，不接受调用方指定任意 IP）：
- *   POST /scans                  GET  /scans/:id
- *   POST /scans/:id/dns          POST /scans/:id/feedback
- *   POST /leaks/dns              GET  /leaks/dns/:id
- *   GET  /ip
- * RTT 探针 GET /ping 由 collectors/network/rtt.ts 直接 fetch（需自行掐表计时，不走本层）。
- * DNS 专项页通过 /ip 获取本次连接的出口。
- */
 
 import type {
   ScanRequest,
@@ -26,7 +11,6 @@ import type {
   IPIntel,
 } from './types';
 
-// Astro/Vite：仅 PUBLIC_ 前缀的变量会暴露到客户端
 const ENV = (import.meta as unknown as { env?: Record<string, string | boolean> }).env ?? {};
 const RAW_BASE =
   typeof ENV.PUBLIC_API_BASE === 'string'
@@ -35,10 +19,8 @@ const RAW_BASE =
       ? 'http://127.0.0.1:8080'
       : '';
 
-/** 规范化后的 API 根地址：生产默认为同源 /api/v1，开发默认为本机后端。 */
 export const API_BASE = RAW_BASE ? `${RAW_BASE.replace(/\/+$/, '')}/api/v1` : '/api/v1';
 
-/** 后端返回非 2xx 时抛出，携带状态码与原始报文 */
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -74,49 +56,38 @@ async function request<T>(
     if (!res.ok) {
       throw new ApiError(res.status, text, url);
     }
-    // 后端所有成功响应均为 JSON
     return (text ? JSON.parse(text) : {}) as T;
   } catch (err) {
     if (err instanceof ApiError) throw err;
     if ((err as Error)?.name === 'AbortError') {
       throw new ApiError(0, `请求超时 (>${timeoutMs}ms)`, url);
     }
-    // 网络层错误（后端未启动 / CORS / DNS）
     throw new ApiError(0, (err as Error)?.message ?? 'network error', url);
   } finally {
     clearTimeout(timer);
   }
 }
 
-// ============================================================================
-// 统一扫描（核心）
-// ============================================================================
-
-/** 提交采集信号，返回服务端聚合分析 + 评分 + 诊断 */
 export const createScan = (req: ScanRequest) =>
   request<ScanResponse>('/scans', { method: 'POST', body: JSON.stringify(req) }, 20_000);
 
-/** 按 scan_id 取回历史扫描结果（30 分钟内有效）；传入 scenario 时按指定模式即时重算 */
 export const getScan = (id: string, scenario?: ScanScenario) => {
   const qs = scenario ? `?scenario=${encodeURIComponent(scenario)}` : '';
   return request<ScanResponse>(`/scans/${encodeURIComponent(id)}${qs}`);
 };
 
-/** 回传异步 DNS 泄露结果，后端更新该扫描并重新评分（评分始终纯后端产出） */
 export const updateScanDNS = (id: string, leaked: boolean) =>
   request<ScanResponse>(`/scans/${encodeURIComponent(id)}/dns`, {
     method: 'POST',
     body: JSON.stringify({ leaked }),
   });
 
-/** 结果反馈的四类语义（与后端 service.ValidFeedbackCategory 枚举一一对应） */
 export type FeedbackCategory =
-  | 'false_positive' // 我是正常网络，被误判
-  | 'missed_detection' // 在用代理/VPN，但没检出
-  | 'data_wrong' // 位置/运营商/ASN 等数据不对
+  | 'false_positive'
+  | 'missed_detection'
+  | 'data_wrong'
   | 'other';
 
-/** 保存检测反馈并安排邮件通知，成功返回 204。 */
 export const submitScanFeedback = (
   id: string,
   category: FeedbackCategory,
@@ -128,18 +99,12 @@ export const submitScanFeedback = (
     body: JSON.stringify({ category, note, reply_email: replyEmail }),
   });
 
-// ============================================================================
-// 独立泄露 / 一致性端点（/scans 已内含，这些用于单项复测）
-// ============================================================================
-
-/** 创建 DNS 泄露测试，返回一次性测试域名供客户端触发解析（scan_id 供服务端把结果关联回扫描） */
 export const createDNSLeakTest = (scanId?: string) =>
   request<DNSLeakTestResponse>('/leaks/dns', {
     method: 'POST',
     body: JSON.stringify(scanId ? { scan_id: scanId } : {}),
   });
 
-/** 拉取 DNS 泄露测试结果（客户端触发解析后轮询） */
 export const getDNSLeakResult = (id: string) =>
   request<DNSLeakResult>(`/leaks/dns/${encodeURIComponent(id)}`, { cache: 'no-store' });
 

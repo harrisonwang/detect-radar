@@ -32,7 +32,6 @@ func TestIPIntelLookup_NormalizesCachedAndRemoteIPv6(t *testing.T) {
 		padded    = "240e:0469:e692:1dbe:b0f0:bafe:4e4c:0329"
 	)
 
-	// 1. 历史 Redis 深扫缓存里含补零 IPv6，读出时须自动自愈为 RFC 5952 标准格式
 	fakeCache := newFakeIntelCache()
 	_ = fakeCache.SetDeep(context.Background(), canonical, &model.IPIntel{
 		IP: padded, Country: "CN", ASN: "4134", ISP: "电信", UsageType: "isp",
@@ -48,7 +47,6 @@ func TestIPIntelLookup_NormalizesCachedAndRemoteIPv6(t *testing.T) {
 		t.Fatalf("cached IP = %q, want canonical %q", got.IP, canonical)
 	}
 
-	// 2. 远程 L3（模拟 IP2Location）返回补零 IPv6 时，merge 后与落缓存前均须归一
 	remote := &fakeAdapter{
 		name: "ip2location",
 		tier: "L3",
@@ -101,7 +99,6 @@ func TestAssessWebRTC(t *testing.T) {
 		_ = fakeCache.SetBasic(ctx, util.CanonicalIP(ip), intel)
 	}
 
-	// 故意在 ctV6 放入补零 deep 缓存与裸数字 ASN，复现生产真实数据形态
 	_ = fakeCache.SetDeep(ctx, ctV6, &model.IPIntel{
 		IP: ctV6Padded, Country: "CN", CountryName: "China", Region: "北京", City: "北京市",
 		ASN: "4134", Org: "China Telecom", ISP: "电信", UsageType: "isp", UsageTypeRaw: "residential",
@@ -289,7 +286,6 @@ func TestAssessWebRTC(t *testing.T) {
 		t.Fatalf("AssessWebRTC must be strictly LocalOnly, but remote adapter was called %d times", remoteProbe.calls.Load())
 	}
 
-	// 验证首页 refineWebRTCPrivacy 与专项页口径一致
 	scanSvc := &ScanService{ipIntel: ipSvc}
 	t.Run("homepage_refine_clears_telecom_dual_stack_warning", func(t *testing.T) {
 		exitIntel, _ := ipSvc.Lookup(ctx, ctV6, LookupOptions{LocalOnly: true})

@@ -63,7 +63,7 @@
           saved.previous && withDNSAssessment(saved.previous),
         ]);
         history = { current, previous };
-      } catch { /* In browsers with storage restrictions, compare in this page. */ }
+      } catch {  }
       ready = true;
       const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
       if (!history.current || navigation?.type === 'navigate') await run('auto');

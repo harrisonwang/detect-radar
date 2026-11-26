@@ -10,7 +10,6 @@ import (
 )
 
 func main() {
-	// 初始化 SQLite
 	sqliteDB, err := database.NewSQLiteDB(database.SQLiteConfig{
 		Path: "./data/hosting.db",
 	})
@@ -35,25 +34,21 @@ func main() {
 	}
 	defer detector.Close()
 
-	// 测试 IP 列表
 	testIPs := []struct {
 		IP       string
 		Expected bool
 		Desc     string
 	}{
-		// 大型云厂商
 		{"8.8.8.8", true, "Google DNS"},
 		{"1.1.1.1", true, "Cloudflare DNS"},
 		{"20.205.243.166", true, "Microsoft Azure"},
 		{"47.74.0.1", true, "阿里云"},
 		{"52.94.0.1", true, "Amazon AWS"},
 
-		// VPS 提供商
 		{"104.238.128.1", true, "Vultr"},
 		{"45.33.32.156", true, "Linode"},
 		{"95.216.0.1", true, "Hetzner"},
 
-		// 住宅 IP（应该是 false）
 		{"222.244.158.176", false, "中国电信住宅"},
 		{"114.114.114.114", false, "114 DNS (ISP)"},
 		{"223.5.5.5", false, "阿里公共 DNS"},

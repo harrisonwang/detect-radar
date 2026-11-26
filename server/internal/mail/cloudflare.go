@@ -30,7 +30,6 @@ func NewClient(cfg config.MailConfig) *Client {
 	return &Client{cfg: cfg, http: &http.Client{Timeout: 15 * time.Second}}
 }
 
-// Send 的首个返回值表示失败是否可重试。
 func (c *Client) Send(ctx context.Context, message Message) (bool, error) {
 	body, err := json.Marshal(message)
 	if err != nil {

@@ -44,17 +44,13 @@ func hkMoTwExcludedFromMainlandCNAndIPv6LeakRules() {
     #expect(IPMasker.countryBadgeLine(for: hkHostingV6) == "🇭🇰 中国香港")
     #expect(IPMasker.providerDetailLine(for: hkHostingV6) == "未知网络")
 
-    // 海外 IPv4 + 大陆运营商 IPv6 => 泄露
     let leaked = DualStackEvaluator.evaluateIPv6Leak(activeV4: usHosting, directV6: cnBroadbandV6)
     #expect(leaked == .leaked(carrier: "中国电信", ip: "2001:db8:390::1"))
 
-    // 海外 IPv4 + 香港机房 IPv6 => 不判泄露
     #expect(DualStackEvaluator.evaluateIPv6Leak(activeV4: usHosting, directV6: hkHostingV6) == .none)
 
-    // 国内双栈直连 => 不判泄露
     #expect(DualStackEvaluator.evaluateIPv6Leak(activeV4: cnBroadbandV4, directV6: cnBroadbandV6) == .none)
 
-    // 无 IPv4 只连 IPv6 => 不判泄露
     #expect(DualStackEvaluator.evaluateIPv6Leak(activeV4: nil, directV6: cnBroadbandV6) == .none)
 }
 

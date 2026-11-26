@@ -1,7 +1,4 @@
 <!doctype html>
-<!--
-  OG 卡片生成源。改完用 npm run og 重新导出 public/og-default.png。
--->
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
@@ -101,7 +98,6 @@
         color: #cbd5e1;
         font-weight: 500;
       }
-      /* 暴露项微缩卡：与报告页 DiagnosisCard 同一视觉语法（severity 章 + 标题 + 对比事实行） */
       .finding {
         display: inline-flex;
         align-items: center;
@@ -213,8 +209,6 @@
       </div>
 
       <div class="right">
-        <!-- 中心 (220,210)，R=140。四轴分数：身份 92 / 一致性 62 / 泄露 88 / 指纹 95，
-             顶点半径 = score/100 × R；一致性为黄（contradiction），多边形随综合判定取黄。 -->
         <svg viewBox="0 0 440 408" width="400" height="371">
           <g fill="none" stroke="rgba(148,163,184,0.16)" stroke-width="1">
             <circle cx="220" cy="210" r="140" />

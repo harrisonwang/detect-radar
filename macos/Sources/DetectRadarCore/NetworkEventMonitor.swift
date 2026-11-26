@@ -20,7 +20,6 @@ private func proxyStoreCallback(
     box.monitor?.notifyRawChange(reason: "proxy")
 }
 
-/// 纯事件驱动网络监听：零后台轮询定时器。仅监听网卡路径切换、系统代理变动与休眠唤醒，并做 3s 防抖与 10s 冷却。
 public final class NetworkEventMonitor: @unchecked Sendable {
     private let queue = DispatchQueue(label: "com.detectradar.bar.netmonitor")
     private let debounceSeconds: TimeInterval
@@ -79,7 +78,6 @@ public final class NetworkEventMonitor: @unchecked Sendable {
     }
 
     private func setupMonitors() {
-        // 1. NWPathMonitor (Wi-Fi / Ethernet / TUN 切换)
         let monitor = NWPathMonitor()
         monitor.pathUpdateHandler = { [weak self] path in
             guard let self else { return }
@@ -94,7 +92,6 @@ public final class NetworkEventMonitor: @unchecked Sendable {
         monitor.start(queue: queue)
         self.pathMonitor = monitor
 
-        // 2. SCDynamicStore 监听系统代理变动
         let box = MonitorBox(self)
         let retained = Unmanaged.passRetained(box)
         var context = SCDynamicStoreContext(
@@ -120,7 +117,6 @@ public final class NetworkEventMonitor: @unchecked Sendable {
             }
         }
 
-        // 3. 系统唤醒监听
         self.wakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.didWakeNotification,
             object: nil,

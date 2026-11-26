@@ -7,21 +7,16 @@ import (
 	"detect-radar/internal/model"
 )
 
-// 评分维度——对齐前端四轴雷达。fingerprint + automation 合并进 environment。
 const (
 	dimIdentity    = "identity"
 	dimConsistency = "consistency"
 	dimLeak        = "leak"
 	dimEnvironment = "environment"
 
-	// ScenarioStrict 默认严格口径：时区/语言、机房 IP 与指纹 Hook 均参与扣分。
 	ScenarioStrict = "strict"
-	// ScenarioDaily 日常口径：聚焦 DNS/WebRTC/IPv6 泄露与黑名单/代理等高危信号，
-	// 时区、语言、纯净机房/灰区 IP 与指纹 Hook 仅作展示不扣分。
-	ScenarioDaily = "daily"
+	ScenarioDaily  = "daily"
 )
 
-// NormalizeScenario 将调用方传入的口径归一为 strict 或 daily（历史值 general/ecommerce/social 统一按 strict）。
 func NormalizeScenario(raw string) string {
 	if strings.EqualFold(strings.TrimSpace(raw), ScenarioDaily) {
 		return ScenarioDaily
@@ -29,8 +24,6 @@ func NormalizeScenario(raw string) string {
 	return ScenarioStrict
 }
 
-// dimCap 各维度扣分上限：同一维度内多条高相关规则（如机房+代理+黑名单常指同一个
-// "脏"出口）不再线性叠加，扣到封顶为止，避免重复计分同一件事。
 var dimCap = map[string]int{
 	dimIdentity:    35,
 	dimLeak:        35,
@@ -38,25 +31,19 @@ var dimCap = map[string]int{
 	dimEnvironment: 30,
 }
 
-// 一致性扣分权重——集中定义，作为唯一口径。
 const (
 	penTimezone = 15
 	penLanguage = 10
 )
 
-// scoreRule 单条评分规则。eval 命中时返回 (扣分, 文案)，未命中返回 (0, "")。
-//
-// 所有扣分规则集中在此表——这是评分的唯一事实来源（前端不再本地计算任何分数）。
-// 新增信号只需在表里加一行。规则的 Code 同时是 DiagnosisItem.Code，供前端渲染文案/i18n。
 type scoreRule struct {
 	Code   string
-	Dim    string // identity / consistency / leak / environment
-	Status string // error | warning
+	Dim    string
+	Status string
 	eval   func(a model.ScanAnalysis, intel *model.IPIntel) (points int, text string)
 }
 
 var scoreRules = []scoreRule{
-	// —— 网络身份 ——
 	{"IP_DATACENTER", dimIdentity, "error", func(a model.ScanAnalysis, _ *model.IPIntel) (int, string) {
 		if a.Identity.Verdict == "datacenter_fail" {
 			return 20, "出口 IP 判定为机房/托管 IP，易被风控标记"
@@ -82,16 +69,12 @@ var scoreRules = []scoreRule{
 		return 0, ""
 	}},
 	{"IP_BLACKLIST", dimIdentity, "error", func(a model.ScanAnalysis, intel *model.IPIntel) (int, string) {
-		// 移动/CGNAT 出口的黑名单命中降级到 IP_BLACKLIST_CGNAT（见下条），此处不再按 error 重罚
 		if len(a.Identity.BlacklistHits) > 0 && !intel.IsMobile {
 			return 30, "出口 IP 命中黑名单: " + strings.Join(a.Identity.BlacklistHits, ",")
 		}
 		return 0, ""
 	}},
 	{"IP_BLACKLIST_CGNAT", dimIdentity, "warning", func(a model.ScanAnalysis, intel *model.IPIntel) (int, string) {
-		// 移动/CGNAT 出口：成千上万用户共享同一公网出口，黑名单命中多半是共享池里邻居的行为，
-		// 不能按整段 IP 把这笔账算到本用户头上。故不走 -30 的 IP_BLACKLIST，降级为 10 分警告，
-		// 仅提示存在共享池污染风险（对齐产品「移动出口可信、不因邻居受罚」的口径）。
 		if len(a.Identity.BlacklistHits) > 0 && intel.IsMobile {
 			return 10, "移动/CGNAT 出口命中黑名单（多为共享池邻居行为）: " + strings.Join(a.Identity.BlacklistHits, ",")
 		}
@@ -110,16 +93,12 @@ var scoreRules = []scoreRule{
 		return 0, ""
 	}},
 	{"IP_PROXY_PORT_WEAK", dimIdentity, "warning", func(a model.ScanAnalysis, _ *model.IPIntel) (int, string) {
-		// 弱代理端口（3128/8080/8888 http-proxy）：家用路由器管理页/Web UI 也常占用，单看不足为凭。
-		// 仅当出口本就判为机房/托管（datacenter_fail）时才计分——服务器开 8080 更像代理服务，
-		// 家宽路由器开 8080 不是。住宅/移动/灰区一律不计分，避免家宽与 CGNAT 误报。
 		if a.Identity.WeakProxyPort && a.Identity.Verdict == "datacenter_fail" {
 			return 8, "机房出口开放了常见 HTTP 代理端口，疑似对外提供代理"
 		}
 		return 0, ""
 	}},
 
-	// —— DNS/IP 泄露 ——
 	{"WEBRTC_LEAK", dimLeak, "error", func(a model.ScanAnalysis, _ *model.IPIntel) (int, string) {
 		if a.Privacy.WebRTC.Status == "danger" {
 			return 20, "WebRTC 泄露真实公网 IP，与出口 IP 不一致"
@@ -145,7 +124,6 @@ var scoreRules = []scoreRule{
 		return 0, ""
 	}},
 
-	// —— 环境一致性 ——
 	{"TZ_MISMATCH", dimConsistency, "warning", func(a model.ScanAnalysis, _ *model.IPIntel) (int, string) {
 		if !a.Consistency.Timezone.Passed {
 			return penTimezone, fmt.Sprintf("时区不一致: 浏览器 %s / IP %s", a.Consistency.Timezone.Browser, a.Consistency.Timezone.Expected)
@@ -158,10 +136,7 @@ var scoreRules = []scoreRule{
 		}
 		return 0, ""
 	}},
-	// 刻意不做地理位置检查——需要权限弹窗，与产品「零打扰」采集哲学冲突；
-	// 如未来回归，将以用户主动授权的可选检查形式实现。
 
-	// —— 环境指纹（含自动化）——
 	{"WEBGL_MISMATCH", dimEnvironment, "error", func(a model.ScanAnalysis, _ *model.IPIntel) (int, string) {
 		if a.Fingerprint.WebGL.Status == "mismatch" {
 			return 15, "WebGL 渲染器与声称的系统不符: " + a.Fingerprint.WebGL.MismatchReason
@@ -182,18 +157,14 @@ var scoreRules = []scoreRule{
 	}},
 }
 
-// score 按默认严格口径遍历规则表（保留既有签名以兼容回放/单测）。
 func score(a model.ScanAnalysis, intel *model.IPIntel) (int, string, []model.DiagnosisItem, []model.DimensionScore) {
 	return scoreForScenario(a, intel, ScenarioStrict)
 }
 
-// scoreForScenario 按指定口径（strict / daily）遍历规则表，分维度封顶后得出干净度评分、
-// 风险等级、诊断清单与四维雷达分。这是唯一评分入口，前端直接消费，不再本地计算。
 func scoreForScenario(a model.ScanAnalysis, intel *model.IPIntel, rawScenario string) (int, string, []model.DiagnosisItem, []model.DimensionScore) {
 	scenario := NormalizeScenario(rawScenario)
 	diag := make([]model.DiagnosisItem, 0, len(scoreRules)+1)
 
-	// 正向诊断：身份判定为住宅/移动时给一条 success（不计分）
 	if a.Identity.Verdict == "residential_pass" {
 		diag = append(diag, model.DiagnosisItem{
 			Status: "success",
@@ -201,7 +172,6 @@ func scoreForScenario(a model.ScanAnalysis, intel *model.IPIntel, rawScenario st
 		})
 	}
 
-	// 分维度累计原始扣分
 	rawPenalty := map[string]int{}
 	anyError := false
 	for _, r := range scoreRules {
@@ -219,7 +189,6 @@ func scoreForScenario(a model.ScanAnalysis, intel *model.IPIntel, rawScenario st
 		diag = append(diag, model.DiagnosisItem{Status: r.Status, Text: text, Code: r.Code})
 	}
 
-	// 每维度封顶后汇总为总分
 	total := 100
 	for dim, raw := range rawPenalty {
 		total -= min(raw, dimCap[dim])
@@ -229,7 +198,6 @@ func scoreForScenario(a model.ScanAnalysis, intel *model.IPIntel, rawScenario st
 	}
 
 	level := riskLevel(total)
-	// 强信号压等级：命中任一 error 级规则时不得判 safe
 	if anyError && level == "safe" {
 		level = "low"
 	}
@@ -246,7 +214,6 @@ func isRelaxedInDaily(code string) bool {
 	}
 }
 
-// riskLevel 把干净度评分映射为风险等级。
 func riskLevel(s int) string {
 	switch {
 	case s >= 90:
@@ -262,14 +229,11 @@ func riskLevel(s int) string {
 	}
 }
 
-// buildDimensions 产出四轴雷达所需的维度分（0-100）、语义状态与通过数。
-// 维度轴分独立于总分：某维度重创时轴分接近 0，而总分受该维度封顶保护。
 func buildDimensions(a model.ScanAnalysis, intel *model.IPIntel, rawPenalty map[string]int, scenario string) []model.DimensionScore {
 	dimScore := func(dim string) int {
 		return max(100-rawPenalty[dim], 0)
 	}
 
-	// —— 身份 ——
 	idState, idPassed := "coherent", 1
 	switch {
 	case intel.HasProxy() || len(a.Identity.BlacklistHits) > 0 || a.Identity.IsTorExit || a.Identity.OpenProxyPort:
@@ -282,7 +246,6 @@ func buildDimensions(a model.ScanAnalysis, intel *model.IPIntel, rawPenalty map[
 		idState, idPassed = "unknown", 0
 	}
 
-	// —— 一致性 ——（地理位置检查已下线，见 rules.go 规则表处说明；仅时区/语言两轴）
 	cons := a.Consistency
 	consTotal, consPassed := 0, 0
 	count := func(passed bool) {
@@ -302,7 +265,6 @@ func buildDimensions(a model.ScanAnalysis, intel *model.IPIntel, rawPenalty map[
 		consState = "unknown"
 	}
 
-	// —— 泄露 ——
 	pv := a.Privacy
 	dnsUncertain := pv.DNS.Status == "blocked" || pv.DNS.Status == "unknown"
 	leakChecks := []bool{
@@ -326,7 +288,6 @@ func buildDimensions(a model.ScanAnalysis, intel *model.IPIntel, rawPenalty map[
 		leakState = "unknown"
 	}
 
-	// —— 环境指纹（含自动化）——
 	fp := a.Fingerprint
 	envChecks := []bool{
 		fp.WebGL.Status != "mismatch",

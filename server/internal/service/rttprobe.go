@@ -19,9 +19,6 @@ type rttProbeEntry struct {
 	createdAt time.Time
 }
 
-// RTTProbeStore 临时归集同一探测窗口内 GET /api/v1/ping 上的 X-TCP-RTT（µs）。
-// 解决旧口径拿 /ping min 减 POST /scans srtt 的错窗偏差；自身严格限制 ID 字符集、
-// 单 ID 采样数、总条目数与 TTL，消费即删、不落库，防止 /ping 豁免限流后成为内存放大器。
 type RTTProbeStore struct {
 	ttl        time.Duration
 	maxEntries int
@@ -35,7 +32,6 @@ type RTTProbeStore struct {
 	closeOnce sync.Once
 }
 
-// NewRTTProbeStore 创建生产环境使用的 RTTProbeStore（5 分钟 TTL、最多 4096 条、每 ID 最多 16 次采样）。
 func NewRTTProbeStore() *RTTProbeStore {
 	return newRTTProbeStore(rttProbeTTL, rttProbeMaxEntries, rttProbeMaxSamples, 1*time.Minute, time.Now)
 }
@@ -78,7 +74,6 @@ func (s *RTTProbeStore) isExpired(e rttProbeEntry, now time.Time) bool {
 	return s.ttl > 0 && now.Sub(e.createdAt) >= s.ttl
 }
 
-// Record 记录单次 /ping 上的 X-TCP-RTT；probe_id 非法、头缺失/非法或超出采样上限时直接忽略。
 func (s *RTTProbeStore) Record(probeID, tcpRTTHeader string) bool {
 	if s == nil || !isValidProbeID(probeID) {
 		return false
@@ -138,7 +133,6 @@ func (s *RTTProbeStore) Record(probeID, tcpRTTHeader string) bool {
 	return true
 }
 
-// Consume 取出探测窗口内记录到的最小服务端 TCP RTT 并立即释放条目。
 func (s *RTTProbeStore) Consume(probeID string) (float64, bool) {
 	if s == nil || !isValidProbeID(probeID) {
 		return 0, false

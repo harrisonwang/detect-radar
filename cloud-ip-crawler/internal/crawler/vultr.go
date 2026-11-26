@@ -10,7 +10,6 @@ import (
 
 const vultrURL = "https://geofeed.constant.com/?list-format=csv"
 
-// VultrCrawler Vultr IP 范围爬虫
 type VultrCrawler struct{}
 
 func (c *VultrCrawler) Name() string {
@@ -26,8 +25,6 @@ func (c *VultrCrawler) Crawl() ([]Range, error) {
 	var ranges []Range
 	scanner := bufio.NewScanner(bytes.NewReader(body))
 
-	// Geofeed CSV 格式: ip_prefix,country_code,region_code,city,postal_code
-	// 例如: 108.61.0.0/18,US,US-NJ,Piscataway,08854
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, "#") {

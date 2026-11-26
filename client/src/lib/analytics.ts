@@ -13,13 +13,11 @@ declare global {
   }
 }
 
-/** 上报无隐私信息的轻量交互事件；爬虫与服务端渲染下自动跳过。 */
 export function trackEvent(event: string, data?: UmamiProps): void {
   if (typeof window === 'undefined' || isAutomatedCrawler()) return;
   try {
     window.umami?.track(event, data);
   } catch {
-    /* ignore analytics errors */
   }
 }
 

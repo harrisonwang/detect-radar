@@ -1,22 +1,11 @@
-/**
- * 分享卡渲染器：用 Canvas 2D 从 ReportModel 直接绘制固定构图的报告分享图。
- *
- * 为什么不用 DOM 截图（html-to-image/snapdom/html2canvas）：这类库都是
- * 「克隆 DOM → 序列化 → 让浏览器重新排版渲染」，重排环境与真实页面存在
- * 系统性偏差（动画时间线、backdrop-filter、字体回退、浏览器缩放、DPR、
- * 伪类状态……），修不完。Canvas 直绘每个像素都由我们控制，与页面布局
- * 和用户环境彻底解耦。
- */
 
 import type { ReportModel, SignalState, Severity } from "./report";
 
-// 逻辑画布尺寸（输出 2x = 2880×2160）
 const W = 1440;
 const H = 1080;
 const SCALE = 2;
 const PAD = 56;
 
-// 与 global.css :root 对齐的调色板（canvas 不解析 var()，这里静态镜像）
 const C = {
   bg: "#020617",
   panel: "rgba(30, 41, 59, 0.45)",
@@ -62,7 +51,6 @@ const SEV_META: Record<
   info: { color: C.unknown, soft: C.unknownSoft, label: "提示" },
 };
 
-// 与页面同源的字体栈；CJK 显式列出保证跨平台稳定
 const SANS = `Inter, "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif`;
 const MONO = `"JetBrains Mono", ui-monospace, Menlo, monospace`;
 
@@ -70,16 +58,12 @@ function font(size: number, weight = 400, family = SANS): string {
   return `${weight} ${size}px ${family}`;
 }
 
-// 分享图对外传播，文本里出现的任何 IP 一律脱敏——出口 IP 由 identity.masked 保证，
-// 但 findings 的 fact 可能携带 WebRTC / IPv6 泄露出的完整地址（页面明文是给本人看的，
-// 分享图不是）。IPv6 要求至少三段十六进制，避免误伤「10:30」这类时间。
 const IPV4_RE = /\b(\d{1,3}\.\d{1,3})\.\d{1,3}\.\d{1,3}\b/g;
 const IPV6_RE = /\b([0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}):[0-9a-fA-F]{1,4}[0-9a-fA-F:]*\b/g;
 function maskIPsInText(s: string): string {
   return s.replace(IPV4_RE, "$1.···.···").replace(IPV6_RE, "$1:···");
 }
 
-/** 文本超宽时截断加省略号 */
 function truncate(
   ctx: CanvasRenderingContext2D,
   text: string,
@@ -125,7 +109,6 @@ function dot(
   ctx.fill();
 }
 
-/** 圆角小徽章（severity 章 / IP 类型章），返回占用宽度 */
 function chip(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -168,8 +151,6 @@ function text(
   ctx.fillText(s, x, y);
 }
 
-// ---- 背景：深空底 + 扫描网格 + 角落光晕 ----
-
 function drawBackground(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = C.bg;
   ctx.fillRect(0, 0, W, H);
@@ -201,8 +182,6 @@ function drawBackground(ctx: CanvasRenderingContext2D) {
   ctx.fillStyle = glow2;
   ctx.fillRect(0, 0, W, H);
 }
-
-// ---- 雷达图（与 RadarCard 同一套轴角/顶点数学）----
 
 function drawRadar(
   ctx: CanvasRenderingContext2D,
@@ -259,7 +238,6 @@ function drawRadar(
     ctx.stroke();
   });
 
-  // 轴标签 + 分数
   const labelPos = groups.map((_, i) => pt(i, R + 30));
   const anchors: CanvasTextAlign[] = ["center", "left", "center", "right"];
   groups.forEach((g, i) => {
@@ -276,8 +254,6 @@ function drawRadar(
     });
   });
 }
-
-// ---- 主入口 ----
 
 export interface ShareCardOptions {
   riskLabel: string;
@@ -297,7 +273,6 @@ export async function renderShareCard(
 
   drawBackground(ctx);
 
-  // == 页眉 ==
   let y = PAD + 8;
   text(ctx, "Detect", PAD, y, { font: font(28, 700, MONO), color: C.white });
   const dw = ctx.measureText("Detect").width;
@@ -340,7 +315,6 @@ export async function renderShareCard(
     align: "right",
   });
 
-  // == 主区：左雷达 / 右判定+破绽 ==
   const topY = y + 44;
   const leftW = 430;
   const rightX = PAD + leftW + 20;
@@ -385,7 +359,6 @@ export async function renderShareCard(
     },
   );
 
-  // 分隔线 + 破绽清单
   ctx.strokeStyle = C.line;
   ctx.beginPath();
   ctx.moveTo(vx, topY + 100);
@@ -456,8 +429,6 @@ export async function renderShareCard(
     }
   }
 
-  // == 身份条 ==
-  // 带 RTT 读数时加高一档，底部放「物理延迟」读数行（与页面 IdentityCard 同构）
   const idY = topY + mainH + 20;
   const rtt = report.rtt;
   const humanPct =
@@ -469,7 +440,7 @@ export async function renderShareCard(
   const fmtPct = (x: number) => (Number.isInteger(x) ? String(x) : x.toFixed(1));
   const idH = rtt ? 152 : 118;
   panel(ctx, PAD, idY, W - PAD * 2, idH);
-  const idCy = idY + (rtt ? 46 : idH / 2); // 上排（IP + 属性读数）的纵向中心
+  const idCy = idY + (rtt ? 46 : idH / 2);
   let ix = PAD + 28;
   text(ctx, "出口 IP", ix, idCy - 25, { font: font(12), color: C.slate500 });
   ctx.font = font(26, 600, MONO);
@@ -495,7 +466,6 @@ export async function renderShareCard(
     13,
   );
 
-  // 右侧读数（与页面 IdentityCard 6 项同构，补齐 ASN）
   const rawAsn = (report.identity.asn ?? "").trim();
   const asnDisplay =
     !rawAsn || rawAsn === "—"
@@ -518,7 +488,6 @@ export async function renderShareCard(
     { label: "ASN", value: asnDisplay, color: C.slate200, mono: true },
     {
       label: "欺诈评分",
-      // 档位词与页面 IdentityCard 同一分档（很低/较低/偏高/高危）
       value: `${report.identity.fraudScore} / 100（${
         report.identity.fraudScore < 25
           ? "很低"
@@ -558,7 +527,6 @@ export async function renderShareCard(
               : C.leak,
     },
   ];
-  // 归属地/运营商内容长，按权重分列宽
   const colsX = PAD + 430;
   const colsTotal = W - PAD - 28 - colsX;
   const weights = [1.35, 1.15, 0.72, 0.9, 0.62, 1.18];
@@ -576,7 +544,6 @@ export async function renderShareCard(
     cx += colW;
   });
 
-  // 物理延迟读数行（Phase 1）：与页面一样使用灰阶和试运行标记。
   if (rtt) {
     ctx.strokeStyle = C.line;
     ctx.beginPath();
@@ -619,7 +586,6 @@ export async function renderShareCard(
     });
   }
 
-  // == 三组明细 ==
   const detY = idY + idH + 20;
   const detH = H - detY - PAD - 34;
   const detW = (W - PAD * 2 - 40) / 3;
@@ -677,7 +643,6 @@ export async function renderShareCard(
     });
   });
 
-  // == 页脚 ==
   dot(ctx, PAD + 4, H - PAD + 18, C.radar, C.sigSoft);
   text(ctx, "detectradar.com", PAD + 18, H - PAD + 18, {
     font: font(15, 600, MONO),

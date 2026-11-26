@@ -8,10 +8,8 @@ import (
 
 const gcpURL = "https://www.gstatic.com/ipranges/cloud.json"
 
-// GCPCrawler Google Cloud IP 范围爬虫
 type GCPCrawler struct{}
 
-// GCPResponse GCP API 响应结构
 type GCPResponse struct {
 	SyncToken    string `json:"syncToken"`
 	CreationTime string `json:"creationTime"`

@@ -8,10 +8,8 @@ import (
 
 const awsURL = "https://ip-ranges.amazonaws.com/ip-ranges.json"
 
-// AWSCrawler AWS IP 范围爬虫
 type AWSCrawler struct{}
 
-// AWSResponse AWS API 响应结构
 type AWSResponse struct {
 	SyncToken  string `json:"syncToken"`
 	CreateDate string `json:"createDate"`
@@ -46,7 +44,6 @@ func (c *AWSCrawler) Crawl() ([]Range, error) {
 
 	var ranges []Range
 
-	// IPv4
 	for _, p := range data.Prefixes {
 		r, err := createRange("aws", p.IPPrefix, p.Region, p.Service)
 		if err != nil {
@@ -55,7 +52,6 @@ func (c *AWSCrawler) Crawl() ([]Range, error) {
 		ranges = append(ranges, *r)
 	}
 
-	// IPv6
 	for _, p := range data.IPv6Prefixes {
 		r, err := createRange("aws", p.IPv6Prefix, p.Region, p.Service)
 		if err != nil {

@@ -13,15 +13,12 @@ import (
 	"github.com/oschwald/maxminddb-golang"
 )
 
-// ASNRecord MMDB 中的 ASN 记录结构
 type ASNRecord struct {
 	ASNumber uint64 `maxminddb:"autonomous_system_number"`
 	ASOrg    string `maxminddb:"autonomous_system_organization"`
 }
 
-// 高置信度关键词（直接匹配）
 var highConfidenceKeywords = []string{
-	// 明确的托管/数据中心标识
 	"hosting",
 	"datacenter", "data center", "data-center",
 	"colocation", "colo ",
@@ -31,11 +28,10 @@ var highConfidenceKeywords = []string{
 	"web host",
 	"hoster",
 
-	// 大型云厂商（完整名称匹配）
 	"amazon web services", "amazon.com", "amazon technologies",
 	"google cloud", "google llc",
 	"microsoft azure", "microsoft corporation",
-	"alibaba cloud", "alibaba.com", "aliyun", "alibaba (", // Alibaba (US) Technology
+	"alibaba cloud", "alibaba.com", "aliyun", "alibaba (",
 	"tencent cloud", "tencent holdings",
 	"huawei cloud", "huawei technologies",
 	"oracle cloud", "oracle corporation",
@@ -44,10 +40,9 @@ var highConfidenceKeywords = []string{
 	"bytedance", "volcengine",
 	"ucloud", "kingsoft cloud",
 
-	// 知名 VPS/云服务商
 	"digitalocean",
 	"linode",
-	"vultr", "choopa", "constant company", // Vultr 母公司
+	"vultr", "choopa", "constant company",
 	"hetzner",
 	"ovh sas", "ovhcloud",
 	"scaleway",
@@ -56,7 +51,6 @@ var highConfidenceKeywords = []string{
 	"hostinger",
 	"kamatera",
 
-	// 知名托管商
 	"leaseweb",
 	"rackspace",
 	"godaddy",
@@ -84,7 +78,6 @@ var highConfidenceKeywords = []string{
 	"interserver",
 	"a2 hosting",
 
-	// CDN
 	"cloudflare",
 	"fastly",
 	"akamai",
@@ -97,7 +90,6 @@ var highConfidenceKeywords = []string{
 	"cdn77",
 	"edgecast",
 
-	// 区域性云/托管
 	"selectel",
 	"yandex cloud",
 	"naver cloud",
@@ -111,7 +103,6 @@ var highConfidenceKeywords = []string{
 	"baishan cloud",
 	"chinac",
 
-	// 其他关键词
 	"hurricane electric",
 	"zenlayer",
 	"packet host",
@@ -128,7 +119,6 @@ var highConfidenceKeywords = []string{
 	"ramnode",
 }
 
-// 中置信度关键词（需要更谨慎，使用更长的匹配）
 var mediumConfidenceKeywords = []string{
 	"server farm",
 	"server solutions",
@@ -143,9 +133,7 @@ var mediumConfidenceKeywords = []string{
 	" idc,",
 }
 
-// 明确排除的关键词（避免误判 ISP/企业/机构）
 var excludeKeywords = []string{
-	// 电信运营商
 	"telecom", "telefonica", "vodafone", "t-mobile",
 	"verizon", "at&t", "sprint", "china telecom",
 	"china unicom", "china mobile", "chinanet",
@@ -153,30 +141,24 @@ var excludeKeywords = []string{
 	"broadband", "fiber", "dsl",
 	"communications inc", "communications llc",
 
-	// 教育机构
 	"university", "college", "school", "academy",
 	"institute of technology", "research",
 	"education", "academic",
 
-	// 政府机构
 	"government", "ministry", "department of",
 	"federal", "state of", "city of",
 	"national", "municipal",
 
-	// 金融机构
 	"bank", "financial", "insurance", "credit union",
 	"investment", "securities", "capital",
 
-	// 医疗机构
 	"hospital", "medical", "health", "clinic",
 
-	// 其他企业
 	"association", "society", "foundation",
 	"corporation", "company", "enterprise",
 	"trading", "manufacturing", "industrial",
 	"construction", "engineering",
 
-	// 避免误判的特定组织
 	"visa international",
 	"mastercard",
 	"american express",
@@ -197,10 +179,8 @@ func main() {
 	}
 	defer db.Close()
 
-	// 使用 map 去重，key 是 ASN
 	asnMap := make(map[uint64]string)
 
-	// 遍历所有网络
 	networks := db.Networks(maxminddb.SkipAliasedNetworks)
 	for networks.Next() {
 		var record ASNRecord
@@ -209,7 +189,6 @@ func main() {
 			continue
 		}
 		if record.ASNumber > 0 && record.ASOrg != "" {
-			// 只保留第一次遇到的组织名（通常是最准确的）
 			if _, exists := asnMap[record.ASNumber]; !exists {
 				asnMap[record.ASNumber] = record.ASOrg
 			}
@@ -218,7 +197,6 @@ func main() {
 
 	fmt.Fprintf(os.Stderr, "从 MMDB 中提取了 %d 个唯一 ASN\n", len(asnMap))
 
-	// 筛选 Hosting 类型的 ASN
 	hostingASNs := make(map[uint64]string)
 	for asn, org := range asnMap {
 		if isHosting(org) {
@@ -228,7 +206,6 @@ func main() {
 
 	fmt.Fprintf(os.Stderr, "筛选出 %d 个 Hosting/Cloud ASN\n", len(hostingASNs))
 
-	// 排序 ASN
 	sortedASNs := make([]uint64, 0, len(hostingASNs))
 	for asn := range hostingASNs {
 		sortedASNs = append(sortedASNs, asn)
@@ -237,7 +214,6 @@ func main() {
 		return sortedASNs[i] < sortedASNs[j]
 	})
 
-	// 输出
 	var output string
 	switch *outputFormat {
 	case "json":
@@ -262,21 +238,18 @@ func main() {
 func isHosting(org string) bool {
 	orgLower := strings.ToLower(org)
 
-	// 1. 先检查高置信度关键词（优先级最高）
 	for _, kw := range highConfidenceKeywords {
 		if strings.Contains(orgLower, kw) {
 			return true
 		}
 	}
 
-	// 2. 检查排除关键词
 	for _, kw := range excludeKeywords {
 		if strings.Contains(orgLower, kw) {
 			return false
 		}
 	}
 
-	// 3. 检查中置信度关键词（需要更谨慎，已排除常见误判）
 	for _, kw := range mediumConfidenceKeywords {
 		if strings.Contains(orgLower, kw) {
 			return true
@@ -297,7 +270,6 @@ var HostingASNs = map[uint64]string{
 `)
 	for _, asn := range asns {
 		org := asnMap[asn]
-		// 转义双引号
 		org = strings.ReplaceAll(org, `"`, `\"`)
 		sb.WriteString(fmt.Sprintf("\t%d: \"%s\",\n", asn, org))
 	}
@@ -322,7 +294,6 @@ func formatCSV(asns []uint64, asnMap map[uint64]string) string {
 	sb.WriteString("ASN,Organization\n")
 	for _, asn := range asns {
 		org := asnMap[asn]
-		// CSV 转义
 		if strings.Contains(org, ",") || strings.Contains(org, "\"") {
 			org = `"` + strings.ReplaceAll(org, `"`, `""`) + `"`
 		}
@@ -331,7 +302,6 @@ func formatCSV(asns []uint64, asnMap map[uint64]string) string {
 	return sb.String()
 }
 
-// 用于测试特定 IP
 func testIP(db *maxminddb.Reader, ipStr string) {
 	ip := net.ParseIP(ipStr)
 	var record ASNRecord

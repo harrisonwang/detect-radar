@@ -79,7 +79,6 @@ export const ipv6Status: Record<
   unknown: { title: '无法判断', color: 'var(--unknown)', soft: 'var(--unknown-soft)' },
 };
 
-// ip2region 将港澳台归入 country="CN"，判定中国大陆直连时必须显式排除。
 const HK_MO_TW_RE = /香港|澳门|澳門|台湾|臺灣|hong\s*kong|macau|macao|taiwan/i;
 
 export function isMainlandChina(exit: StackExit | null | undefined): boolean {
@@ -186,7 +185,6 @@ export function evaluateIPv6(v4: StackExit | null, v6: StackExit | null): IPv6Ve
     };
   }
 
-  // 上方已排除 null
   const ipv4 = v4!;
   const ipv6 = v6!;
 
@@ -194,7 +192,6 @@ export function evaluateIPv6(v4: StackExit | null, v6: StackExit | null): IPv6Ve
   const v6Mainland = isMainlandChina(ipv6);
   const v6IsHosting = Boolean(ipv6.isHosting || ipv6.type === 'hosting');
 
-  // 口径 A：IPv4 在中国大陆以外，且 IPv6 落在国内非机房（运营商宽带/移动网）时判泄露。
   if (!v4Mainland && v6Mainland && !v6IsHosting) {
     const carrierName = dnsProviderName(ipv6.network);
     const leakedCarrier = carrierName && carrierName !== '网络未知' ? carrierName : undefined;

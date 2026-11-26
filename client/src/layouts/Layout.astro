@@ -60,7 +60,6 @@ const canonicalURL = new URL(canonical ?? Astro.url.pathname, site);
 const ogImageURL = ogImage ? new URL(ogImage, site) : undefined;
 const ogLocale = locale === 'en' ? 'en_US' : 'zh_CN';
 
-// set:html 不转义：JSON-LD 正文里若含 < 或字面 </script> 会提前闭合标签构成注入面，统一转义
 const ld = (o: Record<string, unknown>) => JSON.stringify(o).replace(/</g, '\\u003c');
 
 const DEFAULT_HOME_FEATURES = [
@@ -206,7 +205,6 @@ const jsonLdGraph = {
 	'@graph': graphNodes,
 };
 
-// 可选：自托管 cookieless 分析（Umami / Plausible）。仅当设置了 env 才注入，默认不加载任何第三方脚本。
 const analyticsSrc = import.meta.env.PUBLIC_UMAMI_SRC;
 const analyticsId = import.meta.env.PUBLIC_UMAMI_ID;
 ---
@@ -226,7 +224,6 @@ const analyticsId = import.meta.env.PUBLIC_UMAMI_ID;
 		{alternates?.map((a) => <link rel="alternate" hreflang={a.hreflang} href={new URL(a.href, site).href} />)}
 		<link rel="alternate" type="text/plain" href="/llms.txt" title="LLM & Agent Documentation" />
 
-		<!-- Open Graph -->
 		<meta property="og:type" content={pageType === 'article' ? 'article' : 'website'} />
 		<meta property="og:site_name" content="DetectRadar" />
 		<meta property="og:locale" content={ogLocale} />
@@ -244,7 +241,6 @@ const analyticsId = import.meta.env.PUBLIC_UMAMI_ID;
 			</>
 		)}
 
-		<!-- Twitter -->
 		<meta name="twitter:card" content={ogImageURL ? 'summary_large_image' : 'summary'} />
 		<meta name="twitter:title" content={fullTitle} />
 		<meta name="twitter:description" content={description} />

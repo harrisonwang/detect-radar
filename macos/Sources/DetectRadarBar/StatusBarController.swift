@@ -139,7 +139,6 @@ final class StatusBarController: NSObject, NSWindowDelegate {
             closePanel()
             return
         }
-        // 避免刚因失焦关闭后同一点击事件再次弹开
         if Date().timeIntervalSince(lastResignCloseAt) < 0.15 {
             return
         }
@@ -243,9 +242,6 @@ final class StatusBarController: NSObject, NSWindowDelegate {
     }
 }
 
-/// 与系统控制中心 / 菜单栏面板一致的无箭头圆角浮层：
-/// - macOS 26+ 使用原生 `NSGlassEffectView`（Liquid Glass），与 Wi-Fi 等系统托盘面板背景材质一致；
-/// - macOS 13–15 回退到 `NSVisualEffectView(material: .menu, state: .active)`，避免 `NSPopover` 在深色窗口上发灰发暗。
 @MainActor
 private final class MenuBarPanel: NSPanel {
     static let cornerRadius: CGFloat = {
@@ -354,7 +350,6 @@ private final class MenuBarPanel: NSPanel {
     }
 }
 
-/// 极简两区弹窗视图：上半部分状态显示区 + 单一细分隔线 + 下半部分三行操作区。
 @MainActor
 final class PopoverContentView: NSView {
     static let panelWidth: CGFloat = 292

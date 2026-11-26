@@ -1,13 +1,3 @@
-// replay 是影子回放对比工具：改评分规则（server/internal/service/rules.go）后、
-// 部署前，用当前代码把数据库中的历史扫描重跑一遍，列出哪些结论会翻转。
-//
-// 数据库保存的是旧版结论，当前代码重算的是新版结论。只读、无网络。
-//
-// 用法：
-//
-//	go run ./cmd/replay -db data/scans.db
-//	go run ./cmd/replay -db data/scans.db -json
-//	go run ./cmd/replay -db data/scans.db -fail-on-diff
 package main
 
 import (
@@ -22,14 +12,12 @@ import (
 	"detect-radar/internal/telemetry"
 )
 
-// 跳过原因 → 中文标签（键见 service.Skip* 常量）。
 var skipReasonLabel = map[string]string{
 	service.SkipMalformedJSON: "非法 JSON",
 	service.SkipNotScanEvent:  "非扫描事件(如 DNS 观测)",
 	service.SkipOldFormat:     "旧格式(缺 analysis,不可回放)",
 }
 
-// report 机器可读的汇总结果（-json 输出）。
 type report struct {
 	Database     string                 `json:"database"`
 	TotalEvents  int                    `json:"total_events"`
@@ -110,7 +98,6 @@ func run(dbPath string) (*report, error) {
 	return rep, nil
 }
 
-// levelOrder 固定风险等级展示顺序（由安全到危险）。
 var levelOrder = []string{"safe", "low", "medium", "high", "critical"}
 
 func printReport(w *os.File, rep *report) {
@@ -165,7 +152,6 @@ func printReport(w *os.File, rep *report) {
 	}
 }
 
-// levelDisplayOrder 先按固定顺序列出已知等级，再补上任何未预期的等级。
 func levelDisplayOrder(rep *report) []string {
 	seen := map[string]bool{}
 	var out []string
@@ -201,7 +187,6 @@ func sortedKeys(m map[string]int) []string {
 	return keys
 }
 
-// scanPrefix 只展示 scan_id 前缀（对齐分享卡上的短标识），避免刷屏。
 func scanPrefix(id string) string {
 	const n = 12
 	if len(id) <= n {

@@ -16,16 +16,12 @@ export function dnsRegion(code: string): string {
   return /^[A-Z]{2}$/.test(code) && code !== 'XX' && code !== 'ZZ' ? countryName(code) : '地区未知';
 }
 
-// A provider may be blank or returned as a numeric host name. Do not use
-// addresses as display labels in summaries or comparisons.
 export function dnsProvider(name: string): string {
   const label = name.trim();
   return /^(unknown|n\/a|-)$/i.test(label) ||
     /(?:\d{1,3}[.-]){3}\d{1,3}|[0-9a-f]*:[0-9a-f]*:/i.test(label) ? '' : label;
 }
 
-// Presentation aliases are also available while the exit lookup is on screen
-// and the DNS assessment has yet to return its normalized observations.
 const providerAliases = new Map([
   ['chinanet', '中国电信'],
   ['chinanet backbone', '中国电信'],

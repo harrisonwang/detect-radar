@@ -2,8 +2,6 @@ package crawler
 
 import "testing"
 
-// Zscaler 的层级不固定（cloud→continent→city→[]，外加扁平的 svpnIPs），递归收集器要能
-// 钻到任意深度、从每个 {"range":...} 叶子取 CIDR，v4 / v6 都收。
 func TestCollectZscalerRanges(t *testing.T) {
 	doc := map[string]any{
 		"zscaler.net": map[string]any{
@@ -14,7 +12,7 @@ func TestCollectZscalerRanges(t *testing.T) {
 				},
 			},
 		},
-		"svpnIPs": []any{ // 顶层的扁平列表，结构与上面不同，也要能收进来
+		"svpnIPs": []any{
 			map[string]any{"range": "165.225.0.0/17"},
 		},
 	}

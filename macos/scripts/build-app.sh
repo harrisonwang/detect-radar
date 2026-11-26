@@ -38,12 +38,9 @@ mkdir -p "$MACOS_DIR" "$RESOURCES_DIR"
 cp "$BIN_PATH" "$MACOS_DIR/$APP_NAME"
 chmod +x "$MACOS_DIR/$APP_NAME"
 
-# SwiftPM 默认可能将 Mach-O LC_BUILD_VERSION 的 sdk 写成 minos（13.0），
-# 导致 macOS 26+ 降级到旧版兼容渲染；用 vtool 同步写入当前编译 SDK 版本（保留 minos 13.0）。
 SDK_VERSION="$(xcrun --show-sdk-version)"
 xcrun vtool -set-build-version macos 13.0 "$SDK_VERSION" -replace -output "$MACOS_DIR/$APP_NAME" "$MACOS_DIR/$APP_NAME"
 
-# 程序化生成浅白底绿雷达 macOS 标准规范 .icns 图标（824/1024 HIG 圆角网格）
 ICONSET_DIR="$(mktemp -d /tmp/detectradar-icon-XXXX).iconset"
 mkdir -p "$ICONSET_DIR"
 swift - "$ICONSET_DIR" <<'SWIFT'

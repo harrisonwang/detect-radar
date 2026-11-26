@@ -7,9 +7,6 @@ import (
 	"time"
 )
 
-// fetchBytes 是所有爬虫取数的统一入口：带 User-Agent、超时和轻量重试。
-// 每日构建里任一数据源失败当天就不发布，所以对偶发抖动（网络错误、5xx、429）
-// 重试三次是划算的；4xx 这类确定性错误则立刻返回，不浪费时间。
 func fetchBytes(url string, timeout time.Duration) ([]byte, error) {
 	client := &http.Client{Timeout: timeout}
 

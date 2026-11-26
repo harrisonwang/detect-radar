@@ -11,8 +11,6 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// 导出的核心约定：同一 IP 多条归属时，MMDB 里留的必须是置信度最高的那条
-// （official > asn > hosting），且各字段完整可读回。
 func TestExportMMDB(t *testing.T) {
 	db, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
@@ -30,8 +28,6 @@ func TestExportMMDB(t *testing.T) {
 		}
 		return *r
 	}
-	// hosting 的 /21 与 aws 官方的 /22 重叠：/22 内 aws 赢，/21 其余部分归 hosting；
-	// cloudflare 的 v6 段验证 v6 也能进 MMDB
 	seed := map[string][]Range{
 		"hosting":    {mustRange("hosting", "52.94.72.0/21", "US", "AS16509 AMAZON-02")},
 		"aws":        {mustRange("aws", "52.94.76.0/22", "us-west-2", "AMAZON")},
@@ -43,8 +39,6 @@ func TestExportMMDB(t *testing.T) {
 			t.Fatalf("入库 %s 失败: %v", provider, err)
 		}
 	}
-	// 老库里可能残留保留网段（新代码入库时已滤掉，这里绕过 createRange 直插模拟），
-	// v4 / v6 都必须被导出静默跳过而不是整体失败
 	for _, legacyCIDR := range []string{"192.0.2.0/24", "fdab::/48"} {
 		start, end, version, err := parseCIDR(legacyCIDR)
 		if err != nil {
@@ -94,23 +88,18 @@ func TestExportMMDB(t *testing.T) {
 		return rec, true
 	}
 
-	// 重叠处：官方层必须覆盖 hosting 层
 	if rec, ok := lookup("52.94.76.10"); !ok || rec.Provider != "aws" || rec.Tier != "official" || rec.Region != "us-west-2" {
 		t.Errorf("52.94.76.10 应归 aws/official，实际: %+v (found=%v)", rec, ok)
 	}
-	// /21 里 /22 之外的部分：还是 hosting
 	if rec, ok := lookup("52.94.72.1"); !ok || rec.Provider != "hosting" || rec.Tier != "hosting" {
 		t.Errorf("52.94.72.1 应归 hosting，实际: %+v (found=%v)", rec, ok)
 	}
-	// 命名 ASN 层
 	if rec, ok := lookup("5.9.0.1"); !ok || rec.Provider != "hetzner" || rec.Tier != "asn" || rec.Service != "AS24940" {
 		t.Errorf("5.9.0.1 应归 hetzner/asn，实际: %+v (found=%v)", rec, ok)
 	}
-	// IPv6 原生查询
 	if rec, ok := lookup("2606:4700::1111"); !ok || rec.Provider != "cloudflare" || rec.Tier != "official" {
 		t.Errorf("2606:4700::1111 应归 cloudflare/official，实际: %+v (found=%v)", rec, ok)
 	}
-	// 库外地址不该命中（v4、v6 各一个；fdab:: 是被跳过的 legacy 保留段）
 	if rec, ok := lookup("9.9.9.9"); ok {
 		t.Errorf("9.9.9.9 不应命中，实际: %+v", rec)
 	}

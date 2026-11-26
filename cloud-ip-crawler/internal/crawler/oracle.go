@@ -8,10 +8,8 @@ import (
 
 const oracleURL = "https://docs.oracle.com/en-us/iaas/tools/public_ip_ranges.json"
 
-// OracleCrawler Oracle Cloud IP 范围爬虫
 type OracleCrawler struct{}
 
-// OracleResponse Oracle API 响应结构
 type OracleResponse struct {
 	LastUpdatedTimestamp string `json:"last_updated_timestamp"`
 	Regions              []struct {

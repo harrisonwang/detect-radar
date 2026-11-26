@@ -16,10 +16,8 @@
   }
   let { identity, rtt, isScanning = false, idle = false, settled = false, revealed = false, active = false, onToggleReveal, onCopyFeedback }: Props = $props();
 
-  // 仪表读数固定一位小数（tnum 下位数对齐）
   const ms = (x: number) => x.toFixed(1);
 
-  // 国家码 → 国旗 emoji
   function flag(code: string): string {
     if (!code || code.length !== 2) return '';
     const cc = code.toUpperCase();
@@ -27,7 +25,6 @@
     return String.fromCodePoint(...[...cc].map((c) => 0x1f1e6 + c.charCodeAt(0) - 65));
   }
 
-  // 类型标签图标
   function typeIcon(label: string): string {
     if (label.includes('机房')) return 'fa-server';
     if (label.includes('住宅')) return 'fa-house';
@@ -35,13 +32,11 @@
     return 'fa-circle-question';
   }
 
-  // 欺诈评分中文档位
   let fraudWord = $derived(
     identity.fraudScore < 25 ? '很低' : identity.fraudScore < 50 ? '较低' : identity.fraudScore < 75 ? '偏高' : '高危',
   );
   let fraudColor = $derived(identity.fraudScore >= 50 ? 'var(--leak)' : identity.fraudScore >= 25 ? 'var(--warn)' : 'var(--sig)');
 
-  // Cloudflare Radar ASN 近 30 天人类流量占比（0-100）
   let humanPct = $derived(
     typeof identity.humanRatio === 'number' && Number.isFinite(identity.humanRatio)
       ? Math.round(Math.max(0, Math.min(100, identity.humanRatio)) * 10) / 10
@@ -61,7 +56,6 @@
     if (/^\d+$/.test(raw)) return `AS${raw}`;
     return raw;
   });
-  // 日常模式下普通机房 IP 总体为 coherent，但徽章保持中性灰，避免被误解为住宅 IP
   let usageBadgeState = $derived<SignalState>(
     identity.state === 'coherent' && identity.usageLabel.includes('机房') ? 'unknown' : identity.state,
   );
@@ -92,7 +86,6 @@
   {:else}
     <div class:scan-settle={settled}>
     <div class="flex flex-col md:flex-row gap-6">
-      <!-- 左：核芯 IP -->
       <div class="md:w-[30%] md:border-r border-slate-800 md:pr-6 flex flex-col justify-center min-w-0">
         <div class="text-xs text-(--slate-500) mb-1.5">出口 IP</div>
         <ExitIPAddress ip={identity.ip} {revealed} {onToggleReveal} {onCopyFeedback} />
@@ -106,7 +99,6 @@
         </div>
       </div>
 
-      <!-- 右：3x2 属性栅格（窄屏 2x3） -->
       <div class="flex-1 grid grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-5 min-w-0">
         <div class="min-w-0">
           <div class="text-xs text-(--slate-500) mb-1 flex items-center gap-1.5">
@@ -190,7 +182,6 @@
       </div>
     {/if}
 
-    <!-- 物理延迟读数条（Phase 1）：纯测量值，无判定无语义色，标定完成前不亮灯。分享卡以同一形态呈现（shareCard.ts）。 -->
     {#if rtt}
       <div class="mt-5 pt-4 border-t border-slate-800">
         <div class="flex items-center justify-between mb-2.5">

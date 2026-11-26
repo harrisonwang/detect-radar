@@ -78,7 +78,6 @@ func TestRadarService_FetchAndCacheRedis(t *testing.T) {
 		CacheTTL: 24 * time.Hour,
 	}, store)
 
-	// 1. 冷缓存拉取并写入 Redis
 	ratio, err := svc.GetHumanRatio(context.Background(), "AS7922")
 	if err != nil {
 		t.Fatalf("GetHumanRatio error: %v", err)
@@ -90,7 +89,6 @@ func TestRadarService_FetchAndCacheRedis(t *testing.T) {
 		t.Fatalf("cached value = %q (ok=%v), want 81.53", v, ok)
 	}
 
-	// 2. 二次请求直接走 Redis，不再请求上游
 	ratio2, err := svc.GetHumanRatio(context.Background(), "7922")
 	if err != nil {
 		t.Fatalf("second GetHumanRatio error: %v", err)
@@ -164,7 +162,6 @@ func TestRadarService_SlowUpstreamWarmsCacheWithoutBlocking(t *testing.T) {
 		t.Fatalf("wait took %v, expected prompt early return around 40ms", elapsed)
 	}
 
-	// 等后台协程落完 Redis 缓存后，下一次请求直接命中
 	deadline := time.Now().Add(time.Second)
 	for time.Now().Before(deadline) {
 		if _, ok := store.getValue("radar:asn:16509"); ok {
@@ -241,7 +238,6 @@ func TestIPIntelService_CacheHitBackfillsHumanRatio(t *testing.T) {
 	if got.HumanRatio == nil || *got.HumanRatio != 81.53 {
 		t.Fatalf("HumanRatio = %v, want 81.53", got.HumanRatio)
 	}
-	// 确认回写进了 deep 缓存（而非降级写进 basic）
 	reloaded, _ := intelCache.GetDeep(context.Background(), "73.1.2.3")
 	if reloaded == nil || reloaded.HumanRatio == nil || *reloaded.HumanRatio != 81.53 {
 		t.Fatalf("deep cache not backfilled: %+v", reloaded)

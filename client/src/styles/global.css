@@ -15,7 +15,6 @@ html {
   scrollbar-gutter: stable;
 }
 
-/* 深空主题配色 */
 :root {
   --space-800: #1e293b;
   --space-900: #0f172a;
@@ -31,7 +30,6 @@ html {
   --slate-700: #334155;
   --slate-800: #1e293b;
 
-  /* 四态语义色（自洽/矛盾/泄露/无法判定） */
   --sig: #4ade80;
   --sig-soft: rgba(74, 222, 128, 0.12);
   --warn: #fbbf24;
@@ -68,13 +66,10 @@ body {
   font-variant-numeric: tabular-nums;
   font-feature-settings: 'tnum' 1;
 }
-/* 国旗 emoji：html-to-image 的 SVG 光栅化在部分 Chrome 里不走系统隐式字体回退，
-   区域指示符会退化成字母；显式命名 emoji 字体让其按名选中 */
 .emoji {
   font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Noto Color Emoji', sans-serif;
 }
 
-/* 背景网格 */
 .scan-grid {
   background-image:
     linear-gradient(rgba(34, 197, 94, 0.03) 1px, transparent 1px),
@@ -82,7 +77,6 @@ body {
   background-size: 40px 40px;
 }
 
-/* 玻璃拟态卡片 */
 .glass-card {
   background: rgba(30, 41, 59, 0.55);
   -webkit-backdrop-filter: blur(12px);
@@ -101,14 +95,12 @@ body {
   }
 }
 
-/* 扫描阶段让雷达轴和对应卡片保持同一视觉焦点（与 .glass-card 共用 0 8px 32px 包络，避免扩缩离屏合成面） */
 .scan-focus {
   border-color: rgba(74, 222, 128, 0.5);
   box-shadow: 0 0 0 1px rgba(74, 222, 128, 0.22), 0 8px 32px 0 rgba(74, 222, 128, 0.14);
   transition: border-color 0.2s ease;
 }
 
-/* 状态点 */
 .dot {
   width: 8px;
   height: 8px;
@@ -117,7 +109,6 @@ body {
   box-shadow: 0 0 0 3px var(--_soft, transparent);
 }
 
-/* 雷达扫描 */
 .radar-scan {
   background: conic-gradient(
     from 0deg,
@@ -142,7 +133,6 @@ body {
   animation: ping-slow 3s cubic-bezier(0, 0, 0.2, 1) infinite;
 }
 
-/* 载入淡入（staggered） */
 @keyframes reveal-up {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: none; }
@@ -151,7 +141,6 @@ body {
   animation: reveal-up 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
 }
 
-/* 采集结果真正可用时，卡片内容与雷达节点同步落定（仅作用于内部内容，绝不套在带 backdrop-filter 的 .glass-card 上） */
 @keyframes scan-settle {
   from { opacity: 0.45; transform: translateY(4px); }
   to { opacity: 1; transform: none; }
@@ -177,7 +166,6 @@ body {
   .reveal { opacity: 1; transform: none; }
 }
 
-/* 工具类 */
 .text-radar { color: var(--radar-400); }
 .text-slate { color: var(--slate-400); }
 .bg-space-800 { background-color: var(--space-800); }
@@ -214,7 +202,6 @@ body {
   font-family: 'JetBrains Mono', ui-monospace, monospace;
 }
 
-/* 2.5D 等距实测路径画布（放在 global.css 以避免 Astro 条件挂载丢样式） */
 .dfs-stage {
   position: relative;
   border-bottom: 1px solid var(--line);

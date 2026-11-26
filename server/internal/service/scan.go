@@ -14,19 +14,17 @@ import (
 	"github.com/google/uuid"
 )
 
-// ErrAmbiguousScan 表示客户端扫描标识对应多个历史实例。
 var ErrAmbiguousScan = errors.New("扫描标识对应多个扫描实例")
 
-// ScanService 汇总一次扫描的服务端分析：IP 信息、一致性、泄露复核、指纹和自动化
 type ScanService struct {
 	ipIntel     *IPIntelService
 	consistency *ConsistencyService
 	reputation  *ReputationService
-	rttCoords   rttServerCoords // 服务器坐标，用于 RTT 地理-延迟下限校验（Phase 1）
-	rttProbes   *RTTProbeStore  // 同一探测窗口内 /ping 的最小 TCP RTT 归集池
+	rttCoords   rttServerCoords
+	rttProbes   *RTTProbeStore
 	mu          sync.RWMutex
-	store       map[string]storedScan // 扫描实例标识 -> 不可变的响应快照
-	latest      map[string]string     // 客户端扫描标识 -> 最新实例
+	store       map[string]storedScan
+	latest      map[string]string
 	journal     *Journal
 	ttl         time.Duration
 	stop        chan struct{}
@@ -53,19 +51,14 @@ func NewScanService(ipIntel *IPIntelService, consistency *ConsistencyService, re
 	return s
 }
 
-// SetRTTProbeStore 挂载 /ping 窗口采样归集池，用于计算同窗口最小 Δ（delta_min_ms）。
 func (s *ScanService) SetRTTProbeStore(probes *RTTProbeStore) {
 	s.rttProbes = probes
 }
 
-// Analyze 执行一次完整扫描分析。
-// tcpRTT/tcpRTTVar 是 nginx 透传的 X-TCP-RTT / X-TCP-RTTVAR 头（µs 整数字符串，
-// 描述「出口 IP↔服务器」这一腿；本地开发无 nginx 时为空，优雅降级）。
 func (s *ScanService) Analyze(ctx context.Context, req *model.ScanRequest, clientIP, httpVersion, tcpRTT, tcpRTTVar, ua string) (*model.ScanResponse, error) {
 	start := time.Now()
 	clientIP = util.CanonicalIP(clientIP)
 
-	// 1. 出口 IP 信息（深度查询）
 	intel, err := s.ipIntel.Lookup(ctx, clientIP, LookupOptions{DeepScan: true})
 	if err != nil || intel == nil {
 		intel = &model.IPIntel{IP: clientIP}
@@ -83,10 +76,8 @@ func (s *ScanService) Analyze(ctx context.Context, req *model.ScanRequest, clien
 		},
 	}
 
-	// 2. 各维度分析
 	resp.Analysis.Identity = buildIdentity(intel)
 
-	// 2.1 出口 IP 信誉/暴露（P5）——硬超时，避免 DNSBL/Shodan 慢查询拖垮整次扫描
 	if s.reputation != nil {
 		repCtx, cancel := context.WithTimeout(ctx, 3*time.Second)
 		rep := s.reputation.Check(repCtx, clientIP)
@@ -106,7 +97,6 @@ func (s *ScanService) Analyze(ctx context.Context, req *model.ScanRequest, clien
 	resp.Analysis.Fingerprint = buildFingerprint(req)
 	resp.Analysis.Automation = buildAutomation(req)
 
-	// 2.2 RTT 物理探测（Phase 1 影子采集：只落库不计分，score() 不读 a.RTT）
 	clientRTT := clientRTTData(req)
 	var serverTCPMinMS float64
 	if s.rttProbes != nil && clientRTT != nil && clientRTT.ProbeID != "" {
@@ -116,7 +106,6 @@ func (s *ScanService) Analyze(ctx context.Context, req *model.ScanRequest, clien
 	}
 	resp.Analysis.RTT = deriveRTTWithServerMin(clientRTT, tcpRTT, tcpRTTVar, serverTCPMinMS, intel, s.rttCoords)
 
-	// 3. 评分 + 诊断 + 四维雷达分（rules.go 是唯一评分入口）
 	resp.Score, resp.RiskLevel, resp.Diagnosis, resp.Dimensions = scoreForScenario(resp.Analysis, intel, scenario)
 
 	resp.ProcessedAt = time.Now().UTC().Format(time.RFC3339)
@@ -128,7 +117,6 @@ func (s *ScanService) Analyze(ctx context.Context, req *model.ScanRequest, clien
 	return resp, nil
 }
 
-// persistScan 在事件和汇总共同提交后，才将结果放入内存。
 func (s *ScanService) persistScan(resp *model.ScanResponse, ua string) (string, error) {
 	instanceID := uuid.NewString()
 	if err := s.journal.ScanEvent(instanceID, resp, ua); err != nil {
@@ -143,12 +131,10 @@ func (s *ScanService) persistScan(resp *model.ScanResponse, ua string) (string, 
 	return instanceID, nil
 }
 
-// Get 仅查询短期内存缓存；SQLite 用于保存内部遥测记录。
 func (s *ScanService) Get(scanID string) (*model.ScanResponse, bool) {
 	return s.GetWithScenario(scanID, "")
 }
 
-// GetWithScenario 从短期内存缓存取出扫描快照，并按指定口径（strict/daily）实时重算返回新副本（绝不原地修改缓存）。
 func (s *ScanService) GetWithScenario(scanID, rawScenario string) (*model.ScanResponse, bool) {
 	s.mu.RLock()
 	stored, ok := s.store[s.latest[scanID]]
@@ -171,7 +157,6 @@ func (s *ScanService) GetWithScenario(scanID, rawScenario string) (*model.ScanRe
 	return &cp, true
 }
 
-// InstanceID 仅关联数据库中的唯一实例，避免内存清理后误判重复标识。
 func (s *ScanService) InstanceID(scanID string) (string, error) {
 	if scanID == "" {
 		return "", nil
@@ -197,7 +182,6 @@ func (s *ScanService) InstanceID(scanID string) (string, error) {
 	return id, nil
 }
 
-// UpdateDNSLeak 将客户端提交的 DNS 更新持久化后，再更新内存。
 func (s *ScanService) UpdateDNSLeak(scanID string, leaked bool) (*model.ScanResponse, bool, error) {
 	id, err := s.InstanceID(scanID)
 	if err != nil {
@@ -231,7 +215,6 @@ func (s *ScanService) UpdateDNSLeak(scanID string, leaked bool) (*model.ScanResp
 	return updated, true, nil
 }
 
-// UpdateDNSObservation 使用创建 DNS 测试时绑定的扫描实例。
 func (s *ScanService) UpdateDNSObservation(instanceID, clientID string, result *model.DNSLeakResult) (*model.ScanResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -282,7 +265,6 @@ func rescoreDNS(previous *model.ScanResponse, leaked bool) *model.ScanResponse {
 	return rescoreDNSStatus(previous, dns)
 }
 
-// 复制响应后再修改，避免影响并发读取或发布未提交的结果。
 func rescoreDNSStatus(previous *model.ScanResponse, dns model.PrivacyDNS) *model.ScanResponse {
 	resp := *previous
 	resp.Scenario = NormalizeScenario(previous.Scenario)
@@ -332,8 +314,6 @@ func (s *ScanService) Close() error {
 	return nil
 }
 
-// ---- 网络身份 ----
-
 func buildIdentity(intel *model.IPIntel) model.IdentityAnalysis {
 	ia := model.IdentityAnalysis{
 		IPTypeConfidence: intel.Confidence,
@@ -363,9 +343,6 @@ func buildIdentity(intel *model.IPIntel) model.IdentityAnalysis {
 	return ia
 }
 
-// ---- 一致性检测输入 ----
-
-// clientRTTData 取出客户端上报的 RTT 采样（缺失/未采集时返回 nil，deriveRTT 会优雅降级）
 func clientRTTData(req *model.ScanRequest) *model.RTTData {
 	if req.Network == nil || req.Network.RTT == nil {
 		return nil
@@ -385,8 +362,6 @@ func browserFrom(req *model.ScanRequest) model.BrowserInfo {
 	return b
 }
 
-// ---- 隐私泄露 ----
-
 func buildPrivacy(req *model.ScanRequest, exitIP string, intel *model.IPIntel) model.PrivacyAnalysis {
 	pa := model.PrivacyAnalysis{
 		WebRTC: model.PrivacyWebRTC{Status: "blocked", LeakedIPs: []string{}, MatchesExitIP: true},
@@ -396,8 +371,6 @@ func buildPrivacy(req *model.ScanRequest, exitIP string, intel *model.IPIntel) m
 
 	exitHasProxyRisk := intel != nil && (intel.HasProxy() || intel.IsHosting || intel.InferUsageType() == "hosting")
 
-	// WebRTC：同 IP 与同 IPv6 /64 前缀直接折合；无归属库时普通双栈公网地址只提示，明确代理/机房出口出现额外公网地址判高风险。
-	// 当 ScanService 具备 ipIntel 时，后续 refineWebRTCPrivacy 会做本地归属权威复核。
 	if w := req.Leaks.WebRTC; w != nil && w.Data != nil {
 		canonicalExit := util.CanonicalIP(exitIP)
 		var extra []string
@@ -420,7 +393,6 @@ func buildPrivacy(req *model.ScanRequest, exitIP string, intel *model.IPIntel) m
 		}
 	}
 
-	// DNS：采用客户端复核后的 leaked 标志
 	if d := req.Leaks.DNS; d != nil && d.Data != nil {
 		if d.Data.Leaked {
 			pa.DNS = model.PrivacyDNS{Status: "danger", MatchesExitIP: false}
@@ -429,7 +401,6 @@ func buildPrivacy(req *model.ScanRequest, exitIP string, intel *model.IPIntel) m
 		}
 	}
 
-	// IPv6：普通双栈不算泄露；明确代理/机房出口下出现 IPv6 才提示可能旁路。
 	if v := req.Leaks.IPv6; v != nil && v.Data != nil {
 		if v.Data.Leaked && v.Data.IPv6Address != "" {
 			if exitHasProxyRisk {
@@ -448,7 +419,6 @@ func buildPrivacy(req *model.ScanRequest, exitIP string, intel *model.IPIntel) m
 	return pa
 }
 
-// isMainlandCN 判断 IPIntel 是否位于中国大陆（排除港澳台：ip2region 将其标为 country=CN）。
 func isMainlandCN(intel *model.IPIntel) bool {
 	if intel == nil || !strings.EqualFold(strings.TrimSpace(intel.Country), "CN") {
 		return false
@@ -464,9 +434,6 @@ func isMainlandCN(intel *model.IPIntel) bool {
 	return true
 }
 
-// refineWebRTCPrivacy 使用与专项页共用的纯本地 AssessWebRTC 逻辑复核首页 WebRTC 公网候选：
-// 同归属双栈 / 同运营商 CGNAT 出口池升格为 safe（消除直连手机双栈 warning 噪音），
-// 跨地区 / 跨运营商 / 代理旁路（含纯 IPv4 代理漏出原生 IPv6、住宅代理跨国泄露）明确判为 danger。
 func (s *ScanService) refineWebRTCPrivacy(
 	ctx context.Context,
 	pa *model.PrivacyAnalysis,
@@ -489,8 +456,6 @@ func (s *ScanService) refineWebRTCPrivacy(
 	pa.OverallStatus = privacyOverallStatus(*pa)
 }
 
-// refineIPv6Privacy 使用服务端 IPIntel（LocalOnly 优先命中 6.detectradar.com 写入的缓存）
-// 对浏览器上报的真实 IPv6 出口做权威复核，排除海外异地分流与港澳台/机房误报。
 func (s *ScanService) refineIPv6Privacy(
 	ctx context.Context,
 	pa *model.PrivacyAnalysis,
@@ -526,8 +491,6 @@ func (s *ScanService) refineIPv6Privacy(
 	pa.OverallStatus = privacyOverallStatus(*pa)
 }
 
-// ---- 浏览器指纹 ----
-
 func buildFingerprint(req *model.ScanRequest) model.FingerprintAnalysis {
 	fa := model.FingerprintAnalysis{
 		Canvas: model.FPCanvasAnalysis{Status: "unknown"},
@@ -560,7 +523,6 @@ func buildFingerprint(req *model.ScanRequest) model.FingerprintAnalysis {
 		}
 	}
 
-	// WebGL 渲染器 vs 声称的平台
 	platform := ""
 	if nav := req.Environment.Navigator; nav != nil && nav.Data != nil {
 		platform = nav.Data.Platform
@@ -576,7 +538,6 @@ func buildFingerprint(req *model.ScanRequest) model.FingerprintAnalysis {
 		}
 	}
 
-	// 综合
 	switch {
 	case fa.WebGL.Status == "mismatch":
 		fa.OverallStatus = "conflict"
@@ -589,8 +550,6 @@ func buildFingerprint(req *model.ScanRequest) model.FingerprintAnalysis {
 	}
 	return fa
 }
-
-// ---- 自动化检测 ----
 
 func buildAutomation(req *model.ScanRequest) model.AutomationAnalysis {
 	aa := model.AutomationAnalysis{AutomationTraces: []string{}, OverallStatus: "safe"}
@@ -613,7 +572,6 @@ func buildAutomation(req *model.ScanRequest) model.AutomationAnalysis {
 		aa.AutomationTraces = append(aa.AutomationTraces, "plugins_length=0 (桌面浏览器无插件，可疑)")
 	}
 
-	// FingerprintJS hook 审计
 	if req.FPJSAudit != nil && req.FPJSAudit.Hook.Status == "DANGER" {
 		aa.AutomationTraces = append(aa.AutomationTraces, "检测到原生方法被 Hook: "+strings.Join(req.FPJSAudit.Hook.Methods, ","))
 	}
@@ -627,13 +585,10 @@ func buildAutomation(req *model.ScanRequest) model.AutomationAnalysis {
 	return aa
 }
 
-// ---- 辅助函数 ----
-
 func isNativeCode(code string) bool {
 	return strings.Contains(code, "[native code]")
 }
 
-// webglMatchesPlatform 只对「物理不可能」的组合判 mismatch，避免假阳性
 func webglMatchesPlatform(renderer, platform string) (bool, string) {
 	r := strings.ToLower(renderer)
 	p := strings.ToLower(platform)
@@ -644,14 +599,12 @@ func webglMatchesPlatform(renderer, platform string) (bool, string) {
 	isMac := strings.Contains(p, "mac")
 	isIOS := strings.Contains(p, "iphone") || strings.Contains(p, "ipad")
 
-	// Apple 平台不可能出现 Direct3D / NVIDIA 桌面卡
 	if isMac || isIOS {
 		if strings.Contains(r, "direct3d") || strings.Contains(r, "d3d") || strings.Contains(r, "nvidia") {
 			return false, "Apple 平台不应出现 Direct3D/NVIDIA 渲染器"
 		}
 	}
 
-	// iOS 不可能是桌面 GPU（ANGLE Direct3D 等）
 	if isIOS && strings.Contains(r, "angle") {
 		return false, "iOS 不应出现桌面 ANGLE 渲染器"
 	}

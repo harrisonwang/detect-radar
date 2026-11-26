@@ -1,4 +1,3 @@
-// Package dnsassessment evaluates observed DNS queries for the home report and the DNS page.
 package dnsassessment
 
 import (
@@ -12,7 +11,7 @@ type Exit struct {
 	Country string `json:"country"`
 	Network string `json:"network"`
 	ASN     string `json:"asn,omitempty"`
-	Type    string `json:"type,omitempty"` // proxy / hosting / access
+	Type    string `json:"type,omitempty"`
 }
 
 type Resolver struct {
@@ -20,7 +19,7 @@ type Resolver struct {
 	Country     string `json:"country"`
 	ISP         string `json:"isp"`
 	ASN         string `json:"asn,omitempty"`
-	NetworkType string `json:"network_type,omitempty"` // public / access / hosting
+	NetworkType string `json:"network_type,omitempty"`
 	Rounds      int    `json:"rounds,omitempty"`
 	RoundIDs    []int  `json:"round_ids,omitempty"`
 }
@@ -36,7 +35,7 @@ const PolicyVersion = 2
 
 type Verdict struct {
 	PolicyVersion int      `json:"policy_version"`
-	State         string   `json:"state"` // "suspected" is the original API key for a positive finding.
+	State         string   `json:"state"`
 	Reason        string   `json:"reason"`
 	Networks      []string `json:"networks,omitempty"`
 	SuspectIPs    []string `json:"suspect_ips,omitempty"`
@@ -58,7 +57,6 @@ var accessNetworks = map[string]string{
 	"comcast": "Comcast", "comcast cable communications llc": "Comcast", "xfinity": "Comcast",
 }
 
-// APNIC backbone ASNs provide a fallback when the IP database only names a regional branch.
 var mainlandBackbones = map[string]string{
 	"AS4134": "中国电信", "AS4837": "中国联通", "AS9808": "中国移动",
 }
@@ -73,8 +71,6 @@ var publicNetworks = map[string]string{
 	"adguard dns": "AdGuard DNS",
 }
 
-// Documented service addresses. A generic Alibaba, Tencent, or hosting ASN does
-// not identify its tenant; these matches apply only to the address observed.
 var publicAddresses = map[string]string{
 	"223.5.5.5": "AliDNS", "223.6.6.6": "AliDNS",
 	"119.29.29.29": "DNSPod",
@@ -130,7 +126,6 @@ func normalizeResolver(r Resolver) Resolver {
 		r.ISP, r.NetworkType = label, "public"
 		return r
 	}
-	// Prefer a known access operator over a generic infrastructure classification.
 	if accessNetworks[key(r.ISP)] != "" {
 		r.NetworkType = "access"
 	} else if r.Country == "CN" && (r.NetworkType == "" || r.NetworkType == "access") {
@@ -201,8 +196,6 @@ func (input Input) Valid() bool {
 		input.ObservedRounds >= 0 && input.ObservedRounds <= input.TotalRounds && len(input.Resolvers) <= 128
 }
 
-// Evaluate only uses the available observations; it cannot confirm a tunnel
-// policy violation or look up any IP from caller-provided data.
 func Evaluate(input Input) Result {
 	result := Result{Resolvers: make([]Resolver, 0, len(input.Resolvers))}
 	if input.Exit != nil {

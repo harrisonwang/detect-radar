@@ -11,7 +11,6 @@ const MACOS_DMG_FILENAME = `DetectRadarBar-v${MACOS_VERSION}-macos-universal.dmg
 const GITHUB_RELEASES_URL = 'https://github.com/harrisonwang/detect-radar/releases';
 const R2_DIRECT_DOWNLOAD_URL = `https://dl.detectradar.com/macos/releases/${MACOS_RELEASE_TAG}/${MACOS_DMG_FILENAME}`;
 
-// 已完成 R2 不可变镜像与 dl.detectradar.com 公网 SHA-256 核验，启用直链下载
 const ACTIVE_DOWNLOAD_CHANNEL = 'r2' as 'github' | 'r2';
 
 const DOWNLOAD_CHANNELS = {
@@ -113,7 +112,6 @@ const PREVIEWS = [
 		<AppHeader page="static" />
 
 		<main class="relative z-10 flex-1 mx-auto w-full max-w-[1104px] px-4 sm:px-6 lg:px-8 pt-8 pb-14 sm:pt-12 sm:pb-16 lg:pt-16 lg:pb-20 min-w-0">
-			<!-- 首屏主区：lg:items-start 确保展开折叠项时右图不动 -->
 			<section
 				aria-label="DetectRadar for macOS 介绍与下载"
 				class="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(380px,440px)] gap-10 lg:gap-14 items-start"
@@ -134,7 +132,6 @@ const PREVIEWS = [
 						在菜单栏随时看出口 IP 和机房/宽带，IPv6 泄露时提醒。
 					</p>
 
-					<!-- 主行动区：单一清晰下载按钮 -->
 					<div class="mt-7 flex flex-col sm:flex-row sm:items-center gap-3">
 						<a
 							href={primaryDownload.href}
@@ -163,7 +160,6 @@ const PREVIEWS = [
 						)}
 					</div>
 
-					<!-- Homebrew 单行命令条 -->
 					<div class="mt-6">
 						<p class="text-xs text-(--slate-400) mb-2">或用 Homebrew 安装</p>
 						<div class="cmd-strip flex items-center gap-2.5 rounded-xl border border-slate-800/90 bg-[#070d1b]/85 px-3.5 py-2.5">
@@ -184,7 +180,6 @@ const PREVIEWS = [
 						</div>
 					</div>
 
-					<!-- 折叠的首次打开提示 -->
 					<details class="gatekeeper-tip group mt-3.5">
 						<summary class="inline-flex items-center gap-1.5 text-xs text-(--slate-400) hover:text-(--slate-200) transition-colors cursor-pointer list-none select-none">
 							<i class="tip-chevron fa-solid fa-chevron-right text-[9px] text-slate-500 transition-transform duration-150" aria-hidden="true"></i>
@@ -214,7 +209,6 @@ const PREVIEWS = [
 					</details>
 				</div>
 
-				<!-- 右侧：三态合一零跳动实机预览 -->
 				<figure class="min-w-0 w-full max-w-[440px] mx-auto lg:mx-0">
 					<div
 						id="macos-preview-stage"
@@ -267,7 +261,6 @@ const PREVIEWS = [
 				</figure>
 			</section>
 
-			<!-- 下半区：让 AI 助手帮你查终端网络 -->
 			<section
 				aria-labelledby="agent"
 				class="mt-12 sm:mt-16 pt-8 sm:pt-10 border-t border-white/[0.08] grid grid-cols-1 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] gap-5 lg:gap-12 items-center"
@@ -309,7 +302,6 @@ const PREVIEWS = [
 				</div>
 			</section>
 
-			<!-- 代理客户端面板模块 -->
 			<section
 				aria-labelledby="proxy-modules"
 				class="mt-10 sm:mt-12 pt-8 sm:pt-10 border-t border-white/[0.08] grid grid-cols-1 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] gap-5 lg:gap-12 items-start lg:items-center"
@@ -486,7 +478,6 @@ const PREVIEWS = [
 							}
 						}, 1600);
 					} catch {
-						/* 剪贴板不可用时静默忽略 */
 					}
 				});
 			});

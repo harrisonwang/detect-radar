@@ -31,7 +31,6 @@ function auditEnvironment(): FingerprintHookAudit {
       hookedMethods.push('toDataURL(DeepCheck)');
     }
   } catch {
-    // ignore
   }
 
   if (hookedMethods.length > 0) {
@@ -46,7 +45,6 @@ function auditEnvironment(): FingerprintHookAudit {
 }
 
 async function loadFingerprintJS() {
-  // FPJS_CDN 是运行时从 CDN 动态加载的外部 ESM URL，故意不打包；@vite-ignore 关掉“无法静态分析”的告警
   const module = await import(/* @vite-ignore */ FPJS_CDN);
   return module.default ?? module;
 }
@@ -86,7 +84,6 @@ export async function collectFingerprintAudit(): Promise<FingerprintAuditPayload
     visitorId = result?.visitorId;
     canvasSummary = summarizeCanvasComponent(result?.components?.canvas?.value);
   } catch {
-    // ignore, keep undefined
   }
 
   return {

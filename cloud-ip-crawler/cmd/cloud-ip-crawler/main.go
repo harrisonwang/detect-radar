@@ -1,6 +1,3 @@
-// cloud-ip-crawler 抓取云厂商 / 机房 / 托管商的 IP 段（IPv4 + IPv6），
-// 汇总成一个 SQLite 数据库，用来回答「这个 IP 是不是机房 IP」。
-// 各家 v6 覆盖不齐（Oracle 的官方文件就没有 v6），按厂商粒度记录在 README。
 package main
 
 import (
@@ -15,11 +12,10 @@ import (
 
 	"github.com/harrisonwang/detect-radar/cloud-ip-crawler/internal/crawler"
 
-	_ "modernc.org/sqlite" // 纯 Go 实现，无需 CGO，可交叉编译到所有平台
+	_ "modernc.org/sqlite"
 )
 
 func main() {
-	// 子命令：lookup 查归属，export 导出 MMDB，都不走抓取流程
 	if len(os.Args) > 1 {
 		switch os.Args[1] {
 		case "lookup":
@@ -29,7 +25,6 @@ func main() {
 		}
 	}
 
-	// ASN 系厂商清单在 asn.go 里维护，帮助文本动态生成，加厂商不用改这里
 	asnCrawlers := crawler.ASNCrawlers()
 	asnNames := make([]string, 0, len(asnCrawlers))
 	for _, c := range asnCrawlers {
@@ -61,16 +56,13 @@ func main() {
 		"zscaler":      &crawler.ZscalerCrawler{},
 	}
 
-	// map 迭代序随机，固定顺序让日志可比对
 	order := []string{"aws", "gcp", "azure", "cloudflare", "oracle", "digitalocean", "linode", "vultr", "fastly", "bunny", "zscaler"}
 
-	// 大机房 / VPS 商家大多不发官方文件，改从 ASN 取宣告前缀（iptoasn 全量表），每家一个爬虫
 	for _, c := range asnCrawlers {
 		crawlers[c.Name()] = c
 		order = append(order, c.Name())
 	}
 
-	// 兜底层：按 AS 名称关键词把「叫不出名字」的托管商也收进来，放最后（最泛、置信度最低）
 	crawlers["hosting"] = &crawler.HostingCrawler{}
 	order = append(order, "hosting")
 
@@ -114,7 +106,6 @@ func main() {
 			failed++
 			continue
 		}
-		// 0 条视为失败：多半是上游改版而不是真没数据，直接入库会静默清空该厂商
 		if len(ranges) == 0 {
 			log.Printf("爬取 %s 拿到 0 条数据，视为失败", c.Name())
 			failed++
@@ -144,20 +135,15 @@ func main() {
 
 	log.Printf("完成! 共处理 %d 条 IP 范围，%d 个数据源失败", total, failed)
 
-	// 每日自动构建要能据此判断产物是否可信：任一数据源失败就非零退出
 	if failed > 0 {
 		os.Exit(1)
 	}
 }
 
-// runLookup 实现 `cloud-ip-crawler lookup <ip>`：命中打印所有归属并返回 0，
-// 未命中返回 1（脚本可以直接拿退出码当判断结果），用法错误返回 2。
-// 同一个 IP 可能有多条归属（比如既在 Cloudflare 官方清单、又在 hosting 层的
-// AS13335 里），全部列出，置信度排序交给调用方。
 func runLookup(args []string) int {
 	fs := flag.NewFlagSet("lookup", flag.ExitOnError)
 	dbPath := fs.String("db", "cloud-ip.db", "SQLite 数据库路径")
-	fs.Parse(args) //nolint:errcheck // ExitOnError 模式下错误直接退出
+	fs.Parse(args) //nolint:errcheck
 
 	if fs.NArg() != 1 {
 		fmt.Fprintln(os.Stderr, "用法: cloud-ip-crawler lookup [--db cloud-ip.db] <ip>")
@@ -233,13 +219,11 @@ func runLookup(args []string) int {
 	return 0
 }
 
-// runExport 实现 `cloud-ip-crawler export`：把 SQLite 导出成 MMDB，
-// nginx（geoip2 模块）、HAProxy 等可以直接加载。
 func runExport(args []string) int {
 	fs := flag.NewFlagSet("export", flag.ExitOnError)
 	dbPath := fs.String("db", "cloud-ip.db", "SQLite 数据库路径")
 	outPath := fs.String("out", "cloud-ip.mmdb", "输出的 MMDB 文件路径")
-	fs.Parse(args) //nolint:errcheck // ExitOnError 模式下错误直接退出
+	fs.Parse(args) //nolint:errcheck
 
 	if _, err := os.Stat(*dbPath); err != nil {
 		fmt.Fprintf(os.Stderr, "数据库 %s 不存在：先运行抓取，或从 Release 下载现成数据集\n", *dbPath)
@@ -262,7 +246,7 @@ func runExport(args []string) int {
 
 	n, err := crawler.ExportMMDB(db, f)
 	if err != nil {
-		os.Remove(*outPath) //nolint:errcheck // 尽力清掉半成品
+		os.Remove(*outPath) //nolint:errcheck
 		fmt.Fprintf(os.Stderr, "导出失败: %v\n", err)
 		return 2
 	}

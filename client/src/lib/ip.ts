@@ -1,8 +1,3 @@
-/**
- * IPv4 / IPv6 规范化与前缀比较工具（RFC 5952）。
- * 用于避免 IPv6 补零全写（如 240e:0469:...0329）与压缩写法（240e:469:...329）
- * 在字符串比对时误判为不同地址，以及折合同一主机接口的 RFC 4941 /64 临时隐私地址。
- */
 
 function parseIPv4Octets(raw: string): number[] | null {
   const parts = raw.split('.');
@@ -18,7 +13,6 @@ function parseIPv4Octets(raw: string): number[] | null {
   return out;
 }
 
-/** 将 IPv6 文本解析为 8 个 16 位无符号整数（hextets）；非法则返回 null。 */
 export function parseIPv6Words(raw: string): number[] | null {
   let s = raw.trim().toLowerCase();
   if (!s || !s.includes(':')) return null;
@@ -102,7 +96,6 @@ function formatIPv6RFC5952(words: number[]): string {
   return `${left}::${right}`;
 }
 
-/** 规范化 IPv4 / IPv6 字符串（RFC 5952 压缩小写，并解包 ::ffff:a.b.c.d）。 */
 export function canonicalIP(raw: string | null | undefined): string {
   const s = (raw ?? '').trim();
   if (!s) return '';
@@ -113,20 +106,17 @@ export function canonicalIP(raw: string | null | undefined): string {
   return s.toLowerCase();
 }
 
-/** 判断规范化后的地址是否为纯 IPv6（不含 ::ffff:a.b.c.d）。 */
 export function isIPv6Address(raw: string | null | undefined): boolean {
   const words = parseIPv6Words(raw ?? '');
   return words !== null && !isIPv4MappedWords(words);
 }
 
-/** 比较两个 IP 地址在规范化后是否相等。 */
 export function sameIP(a: string | null | undefined, b: string | null | undefined): boolean {
   const ca = canonicalIP(a);
   const cb = canonicalIP(b);
   return ca !== '' && ca === cb;
 }
 
-/** 判断两个地址是否同属同一 IPv6 /64 前缀（覆盖 RFC 4941 临时隐私地址）。 */
 export function sameIPv6Prefix64(
   a: string | null | undefined,
   b: string | null | undefined,
@@ -137,7 +127,6 @@ export function sameIPv6Prefix64(
   return wa[0] === wb[0] && wa[1] === wb[1] && wa[2] === wb[2] && wa[3] === wb[3];
 }
 
-/** 判断候选地址是否与出口 IP 相同，或同属同一 IPv6 /64 前缀。 */
 export function sameExitOrPrefix64(
   candidateIP: string | null | undefined,
   exitIP: string | null | undefined,

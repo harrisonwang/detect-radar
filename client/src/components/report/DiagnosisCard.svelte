@@ -25,7 +25,6 @@
     info: { color: 'var(--unknown)', soft: 'var(--unknown-soft)', label: '提示', icon: 'fa-circle-info' },
   };
 
-  // 合作推荐位配置开关（默认关闭，通过 PUBLIC_PARTNER_ENABLED=true 开启）
   const ENV = (import.meta as unknown as { env?: Record<string, string | boolean> }).env ?? {};
   const partnerEnabled = ENV.PUBLIC_PARTNER_ENABLED === true || ENV.PUBLIC_PARTNER_ENABLED === 'true' || ENV.PUBLIC_PARTNER_ENABLED === '1';
   const partnerUrl = typeof ENV.PUBLIC_PARTNER_URL === 'string' && ENV.PUBLIC_PARTNER_URL ? ENV.PUBLIC_PARTNER_URL : 'https://proxy-seller.com/';
@@ -41,7 +40,6 @@
     </div>
   {:else if report}
     <div class="flex flex-col flex-1 scan-settle">
-    <!-- 判定 -->
     <div class="flex items-start gap-3">
       <span class="dot mt-2" style="background:{stateVar(report.verdict.state)}; --_soft:{stateSoft(report.verdict.state)}"></span>
       <div>
@@ -50,7 +48,6 @@
       </div>
     </div>
 
-    <!-- 暴露项 -->
     <div class="mt-5 pt-4 border-t border-slate-800 flex-1">
       {#if report.findings.length === 0}
         <div class="flex items-center gap-2 text-sm text-(--slate-300)">
@@ -84,7 +81,6 @@
                 {:else}
                   <span class="text-sm text-(--slate-200) leading-snug">{f.title}</span>
                 {/if}
-                <!-- 窄屏放开换行：单行省略号会把暴露项的证据（被比对的两个值）截掉一半 -->
                 <span class="text-xs text-(--slate-400) block sm:truncate mt-0.5">{f.fact}</span>
                 {#if f.fix && f.severity !== 'info'}
                   <span class="text-xs text-(--slate-500) block mt-0.5 leading-relaxed">建议：{f.fix}</span>
@@ -97,7 +93,6 @@
     </div>
 
     {#if partnerEnabled}
-      <!-- 合作推荐位：完全复用上方暴露项的「左胶囊 + 右主副双行」组件语法与像素对齐 -->
       <div class="mt-5 pt-4 border-t border-slate-800 flex items-start gap-2.5">
         <span
           class="text-[10px] font-mono px-1.5 py-1 rounded shrink-0 flex items-center gap-1"

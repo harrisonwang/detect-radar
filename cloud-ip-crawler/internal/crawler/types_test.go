@@ -31,7 +31,6 @@ func TestParseCIDR(t *testing.T) {
 	}
 }
 
-// 全部爬虫都经 createRange 收口：v4/v6 正常放行，特殊用途网段统一丢弃
 func TestCreateRange(t *testing.T) {
 	r, err := createRange("aws", "52.94.76.0/22", "us-east-1", "EC2")
 	if err != nil {
@@ -49,8 +48,6 @@ func TestCreateRange(t *testing.T) {
 		t.Errorf("IPv6 字段未正确填充: %+v", r6)
 	}
 
-	// Vultr 的 geofeed 真把 TEST-NET 当数据发过，特殊用途网段必须在入库前被丢弃。
-	// v6 同理：ULA、文档段、v4 映射段、6to4 / Teredo（mmdbwriter 会拒收）都不能入库。
 	reserved := []string{
 		"192.0.2.0/24", "198.51.100.0/24", "10.0.0.0/8", "192.0.2.128/25",
 		"2001:db8::/32", "fc00::/7", "fd12:3456::/48", "fe80::/10",
@@ -63,7 +60,6 @@ func TestCreateRange(t *testing.T) {
 	}
 }
 
-// ip_start / ip_end 必须定长，否则 SQLite 里 ip_start <= x <= ip_end 的 BLOB 比较会错
 func TestIPToBytesFixedWidth(t *testing.T) {
 	if got := len(ipToBytes(net.ParseIP("1.2.3.4"))); got != 4 {
 		t.Errorf("IPv4 应编码为 4 字节，实际 %d", got)

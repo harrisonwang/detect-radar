@@ -12,10 +12,8 @@ import (
 	"time"
 )
 
-// AzureCrawler Azure IP 范围爬虫
 type AzureCrawler struct{}
 
-// AzureResponse Azure JSON 响应结构
 type AzureResponse struct {
 	ChangeNumber int    `json:"changeNumber"`
 	Cloud        string `json:"cloud"`
@@ -38,9 +36,6 @@ func (c *AzureCrawler) Name() string {
 }
 
 func (c *AzureCrawler) Crawl() ([]Range, error) {
-	// 默认走标准 TLS 校验（实测 microsoft.com / download.microsoft.com 证书链均正常）。
-	// 仅在个别网络对这两个域名做了 TLS 拦截、握手失败时，
-	// 才设 AZURE_SKIP_TLS_VERIFY=1 显式关闭校验（会打印告警，不做静默降级）。
 	transport := &http.Transport{}
 	if os.Getenv("AZURE_SKIP_TLS_VERIFY") == "1" {
 		log.Printf("[azure] 警告: AZURE_SKIP_TLS_VERIFY=1，本次爬取不校验 TLS 证书")
@@ -51,19 +46,16 @@ func (c *AzureCrawler) Crawl() ([]Range, error) {
 		Transport: transport,
 	}
 
-	// 支持通过环境变量指定下载链接
 	downloadURL := os.Getenv("AZURE_IP_RANGES_URL")
 	var err error
 
 	if downloadURL == "" {
-		// 尝试多种方式获取下载链接
 		downloadURL, err = c.extractDownloadURL(client)
 		if err != nil {
 			return nil, fmt.Errorf("提取下载链接失败: %w (可设置 AZURE_IP_RANGES_URL 环境变量指定下载链接)", err)
 		}
 	}
 
-	// 下载 JSON 文件
 	req, err := http.NewRequest("GET", downloadURL, nil)
 	if err != nil {
 		return nil, err
@@ -106,9 +98,7 @@ func (c *AzureCrawler) Crawl() ([]Range, error) {
 	return ranges, nil
 }
 
-// extractDownloadURL 从 Azure 下载页面提取 JSON 文件链接
 func (c *AzureCrawler) extractDownloadURL(client *http.Client) (string, error) {
-	// 方法 1: 从确认页面提取下载链接
 	confirmURL := "https://www.microsoft.com/en-us/download/confirmation.aspx?id=56519"
 
 	req, err := http.NewRequest("GET", confirmURL, nil)
@@ -124,7 +114,6 @@ func (c *AzureCrawler) extractDownloadURL(client *http.Client) (string, error) {
 		defer resp.Body.Close()
 		body, err := io.ReadAll(resp.Body)
 		if err == nil {
-			// 尝试多种正则模式
 			patterns := []string{
 				`https://download\.microsoft\.com/download/[^"'\s<>]+ServiceTags_Public[^"'\s<>]+\.json`,
 				`href="(https://download\.microsoft\.com[^"]+\.json)"`,
@@ -144,12 +133,8 @@ func (c *AzureCrawler) extractDownloadURL(client *http.Client) (string, error) {
 		}
 	}
 
-	// 方法 2: 尝试猜测最新的下载链接（基于日期模式）
-	// Azure 的文件名格式: ServiceTags_Public_YYYYMMDD.json
-	// 基础下载路径是固定的
 	baseURL := "https://download.microsoft.com/download/7/1/D/71D86715-5596-4529-9B13-DA13A5DE5B63"
 
-	// 尝试最近几天的日期
 	for i := 0; i <= 7; i++ {
 		date := time.Now().AddDate(0, 0, -i)
 		filename := fmt.Sprintf("ServiceTags_Public_%s.json", date.Format("20060102"))

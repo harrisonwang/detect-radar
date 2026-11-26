@@ -13,9 +13,6 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// DNSTapService 监听递归解析器发来的 DNSTap 流，提取「哪个 resolver 出口 IP 查询了哪个测试域名」
-//
-// 部署：Unbound/BIND/CoreDNS 配置把 dnstap 发送到本服务监听的 TCP 地址（cfg.DNS.DNSTapAddr）。
 type DNSTapService struct {
 	dnsService *DNSService
 	dnsDomain  string
@@ -25,9 +22,7 @@ type DNSTapService struct {
 }
 
 var (
-	dnsIndexPrefix = regexp.MustCompile(`^\d+$`)
-	// testID 可整个 label 匹配（{testID}.{domain}），也可内嵌于 label
-	//（r{rand}-{testID}.{domain}，单级子域才能被单层通配证书覆盖）
+	dnsIndexPrefix    = regexp.MustCompile(`^\d+$`)
 	dnsEmbeddedTestID = regexp.MustCompile(`[0-9a-f]{32}`)
 )
 
@@ -138,12 +133,11 @@ func (s *DNSTapService) processFrame(frame []byte) {
 	log.Printf("[DNSTap] Recorded testID=%s resolver=%s", testID, resolverIP)
 }
 
-// extractQueryName 从原始 DNS 报文中读取 QNAME
 func extractQueryName(msg []byte) string {
 	if len(msg) < 12 {
 		return ""
 	}
-	offset := 12 // 跳过 DNS 头部
+	offset := 12
 	var name strings.Builder
 	for offset < len(msg) {
 		labelLen := int(msg[offset])
@@ -162,8 +156,6 @@ func extractQueryName(msg []byte) string {
 	return strings.ToLower(name.String())
 }
 
-// extractTestID 从 r{rand}-{testID}.{domain}、{index}.{testID}.{domain} 或
-// {testID}.{domain} 中取出 testID
 func (s *DNSTapService) extractTestID(queryName string) string {
 	domain := strings.ToLower(s.dnsDomain)
 	queryName = strings.ToLower(strings.TrimSuffix(queryName, "."))

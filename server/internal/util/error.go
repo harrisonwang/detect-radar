@@ -43,22 +43,18 @@ func RFC7807Error(c *fiber.Ctx, problemType, title string, status int, detail st
 	})
 }
 
-// InvalidParameter returns an invalid parameter error
 func InvalidParameter(c *fiber.Ctx, detail string) error {
 	return RFC7807Error(c, ProblemTypeInvalidParameter, "Invalid Parameter", fiber.StatusBadRequest, detail)
 }
 
-// MissingParameter returns a missing parameter error
 func MissingParameter(c *fiber.Ctx, detail string) error {
 	return RFC7807Error(c, ProblemTypeMissingParameter, "Missing Parameter", fiber.StatusBadRequest, detail)
 }
 
-// ResourceNotFound returns a resource not found error
 func ResourceNotFound(c *fiber.Ctx, detail string) error {
 	return RFC7807Error(c, ProblemTypeResourceNotFound, "Resource Not Found", fiber.StatusNotFound, detail)
 }
 
-// InternalError returns an internal server error
 func InternalError(c *fiber.Ctx, detail string) error {
 	return RFC7807Error(c, ProblemTypeInternalError, "Internal Server Error", fiber.StatusInternalServerError, detail)
 }

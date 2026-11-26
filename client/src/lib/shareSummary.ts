@@ -1,7 +1,3 @@
-/**
- * 分享文字结果生成器：把首页、DNS 页和 WebRTC 页的检测结果整理成
- * 适合直接粘贴到论坛、群聊或 GitHub Issue 的简洁文本，并自动隐藏完整 IP。
- */
 
 import { canonicalIP, sameIP, sameIPv6Prefix64 } from './ip';
 import type { ReportModel, ReadoutRow } from './report';
@@ -12,12 +8,9 @@ import type { IPv6VerdictReason, IPv6VerdictState, StackExit } from './ipv6Check
 const SITE_ORIGIN = 'https://detectradar.com';
 
 const IPV4_TEXT_RE = /\b(\d{1,3}\.\d{1,3})\.\d{1,3}\.\d{1,3}\b/g;
-// 匹配标准 3 段以上 IPv6 以及包含 "::" 压缩的 IPv6（避开 10:30:05 这类时间字符串：
-// 至少包含一个字母或双冒号，或满 4 段以上十六进制）。
 const IPV6_COMPRESSED_RE = /\b([0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})?)::[0-9a-fA-F:]*\b/g;
 const IPV6_FULL_RE = /\b([0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}):(?:[0-9a-fA-F]{1,4}:){2,}[0-9a-fA-F]{1,4}\b/g;
 
-/** 文本场景使用的 IP 脱敏：IPv4 → 203.0.*.*，IPv6 → 2001:db8:* */
 export function maskIPText(ip: string): string {
   const raw = ip.trim();
   if (!raw) return '—';
@@ -32,7 +25,6 @@ export function maskIPText(ip: string): string {
   return '***';
 }
 
-/** 对任意自然语言文本中意外携带的完整 IPv4 / IPv6 做兜底脱敏 */
 export function maskIPsInPlainText(text: string): string {
   return text
     .replace(IPV4_TEXT_RE, '$1.*.*')
@@ -57,10 +49,6 @@ function formatExitLine(
   return `${masked}（${meta.join(' · ')}）`;
 }
 
-// ============================================================================
-// 首页综合报告文字结果
-// ============================================================================
-
 function formatConsistencyRow(row: ReadoutRow): string {
   if (row.state === 'coherent') return `${row.label}一致`;
   if (row.compare) {
@@ -71,7 +59,6 @@ function formatConsistencyRow(row: ReadoutRow): string {
 
 function formatHomeDNSLeak(row: ReadoutRow): string {
   if (row.value === '泄露') {
-    // 从 dnsVerdictNote("出口 IP 在海外，测到了中国移动的 DNS。") 中提取更顺口的日常表述
     const m = row.hint?.match(/测到了(.+?)的 DNS/);
     if (m && m[1]) {
       return `DNS 泄露（检出${m[1]} DNS）`;
@@ -101,7 +88,6 @@ export function formatHomeShareText(report: ReportModel): string {
       : 'DetectRadar 网络环境检测结果';
   const lines: string[] = [titleLine];
 
-  // 1. 综合结论（无异常时统一使用「未见明显异常」）
   const abnormalCount = report.findings.filter(
     (f) => f.severity === 'leak' || f.severity === 'contradiction' || f.severity === 'caution',
   ).length;
@@ -113,7 +99,6 @@ export function formatHomeShareText(report: ReportModel): string {
         : report.verdict.headline;
   lines.push(`- 综合结论：${summary}`);
 
-  // 2. 出口信息
   if (report.identity.present) {
     const extraTags: string[] = [];
     if (report.identity.blacklist.length > 0) extraTags.push('命中黑名单');
@@ -128,7 +113,6 @@ export function formatHomeShareText(report: ReportModel): string {
     lines.push('- 出口信息：未获取');
   }
 
-  // 3. 环境一致性
   if (report.consistency.length > 0) {
     const allCoherent = report.consistency.every((r) => r.state === 'coherent');
     lines.push(
@@ -136,7 +120,6 @@ export function formatHomeShareText(report: ReportModel): string {
     );
   }
 
-  // 4. 泄露检查
   if (report.leaks.length > 0) {
     const leakParts: string[] = [];
     const dnsRow = report.leaks.find((r) => r.label === 'DNS');
@@ -150,7 +133,6 @@ export function formatHomeShareText(report: ReportModel): string {
     }
   }
 
-  // 5. 环境指纹（硬件参数仅展示不计分，汇总时只呈现异常项或“未见明显异常”）
   const fpAbnormal = report.environment
     .filter((r) => r.label !== '硬件' && r.state !== 'coherent')
     .map((r) => `${r.label}${r.value}`);
@@ -159,10 +141,6 @@ export function formatHomeShareText(report: ReportModel): string {
   lines.push(`- 在线复测：${SITE_ORIGIN}/`);
   return maskIPsInPlainText(lines.join('\n'));
 }
-
-// ============================================================================
-// DNS 泄露专项页文字结果
-// ============================================================================
 
 export interface DNSShareTextInput {
   verdictState: 'suspected' | 'clear' | 'unknown' | 'unobserved';
@@ -222,10 +200,6 @@ export function formatDNSShareText(data: DNSShareTextInput): string {
   lines.push(`- 在线复测：${SITE_ORIGIN}/dns-leak-test/`);
   return maskIPsInPlainText(lines.join('\n'));
 }
-
-// ============================================================================
-// WebRTC 泄露专项页文字结果
-// ============================================================================
 
 export interface WebRTCShareTextInput {
   verdictState: WebRTCVerdictState;
@@ -305,10 +279,6 @@ export function formatWebRTCShareText(data: WebRTCShareTextInput): string {
   return maskIPsInPlainText(lines.join('\n'));
 }
 
-// ============================================================================
-// IPv6 泄露专项页文字结果
-// ============================================================================
-
 export interface IPv6ShareTextInput {
   verdictState: IPv6VerdictState;
   verdictTitle: string;
@@ -361,10 +331,6 @@ export function formatIPv6ShareText(data: IPv6ShareTextInput): string {
   return maskIPsInPlainText(lines.join('\n'));
 }
 
-// ============================================================================
-// 剪贴板写入（优先 Clipboard API，降级 execCommand）
-// ============================================================================
-
 export async function copyShareText(text: string): Promise<string> {
   try {
     await navigator.clipboard.writeText(text);
@@ -383,7 +349,6 @@ export async function copyShareText(text: string): Promise<string> {
       textarea.remove();
       if (copied) return '已复制文字';
     } catch {
-      /* 浏览器禁用剪贴板写入 */
     }
     return '复制失败，请检查浏览器剪贴板权限';
   }

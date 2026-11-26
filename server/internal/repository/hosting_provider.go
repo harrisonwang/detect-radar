@@ -6,7 +6,6 @@ import (
 	"unicode"
 )
 
-// HostingProvider 托管商信息
 type HostingProvider struct {
 	ID             int64
 	ASN            uint64
@@ -16,19 +15,14 @@ type HostingProvider struct {
 	Confidence     int
 }
 
-// HostingProviderRepository 托管商仓库
 type HostingProviderRepository struct {
 	db *sql.DB
 }
 
-// NewHostingProviderRepository 创建托管商仓库
 func NewHostingProviderRepository(db *sql.DB) *HostingProviderRepository {
 	return &HostingProviderRepository{db: db}
 }
 
-// FindByASN 根据 ASN 查询托管商
-// 排除 hosting_provider_exclusions 里人工核实过的误收录 ASN（银行/学校等自有网络），
-// 覆盖全部数据来源，不管这条记录是从 X4BNet、custom_asns 还是任何未来的导入路径进来的。
 func (r *HostingProviderRepository) FindByASN(asn uint64) (*HostingProvider, error) {
 	query := `
 		SELECT id, asn, name, normalized_name, category, confidence
@@ -59,7 +53,6 @@ func (r *HostingProviderRepository) FindByASN(asn uint64) (*HostingProvider, err
 	return &result, nil
 }
 
-// FindByNormalizedName 根据规范化名称精确匹配（同样排除 hosting_provider_exclusions）
 func (r *HostingProviderRepository) FindByNormalizedName(name string) (*HostingProvider, error) {
 	normalized := NormalizeName(name)
 
@@ -93,7 +86,6 @@ func (r *HostingProviderRepository) FindByNormalizedName(name string) (*HostingP
 	return &result, nil
 }
 
-// Insert 插入托管商
 func (r *HostingProviderRepository) Insert(provider *HostingProvider) error {
 	query := `
 		INSERT OR REPLACE INTO hosting_providers
@@ -108,7 +100,6 @@ func (r *HostingProviderRepository) Insert(provider *HostingProvider) error {
 	return err
 }
 
-// InsertBatch 批量插入托管商
 func (r *HostingProviderRepository) InsertBatch(providers []HostingProvider) error {
 	tx, err := r.db.Begin()
 	if err != nil {
@@ -136,21 +127,17 @@ func (r *HostingProviderRepository) InsertBatch(providers []HostingProvider) err
 	return tx.Commit()
 }
 
-// Count 统计记录数
 func (r *HostingProviderRepository) Count() (int64, error) {
 	var count int64
 	err := r.db.QueryRow("SELECT COUNT(*) FROM hosting_providers").Scan(&count)
 	return count, err
 }
 
-// HostingProviderExclusion 人工核实过的误收录 ASN
 type HostingProviderExclusion struct {
 	ASN    uint64
 	Reason string
 }
 
-// AddExclusion 登记一条误收录 ASN：立即在 FindByASN/FindByNormalizedName/GetAll 生效，
-// 不需要重新导入数据或重启服务
 func (r *HostingProviderRepository) AddExclusion(asn uint64, reason string) error {
 	_, err := r.db.Exec(
 		`INSERT OR REPLACE INTO hosting_provider_exclusions (asn, reason) VALUES (?, ?)`,
@@ -159,7 +146,6 @@ func (r *HostingProviderRepository) AddExclusion(asn uint64, reason string) erro
 	return err
 }
 
-// ListExclusions 列出当前所有排除项（供排查/审计用）
 func (r *HostingProviderRepository) ListExclusions() ([]HostingProviderExclusion, error) {
 	rows, err := r.db.Query(`SELECT asn, reason FROM hosting_provider_exclusions ORDER BY asn`)
 	if err != nil {
@@ -178,7 +164,6 @@ func (r *HostingProviderRepository) ListExclusions() ([]HostingProviderExclusion
 	return out, rows.Err()
 }
 
-// GetAll 获取所有托管商（用于缓存预热，同样排除 hosting_provider_exclusions）
 func (r *HostingProviderRepository) GetAll() ([]HostingProvider, error) {
 	query := `
 		SELECT id, asn, name, normalized_name, category, confidence
@@ -208,11 +193,9 @@ func (r *HostingProviderRepository) GetAll() ([]HostingProvider, error) {
 	return providers, rows.Err()
 }
 
-// NormalizeName 规范化名称（用于匹配）
-// 去除标点、转小写、压缩空格
 func NormalizeName(name string) string {
 	var builder strings.Builder
-	lastSpace := true // 避免开头空格
+	lastSpace := true
 
 	for _, r := range name {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) {

@@ -13,7 +13,6 @@ const (
 	cloudflareIPv6URL = "https://www.cloudflare.com/ips-v6"
 )
 
-// CloudflareCrawler Cloudflare IP 范围爬虫
 type CloudflareCrawler struct{}
 
 func (c *CloudflareCrawler) Name() string {
@@ -23,14 +22,12 @@ func (c *CloudflareCrawler) Name() string {
 func (c *CloudflareCrawler) Crawl() ([]Range, error) {
 	var ranges []Range
 
-	// IPv4
 	ipv4Ranges, err := c.fetchTextList(cloudflareIPv4URL)
 	if err != nil {
 		return nil, fmt.Errorf("获取 IPv4 失败: %w", err)
 	}
 	ranges = append(ranges, ipv4Ranges...)
 
-	// IPv6
 	ipv6Ranges, err := c.fetchTextList(cloudflareIPv6URL)
 	if err != nil {
 		return nil, fmt.Errorf("获取 IPv6 失败: %w", err)

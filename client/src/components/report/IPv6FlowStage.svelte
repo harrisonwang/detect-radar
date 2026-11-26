@@ -550,7 +550,6 @@
 </script>
 
 {#snippet isoNodes(prefix: string, pos: Record<NodeId, Pt>, compact: boolean)}
-  <!-- 1. 你的浏览器 -->
   {@const b = pos.browser}
   <g
     class="dfs-node-hit"
@@ -577,7 +576,6 @@
     <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#e2e8f0" font-size={compact ? 11.5 : 12} font-weight="600">你的浏览器</text>
   </g>
 
-  <!-- 2. 上路：IPv6 出口节点 -->
   {@const n6 = pos.v6}
   <g
     class="dfs-node-hit"
@@ -679,7 +677,6 @@
     {/if}
   </g>
 
-  <!-- 3. 下路：IPv4 出口节点 -->
   {@const n4 = pos.v4}
   <g
     class="dfs-node-hit"
@@ -720,7 +717,6 @@
     {/if}
   </g>
 
-  <!-- 4. 出口归属比对 -->
   {@const jg = pos.judge}
   <g
     class="dfs-node-hit"

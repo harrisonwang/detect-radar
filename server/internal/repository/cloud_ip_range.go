@@ -6,7 +6,6 @@ import (
 	"net"
 )
 
-// CloudIPRange 云厂商 IP 范围
 type CloudIPRange struct {
 	ID        int64
 	Provider  string
@@ -18,17 +17,14 @@ type CloudIPRange struct {
 	IPVersion int
 }
 
-// CloudIPRangeRepository 云厂商 IP 范围仓库
 type CloudIPRangeRepository struct {
 	db *sql.DB
 }
 
-// NewCloudIPRangeRepository 创建云厂商 IP 范围仓库
 func NewCloudIPRangeRepository(db *sql.DB) *CloudIPRangeRepository {
 	return &CloudIPRangeRepository{db: db}
 }
 
-// FindByIP 查询 IP 所属的云厂商
 func (r *CloudIPRangeRepository) FindByIP(ip net.IP) (*CloudIPRange, error) {
 	ipBytes := ipToBytes(ip)
 	if ipBytes == nil {
@@ -68,7 +64,6 @@ func (r *CloudIPRangeRepository) FindByIP(ip net.IP) (*CloudIPRange, error) {
 	return &result, nil
 }
 
-// Insert 插入云厂商 IP 范围
 func (r *CloudIPRangeRepository) Insert(record *CloudIPRange) error {
 	ipStart := ipToBytes(record.IPStart)
 	ipEnd := ipToBytes(record.IPEnd)
@@ -86,14 +81,12 @@ func (r *CloudIPRangeRepository) Insert(record *CloudIPRange) error {
 	return err
 }
 
-// Count 统计记录数
 func (r *CloudIPRangeRepository) Count() (int64, error) {
 	var count int64
 	err := r.db.QueryRow("SELECT COUNT(*) FROM cloud_ip_ranges").Scan(&count)
 	return count, err
 }
 
-// ipToBytes 将 IP 转换为字节数组（用于比较）
 func ipToBytes(ip net.IP) []byte {
 	if ip4 := ip.To4(); ip4 != nil {
 		return ip4
@@ -101,7 +94,6 @@ func ipToBytes(ip net.IP) []byte {
 	return ip.To16()
 }
 
-// bytesToIP 将字节数组转换为 IP
 func bytesToIP(b []byte, version int) net.IP {
 	if version == 4 && len(b) == 4 {
 		return net.IP(b)
@@ -112,7 +104,6 @@ func bytesToIP(b []byte, version int) net.IP {
 	return nil
 }
 
-// IPRangeFromCIDR 从 CIDR 生成 IP 范围
 func IPRangeFromCIDR(cidr string) (start, end net.IP, version int, err error) {
 	_, ipNet, err := net.ParseCIDR(cidr)
 	if err != nil {
@@ -123,7 +114,6 @@ func IPRangeFromCIDR(cidr string) (start, end net.IP, version int, err error) {
 	end = make(net.IP, len(start))
 	copy(end, start)
 
-	// 计算结束 IP
 	for i := range end {
 		end[i] |= ^ipNet.Mask[i]
 	}
@@ -136,7 +126,6 @@ func IPRangeFromCIDR(cidr string) (start, end net.IP, version int, err error) {
 	return start, end, version, nil
 }
 
-// IPToUint32 将 IPv4 转换为 uint32（用于排序和比较）
 func IPToUint32(ip net.IP) uint32 {
 	ip4 := ip.To4()
 	if ip4 == nil {

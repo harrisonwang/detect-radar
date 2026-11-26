@@ -22,7 +22,6 @@ export interface DNSCheck {
   resolvers: DNSResolver[];
   observedRounds: number;
   totalRounds: number;
-  // Results saved by the first version have samples but no stored verdict.
   verdict?: DNSVerdict;
 }
 
@@ -42,7 +41,7 @@ export async function withDNSAssessment(check: DNSCheck): Promise<DNSCheck> {
       observed_rounds: check.observedRounds, total_rounds: check.totalRounds,
     });
     if (result.verdict.policy_version === DNS_POLICY_VERSION) return { ...check, ...result };
-  } catch { /* Keep the samples so a later visit can retry the assessment. */ }
+  } catch {  }
   return { ...check, verdict: { state: 'unknown', reason: 'assessment-unavailable' } };
 }
 
@@ -74,9 +73,8 @@ export async function measureDNS(
     exit = browserExit(info);
     onExit(exit);
     emit();
-  }).catch(() => { /* DNS samples are useful even if the exit request fails. */ });
+  }).catch(() => {  });
 
-  // Each round uses a separate probe name. Staggering samples covers resolver rotation.
   const rounds = Array.from({ length: DNS_ROUNDS }, async (_, index) => {
     if (index) await new Promise<void>((resolve) => setTimeout(resolve, index * 1000));
     startedRounds++;

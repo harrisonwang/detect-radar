@@ -1,14 +1,7 @@
-/**
- * WebGL Fingerprint Collector
- * 包含两部分：
- * 1. Metadata - 硬件信息、扩展列表、能力参数
- * 2. Image - 渲染图像指纹 (捕捉 GPU 浮点运算和光栅化差异)
- */
 
 import { cyrb53 } from '../utils/hash';
 import type { CollectorResult, WebGLFingerprintData, WebGLImageFingerprint } from '../types';
 
-// 扩展 WebGLRenderingContext 类型
 interface WEBGL_debug_renderer_info {
   UNMASKED_VENDOR_WEBGL: number;
   UNMASKED_RENDERER_WEBGL: number;
@@ -18,7 +11,6 @@ interface EXT_texture_filter_anisotropic {
   MAX_TEXTURE_MAX_ANISOTROPY_EXT: number;
 }
 
-// Shader 源码
 const VERTEX_SHADER_SOURCE = `
   attribute vec2 position;
   varying vec2 vColor;
@@ -39,9 +31,6 @@ const FRAGMENT_SHADER_SOURCE = `
   }
 `;
 
-/**
- * 创建并编译 Shader
- */
 const createShader = (
   gl: WebGLRenderingContext,
   type: number,
@@ -62,12 +51,7 @@ const createShader = (
   return shader;
 };
 
-/**
- * 采集 WebGL 图像指纹
- * 通过 Shader 绘制渐变图形，读取像素生成哈希
- */
 const collectWebGLImage = (gl: WebGLRenderingContext): WebGLImageFingerprint => {
-  // 编译 Shader
   const vShader = createShader(gl, gl.VERTEX_SHADER, VERTEX_SHADER_SOURCE);
   const fShader = createShader(gl, gl.FRAGMENT_SHADER, FRAGMENT_SHADER_SOURCE);
 
@@ -84,7 +68,6 @@ const collectWebGLImage = (gl: WebGLRenderingContext): WebGLImageFingerprint => 
 
   gl.useProgram(program);
 
-  // 绘制覆盖整个 Canvas 的矩形
   const vertices = new Float32Array([
     -1.0, -1.0,
      1.0, -1.0,
@@ -106,17 +89,14 @@ const collectWebGLImage = (gl: WebGLRenderingContext): WebGLImageFingerprint => 
   gl.clear(gl.COLOR_BUFFER_BIT);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
 
-  // 读取像素
   const width = gl.drawingBufferWidth;
   const height = gl.drawingBufferHeight;
   const pixels = new Uint8Array(width * height * 4);
   gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
 
-  // 计算哈希
   const pixelsStr = String.fromCharCode.apply(null, Array.from(pixels.slice(0, 1000)));
   const hash = cyrb53(pixelsStr).toString(16);
 
-  // 清理
   gl.deleteShader(vShader);
   gl.deleteShader(fShader);
   gl.deleteProgram(program);
@@ -128,9 +108,6 @@ const collectWebGLImage = (gl: WebGLRenderingContext): WebGLImageFingerprint => 
   };
 };
 
-/**
- * 采集 WebGL 指纹 (Metadata + Image)
- */
 export const collectWebGL = async (): Promise<CollectorResult<WebGLFingerprintData>> => {
   const start = performance.now();
 
@@ -142,7 +119,6 @@ export const collectWebGL = async (): Promise<CollectorResult<WebGLFingerprintDa
     let gl: WebGLRenderingContext | null = null;
     let contextName: string | null = null;
 
-    // 尝试获取 WebGL 上下文
     const contextNames = ['webgl', 'experimental-webgl'] as const;
     for (const name of contextNames) {
       try {
@@ -152,7 +128,6 @@ export const collectWebGL = async (): Promise<CollectorResult<WebGLFingerprintDa
           break;
         }
       } catch {
-        // continue
       }
     }
 
@@ -164,13 +139,9 @@ export const collectWebGL = async (): Promise<CollectorResult<WebGLFingerprintDa
       };
     }
 
-    // === Metadata 采集 ===
-
-    // 基础信息
     const vendor = gl.getParameter(gl.VENDOR) as string | null;
     const renderer = gl.getParameter(gl.RENDERER) as string | null;
 
-    // Debug 信息 (真实硬件)
     let unmaskedVendor: string | null = null;
     let unmaskedRenderer: string | null = null;
     const debugInfo = gl.getExtension('WEBGL_debug_renderer_info') as WEBGL_debug_renderer_info | null;
@@ -180,11 +151,9 @@ export const collectWebGL = async (): Promise<CollectorResult<WebGLFingerprintDa
       unmaskedRenderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) as string | null;
     }
 
-    // 扩展列表
     const extensions = gl.getSupportedExtensions() || [];
     const extensionsHash = cyrb53(extensions.join(',')).toString(16);
 
-    // 硬件能力
     const maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
 
     let maxAnisotropy = 0;
@@ -198,10 +167,8 @@ export const collectWebGL = async (): Promise<CollectorResult<WebGLFingerprintDa
       maxAnisotropy = gl.getParameter(extAnisotropy.MAX_TEXTURE_MAX_ANISOTROPY_EXT) as number;
     }
 
-    // === Image 采集 ===
     const image = collectWebGLImage(gl);
 
-    // Native code (Hook 检测)
     const nativeCode = gl.readPixels.toString();
 
     return {

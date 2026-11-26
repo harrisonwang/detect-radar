@@ -1,16 +1,4 @@
 #!/usr/bin/env node
-/**
- * 将已构建的规范 URL 推送到 IndexNow（Bing / Yandex / Naver / Seznam 等共享）。
- *
- * 用法：
- *   npm run indexnow                       # 从 dist/sitemap.xml 读取全部 URL 并推送
- *   npm run indexnow -- --dry-run          # 仅打印请求体，不发起网络请求
- *   npm run indexnow -- https://detectradar.com/about/  # 只推指定 URL
- *
- * 约定：
- *   - 密钥文件放在 public/<32位十六进制>.txt，内容与文件名一致（也可通过 INDEXNOW_KEY 指定）
- *   - 请务必在静态产物同步到线上之后再执行，确保 Bingbot 拉到的是最新版本
- */
 import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';

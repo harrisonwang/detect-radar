@@ -20,9 +20,7 @@ const SITEMAP_META = {
   '/terms/': { priority: 0.3, changefreq: 'yearly', lastmod: '2026-11-21' },
 };
 
-// https://astro.build/config
 export default defineConfig({
-  // 自托管构建可用 PUBLIC_SITE_URL 覆盖（影响 canonical/sitemap），默认官方站
   site: process.env.PUBLIC_SITE_URL ?? 'https://detectradar.com',
   trailingSlash: 'always',
 
@@ -47,9 +45,6 @@ export default defineConfig({
       name: 'sitemap-alias',
       hooks: {
         'astro:build:done': async ({ dir }) => {
-          // 仅单分片时将 /sitemap.xml 直接平铺为 <urlset>（sitemap-0.xml），
-          // 避免 ClaudeBot/GPTBot 等 AI 爬虫停在两层 <sitemapindex> 不再下钻；
-          // 同时保留 sitemap-index.xml 与 sitemap-0.xml 兼容已登记的搜索引擎。
           let hasMultipleShards = false;
           try {
             await access(new URL('sitemap-1.xml', dir));

@@ -18,31 +18,23 @@ import (
 	"detect-radar/internal/model"
 )
 
-// geoCacheMax resolver 地理信息缓存条目上限，超过则整体清空，防止长时间运行内存无限增长
 const geoCacheMax = 20000
 
-// ErrDNSTestNotFound 仅表示测试不存在或已过期；持久化失败不应被当作 404。
 var ErrDNSTestNotFound = errors.New("DNS 测试不存在或已过期")
 
-// DNSService 管理 DNS 泄露测试：分配唯一子域，接收 resolver 查询记录，分析泄露
-//
-// 数据流：client 触发 r{rand}-{testID}.{domain} → 递归 resolver 向权威 NS 查询
-//
-//	→ DNSTap/权威 NS 记录 resolver 出口 IP → RecordDNSQuery → 分析
 type DNSService struct {
 	dnsCfg    config.DNSConfig
 	ipIntel   *IPIntelService
 	journal   *Journal
-	scan      *ScanService // DNS 定案后重算已存扫描（可空；未注入时只记 resolver 观测）
-	testCache sync.Map     // 完整/短 testID -> *dnsTestState（两个 key 共享同一个状态）
-	geoCache  sync.Map     // resolverIP -> geoInfo
-	geoCount  atomic.Int64 // geoCache 近似条目数（用于有界淘汰）
+	scan      *ScanService
+	testCache sync.Map
+	geoCache  sync.Map
+	geoCount  atomic.Int64
 	stop      chan struct{}
 	done      chan struct{}
 	closeOnce sync.Once
 }
 
-// dnsTestState 将每次测试的并发状态留在服务层；地理查询不持有此锁。
 type dnsTestState struct {
 	mu      sync.Mutex
 	test    model.DNSLeakTest
@@ -65,7 +57,6 @@ func NewDNSService(dnsCfg config.DNSConfig, ipIntel *IPIntelService, journal *Jo
 	return s
 }
 
-// Close 停止后台清理；允许重复调用。
 func (s *DNSService) Close() error {
 	if s == nil || s.stop == nil {
 		return nil
@@ -75,13 +66,10 @@ func (s *DNSService) Close() error {
 	return nil
 }
 
-// SetScanService 注入扫描服务：DNS 观测到位后据此重算已存扫描，拿到 post-DNS 判定写入遥测。
-// 用 setter 而非构造参数，避开 ScanService 与 DNSService 的创建先后依赖。
 func (s *DNSService) SetScanService(scan *ScanService) {
 	s.scan = scan
 }
 
-// CreateLeakTest 生成一次测试，返回测试域名（客户端据此触发 {0-9}.{domain} 查询）
 func (s *DNSService) CreateLeakTest(ctx context.Context, scanID string) (*model.DNSLeakTestResponse, error) {
 	fullID := s.generateTestID()
 	shortID := fullID[:8]
@@ -121,7 +109,6 @@ func (s *DNSService) CreateLeakTest(ctx context.Context, scanID string) (*model.
 	}
 	state := &dnsTestState{test: test}
 
-	// 完整 ID 与短 ID 都作为 key，方便 DNSTap 与客户端两侧查询
 	s.testCache.Store(fullID, state)
 	s.testCache.Store(shortID, state)
 
@@ -150,7 +137,6 @@ func dnsExit(intel *model.IPIntel) *dnsassessment.Exit {
 	return exit
 }
 
-// RecordDNSQuery 由 DNSTap（或权威 NS）在观测到某 testID 的查询时调用
 func (s *DNSService) RecordDNSQuery(testID, resolverIP string) error {
 	value, ok := s.testCache.Load(testID)
 	if !ok {
@@ -158,7 +144,6 @@ func (s *DNSService) RecordDNSQuery(testID, resolverIP string) error {
 	}
 	state := value.(*dnsTestState)
 
-	// 远程地理查询可能较慢，不能阻塞同一测试的轮询或清理。
 	geo := s.getGeoInfo(resolverIP)
 	state.mu.Lock()
 	defer state.mu.Unlock()
@@ -177,7 +162,6 @@ func (s *DNSService) RecordDNSQuery(testID, resolverIP string) error {
 	return nil
 }
 
-// GetLeakResult 查询并分析某测试的泄露情况
 func (s *DNSService) GetLeakResult(ctx context.Context, testID string) (*model.DNSLeakResult, error) {
 	value, ok := s.testCache.Load(testID)
 	if !ok {
@@ -192,9 +176,7 @@ func (s *DNSService) GetLeakResult(ctx context.Context, testID string) (*model.D
 	}
 	result := s.analyzeLeakage(test)
 
-	// 观测到 resolver 后写一次遥测流水（客户端轮询多次，只记首次有结果的）
 	if len(result.DNSServers) > 0 && !test.Journaled {
-		// DNS 定案：以本次 leaked 结果重算已存扫描，拿到 post-DNS 判定一并落库（评分始终纯后端产出）
 		var err error
 		if s.scan != nil {
 			_, err = s.scan.UpdateDNSObservation(test.ScanInstanceID, test.ScanID, result)
@@ -224,7 +206,6 @@ func (s *DNSService) analyzeLeakage(test *model.DNSLeakTest) *model.DNSLeakResul
 		return result
 	}
 
-	// 按 resolver IP 去重（保留信息更全的一条）
 	unique := make(map[string]model.DNSQuery)
 	for _, q := range test.DNSQueries {
 		if existing, ok := unique[q.IP]; ok {
@@ -264,7 +245,7 @@ func (s *DNSService) analyzeLeakage(test *model.DNSLeakTest) *model.DNSLeakResul
 	switch assessment.State {
 	case "suspected":
 		result.Level = "danger"
-		result.Leaked = true // 旧客户端用此字段表示观察到了异常。
+		result.Leaked = true
 		result.Recommendation = "泄露"
 	case "clear":
 		result.Level = "safe"
@@ -286,7 +267,6 @@ func normalizeDNSCountry(country string) string {
 	return country
 }
 
-// getGeoInfo 复用同一次 IP 查询，补充解析器归属及网络类型。
 func (s *DNSService) getGeoInfo(ip string) geoInfo {
 	if cached, ok := s.geoCache.Load(ip); ok {
 		return cached.(geoInfo)
@@ -314,7 +294,6 @@ func (s *DNSService) getGeoInfo(ip string) geoInfo {
 		}
 	}
 
-	// 有界缓存：超过上限直接清空重建，避免长期运行内存无限增长
 	if s.geoCount.Add(1) > geoCacheMax {
 		s.geoCache.Range(func(k, _ any) bool { s.geoCache.Delete(k); return true })
 		s.geoCount.Store(0)
@@ -343,7 +322,6 @@ func (s *DNSService) cleanupExpiredTests() {
 	}
 }
 
-// expireTests 只遍历完整标识，避免长短缓存别名重复写入过期事件。
 func (s *DNSService) expireTests(now time.Time) {
 	s.testCache.Range(func(key, value any) bool {
 		state := value.(*dnsTestState)

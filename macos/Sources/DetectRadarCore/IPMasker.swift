@@ -135,7 +135,6 @@ public enum IPMasker {
         }
     }
 
-    /// 去除冗余公司/云后缀并归一化常见国内运营商短名（如 "DMIT Cloud Services" -> "DMIT"）。
     public static func shortProviderName(for intel: IPIntel?) -> String {
         guard let intel else { return "未知" }
         var raw = ""
@@ -233,12 +232,10 @@ public enum IPMasker {
         return city
     }
 
-    /// 如 "🇺🇸 美国"、"🇭🇰 中国香港"。
     public static func countryBadgeLine(for intel: IPIntel?) -> String {
         "\(flagEmoji(for: effectiveCountryCode(intel))) \(regionDisplayName(for: intel))"
     }
 
-    /// 如 "DMIT · Los Angeles"、"中国电信 · 上海"、"Vultr Holdings"。
     public static func providerDetailLine(for intel: IPIntel?) -> String {
         let provider = shortProviderName(for: intel)
         if let city = nonRedundantCity(for: intel) {
@@ -247,7 +244,6 @@ public enum IPMasker {
         return provider
     }
 
-    /// 如 "🇺🇸 美国 · Los Angeles"，城邦/直辖与国家重复时自动省略冗余城市。
     public static func locationLine(for intel: IPIntel?) -> String {
         let badge = countryBadgeLine(for: intel)
         if let city = nonRedundantCity(for: intel) {

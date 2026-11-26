@@ -44,7 +44,6 @@
     if (isOpen && e.key === 'Escape') closeModal();
   }
 
-  // 弹层打开期间锁定页面滚动
   $effect(() => {
     if (isOpen) {
       const prev = document.body.style.overflow;
@@ -84,7 +83,6 @@
 
 {#if isOpen}
   <div class="fixed inset-0 z-50 flex items-center justify-center">
-    <!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_static_element_interactions -->
     <div
       class="absolute inset-0 backdrop-blur-sm"
       style="background:rgba(2, 6, 23, 0.72)"
@@ -116,7 +114,6 @@
         </div>
       {:else}
         <form onsubmit={(event) => { event.preventDefault(); submit(); }}>
-          <!-- 顶部标题 + 关闭按钮 -->
           <div class="flex items-center justify-between mb-4">
             <h3 id="feedback-modal-title" class="text-base font-semibold text-white">
               检测结果反馈
@@ -132,7 +129,6 @@
             </button>
           </div>
 
-          <!-- 1. 问题类型：2x2 网格 -->
           <div class="grid grid-cols-2 gap-2.5 mb-3">
             {#each OPTIONS as opt}
               {@const active = selected === opt.value}
@@ -148,7 +144,6 @@
             {/each}
           </div>
 
-          <!-- 2. 一体化输入容器（Linear 风格：上半部补充说明 + 下半部内嵌联系邮箱栏，消除多框堆叠感） -->
           <div class="rounded-lg bg-black/25 border border-white/10 overflow-hidden focus-within:border-emerald-500/45 transition-colors">
             <textarea
               bind:value={note}
@@ -176,7 +171,6 @@
             </p>
           {/if}
 
-          <!-- 3. 底部操作按钮 -->
           <div class="mt-4 flex items-center justify-end gap-2">
             <button
               type="button"

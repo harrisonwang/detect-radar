@@ -9,20 +9,16 @@ import (
 	_ "modernc.org/sqlite"
 )
 
-// SQLiteDB SQLite 数据库管理
 type SQLiteDB struct {
 	db   *sql.DB
 	path string
 }
 
-// SQLiteConfig SQLite 配置
 type SQLiteConfig struct {
-	Path string // 数据库文件路径
+	Path string
 }
 
-// NewSQLiteDB 创建 SQLite 数据库连接
 func NewSQLiteDB(cfg SQLiteConfig) (*SQLiteDB, error) {
-	// 确保目录存在
 	dir := filepath.Dir(cfg.Path)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create database directory: %w", err)
@@ -33,11 +29,9 @@ func NewSQLiteDB(cfg SQLiteConfig) (*SQLiteDB, error) {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
 
-	// 设置连接池
-	db.SetMaxOpenConns(1) // SQLite 只支持单写
+	db.SetMaxOpenConns(1)
 	db.SetMaxIdleConns(1)
 
-	// 测试连接
 	if err := db.Ping(); err != nil {
 		return nil, fmt.Errorf("failed to ping database: %w", err)
 	}
@@ -47,7 +41,6 @@ func NewSQLiteDB(cfg SQLiteConfig) (*SQLiteDB, error) {
 		path: cfg.Path,
 	}
 
-	// 初始化表结构
 	if err := sqlite.initTables(); err != nil {
 		return nil, fmt.Errorf("failed to initialize tables: %w", err)
 	}
@@ -55,7 +48,6 @@ func NewSQLiteDB(cfg SQLiteConfig) (*SQLiteDB, error) {
 	return sqlite, nil
 }
 
-// initTables 初始化表结构
 func (s *SQLiteDB) initTables() error {
 	schema := `
 	-- 云厂商 IP 范围（留空，爬虫填充）
@@ -115,22 +107,18 @@ func (s *SQLiteDB) initTables() error {
 	return err
 }
 
-// DB 获取底层数据库连接
 func (s *SQLiteDB) DB() *sql.DB {
 	return s.db
 }
 
-// Close 关闭数据库连接
 func (s *SQLiteDB) Close() error {
 	return s.db.Close()
 }
 
-// Path 获取数据库文件路径
 func (s *SQLiteDB) Path() string {
 	return s.path
 }
 
-// Stats 获取数据库统计信息
 func (s *SQLiteDB) Stats() (map[string]int64, error) {
 	stats := make(map[string]int64)
 

@@ -7,7 +7,6 @@ export function emptyHistory<T>(): RecentHistory<T> {
   return { previous: null, current: null };
 }
 
-/** 一个事务里移动最近两次成功结果，多个标签页同时复测时也只保留相邻两次。 */
 export async function recentHistory<T extends { time: number }>(
   dbName: string,
   next?: T,
@@ -30,7 +29,6 @@ export async function recentHistory<T extends { time: number }>(
       read.onsuccess = () => {
         history = (read.result as RecentHistory<T> | undefined) ?? emptyHistory<T>();
         if (next) {
-          // 若上次写入因存储受限而失败，本页的结果可能比数据库里的更新。
           const previous =
             lastInPage && (!history.current || lastInPage.time >= history.current.time)
               ? lastInPage

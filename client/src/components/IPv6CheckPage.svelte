@@ -46,7 +46,6 @@
       try {
         history = await ipv6History();
       } catch {
-        /* 浏览器限制存储时，在当前页生命周期内继续支持前后对比。 */
       }
       ready = true;
       const navigation = performance.getEntriesByType('navigation')[0] as

@@ -10,7 +10,6 @@ import (
 
 const linodeURL = "https://geoip.linode.com/"
 
-// LinodeCrawler Linode IP 范围爬虫
 type LinodeCrawler struct{}
 
 func (c *LinodeCrawler) Name() string {
@@ -26,8 +25,6 @@ func (c *LinodeCrawler) Crawl() ([]Range, error) {
 	var ranges []Range
 	scanner := bufio.NewScanner(bytes.NewReader(body))
 
-	// Geofeed CSV 格式: ip_prefix,country_code,region_code,city,postal_code
-	// 例如: 45.33.32.0/24,US,US-CA,Fremont,
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		if line == "" || strings.HasPrefix(line, "#") {

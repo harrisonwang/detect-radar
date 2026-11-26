@@ -5,14 +5,13 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	_ "time/tzdata" // 内嵌 IANA 时区库，保证时区归一化不依赖宿主环境
+	_ "time/tzdata"
 
 	"detect-radar/internal/model"
 )
 
 var tzOffsetRe = regexp.MustCompile(`^([+-])(\d{2}):?(\d{2})$`)
 
-// ConsistencyService 检测浏览器时区、语言与 IP 归属地是否一致。
 type ConsistencyService struct {
 	ipIntel *IPIntelService
 }
@@ -21,7 +20,6 @@ func NewConsistencyService(ipIntel *IPIntelService) *ConsistencyService {
 	return &ConsistencyService{ipIntel: ipIntel}
 }
 
-// Evaluate 纯评估：由 /scans 复用（避免重复查询 IP 信息）。
 func (s *ConsistencyService) Evaluate(browser model.BrowserInfo, intel *model.IPIntel) model.ConsistencyChecks {
 	return model.ConsistencyChecks{
 		Timezone: s.checkTimezone(browser.Timezone, intel.Timezone),
@@ -31,15 +29,12 @@ func (s *ConsistencyService) Evaluate(browser model.BrowserInfo, intel *model.IP
 
 func (s *ConsistencyService) checkTimezone(browserTZ, ipTZ string) model.TimezoneCheck {
 	if ipTZ == "" {
-		// IP 时区未知，无法判定，给通过（不制造假阳性）
 		return model.TimezoneCheck{Passed: true, Browser: browserTZ, Expected: "unknown"}
 	}
 	if browserTZ == ipTZ {
 		return model.TimezoneCheck{Passed: true, Browser: browserTZ, Expected: ipTZ}
 	}
 
-	// 归一化为 UTC 偏移后比较：浏览器多为 IANA 名(Asia/Shanghai)，
-	// IP 数据中的时区可能是 ±HH:MM 偏移（+08:00），直接比较字符串会误判。
 	bOff, bOK := tzOffsetMinutes(browserTZ)
 	iOff, iOK := tzOffsetMinutes(ipTZ)
 	if bOK && iOK {
@@ -51,7 +46,6 @@ func (s *ConsistencyService) checkTimezone(browserTZ, ipTZ string) model.Timezon
 		}
 	}
 
-	// 无法归一化，回退到启发式偏移表
 	return model.TimezoneCheck{
 		Passed:      false,
 		Browser:     browserTZ,
@@ -60,7 +54,6 @@ func (s *ConsistencyService) checkTimezone(browserTZ, ipTZ string) model.Timezon
 	}
 }
 
-// tzOffsetMinutes 把时区（IANA 名或 ±HH:MM 偏移）归一化为相对 UTC 的分钟数
 func tzOffsetMinutes(tz string) (int, bool) {
 	if tz == "" {
 		return 0, false
@@ -90,12 +83,10 @@ func (s *ConsistencyService) checkLanguage(browserLang string, browserLangs []st
 	check := model.LanguageCheck{Browser: browserLang, Expected: expected, IPCountry: ipCountry}
 
 	if len(expected) == 0 {
-		// IP 国家未收录/未知，无法判定，给通过（不制造假阳性）
 		check.Passed = true
 		return check
 	}
 
-	// 主语言或语言列表任一命中即通过
 	candidates := append([]string{browserLang}, browserLangs...)
 	for _, lang := range candidates {
 		ll := strings.ToLower(lang)
@@ -110,7 +101,6 @@ func (s *ConsistencyService) checkLanguage(browserLang string, browserLangs []st
 	return check
 }
 
-// timezoneOffset 粗略估算两个时区的小时差（仅覆盖常见时区，供展示参考）
 func (s *ConsistencyService) timezoneOffset(tz1, tz2 string) int {
 	offsets := map[string]int{
 		"America/Los_Angeles": -8, "America/New_York": -5, "America/Chicago": -6,
@@ -126,8 +116,6 @@ func (s *ConsistencyService) timezoneOffset(tz1, tz2 string) int {
 	return 0
 }
 
-// countryLanguages 返回某国家常用语言前缀；未收录/未知返回 nil，
-// 由调用方判通过（不制造假阳性），而非硬套 en 造成结构性误报
 func countryLanguages(country string) []string {
 	m := map[string][]string{
 		"US": {"en-US", "en", "es"}, "CN": {"zh-CN", "zh"}, "JP": {"ja"},
@@ -136,7 +124,6 @@ func countryLanguages(country string) []string {
 		"IN": {"en", "hi"}, "CA": {"en", "fr"}, "AU": {"en-AU", "en"},
 		"SG": {"en", "zh", "ms"}, "HK": {"zh-HK", "zh", "en"}, "TW": {"zh-TW", "zh"},
 		"NL": {"nl", "en"}, "VN": {"vi"}, "TH": {"th"}, "ID": {"id"},
-		// 扩充无歧义的常见国家，减少「未收录即自动通过」的覆盖盲区
 		"TR": {"tr"}, "PL": {"pl"}, "MX": {"es"}, "AR": {"es"}, "CL": {"es"},
 		"CO": {"es"}, "PE": {"es"}, "PT": {"pt"}, "GR": {"el"}, "CZ": {"cs"},
 		"SK": {"sk"}, "HU": {"hu"}, "RO": {"ro"}, "BG": {"bg"},

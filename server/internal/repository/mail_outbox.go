@@ -33,7 +33,6 @@ CREATE INDEX IF NOT EXISTS idx_mail_outbox_due ON mail_outbox(next_attempt_at);`
 	return &MailOutbox{db: db}, nil
 }
 
-// 使用调用方事务，确保业务记录与通知一起提交。
 func (r *MailOutbox) Enqueue(ctx context.Context, tx *sql.Tx, eventID string, message mail.Message) error {
 	raw, err := json.Marshal(message)
 	if err != nil {
@@ -43,7 +42,6 @@ func (r *MailOutbox) Enqueue(ctx context.Context, tx *sql.Tx, eventID string, me
 	return err
 }
 
-// 单个发送循环串行读取；过期业务记录不再发送。
 func (r *MailOutbox) Next(ctx context.Context, now time.Time) (*QueuedMail, error) {
 	var job QueuedMail
 	var raw []byte
@@ -63,7 +61,6 @@ func (r *MailOutbox) Next(ctx context.Context, now time.Time) (*QueuedMail, erro
 	return &job, nil
 }
 
-// 成功后删除；retryAt 为零表示停止自动重试。
 func (r *MailOutbox) Finish(ctx context.Context, eventID string, retryAt time.Time, sendError string) error {
 	if sendError == "" {
 		_, err := r.db.ExecContext(ctx, `DELETE FROM mail_outbox WHERE event_id=?`, eventID)

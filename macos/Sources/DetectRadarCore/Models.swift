@@ -119,7 +119,6 @@ public struct EgressSnapshot: Equatable, Sendable {
 }
 
 public enum AppConfig {
-    /// 支持高级用户通过 `defaults write com.detectradar.bar baseDomain example.com` 覆盖自托管域名。
     public static var baseDomain: String {
         let raw = UserDefaults.standard.string(forKey: "baseDomain")?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""

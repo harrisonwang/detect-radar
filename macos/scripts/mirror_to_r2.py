@@ -28,19 +28,16 @@ TAG_RE = re.compile(
     r"macos-v((?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z]+(?:[.-][0-9A-Za-z]+)*)?)"
 )
 
-
 def validate_tag(tag):
     if not TAG_RE.fullmatch(tag):
         raise ValueError("Expected a macos-vX.Y.Z release tag, optionally with a prerelease suffix")
     return tag
-
 
 def version_from_tag(tag):
     match = TAG_RE.fullmatch(tag)
     if not match:
         raise ValueError("Expected a macos-vX.Y.Z release tag, optionally with a prerelease suffix")
     return match.group(1)
-
 
 def expected_assets(tag):
     version = version_from_tag(tag)
@@ -50,18 +47,15 @@ def expected_assets(tag):
         CHECKSUMS,
     }
 
-
 def hash_stream(stream, algorithm="sha256"):
     digest = hashlib.new(algorithm)
     for chunk in iter(lambda: stream.read(1024 * 1024), b""):
         digest.update(chunk)
     return digest.digest()
 
-
 def digest_file(path):
     with path.open("rb") as stream:
         return hash_stream(stream).hex()
-
 
 def verify_assets(directory, tag):
     expected = expected_assets(tag)
@@ -87,7 +81,6 @@ def verify_assets(directory, tag):
     hashes[CHECKSUMS] = digest_file(directory / CHECKSUMS)
     return hashes
 
-
 def validate_release(release, tag):
     if release["tag_name"] != tag or release["draft"]:
         raise ValueError("Only the requested, published release can be mirrored")
@@ -95,7 +88,6 @@ def validate_release(release, tag):
     expected = expected_assets(tag)
     if len(names) != len(set(names)) or set(names) != expected:
         raise ValueError(f"Release must contain exactly the {len(expected)} expected macOS assets")
-
 
 def download_release(tag, directory):
     raw = subprocess.check_output(
@@ -106,7 +98,6 @@ def download_release(tag, directory):
         ["gh", "release", "download", tag, "--repo", REPOSITORY, "--dir", str(directory)],
         check=True,
     )
-
 
 class R2Store:
     def __init__(self, client, bucket):
@@ -124,7 +115,6 @@ class R2Store:
             return hash_stream(stream).hex()
 
     def put_if_absent(self, key, path):
-        # R2 evaluates If-None-Match atomically. Never retry with an unconditional PUT.
         with path.open("rb") as stream:
             md5 = base64.b64encode(hash_stream(stream, "md5")).decode("ascii")
             stream.seek(0)
@@ -147,27 +137,22 @@ class R2Store:
             except ClientError as error:
                 if error.response["Error"]["Code"] not in {"PreconditionFailed", "412"}:
                     raise
-                # A concurrent upload won. The caller verifies its full content.
-
 
 def mirror(directory, tag, store):
     hashes = verify_assets(directory, tag)
     prefix = f"{PREFIX}/{tag}/"
     missing = []
-    # Check the complete existing version before uploading anything new.
     for name, expected_hash in sorted(hashes.items()):
         remote_hash = store.digest(prefix + name)
         if remote_hash is None:
             missing.append(name)
         elif remote_hash != expected_hash:
             raise ValueError(f"Refusing to replace changed R2 object: {prefix}{name}")
-    # Publish the checksum manifest last, after every payload has been verified.
     for name in sorted(missing, key=lambda item: (item == CHECKSUMS, item)):
         store.put_if_absent(prefix + name, directory / name)
         if store.digest(prefix + name) != hashes[name]:
             raise ValueError(f"R2 upload verification failed; object was not overwritten: {prefix}{name}")
     return hashes
-
 
 def public_base(value):
     parts = urlsplit(value)
@@ -183,18 +168,15 @@ def public_base(value):
         raise ValueError("R2_PUBLIC_BASE_URL must be an HTTPS origin without credentials, a path or query")
     return value.rstrip("/")
 
-
 def verify_public(base, tag, hashes):
     base = public_base(base)
     for name, expected_hash in sorted(hashes.items()):
         url = f"{base}/{PREFIX}/{tag}/{name}"
-        # Identify this verifier explicitly; Cloudflare rejects generic Python-urllib clients.
         request = Request(url, headers={"User-Agent": PUBLIC_USER_AGENT})
         with urlopen(request, timeout=120) as response:
             if hash_stream(response).hex() != expected_hash:
                 raise ValueError(f"Public download checksum mismatch: {name}")
     return f"{base}/{PREFIX}/{tag}/"
-
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -232,7 +214,6 @@ def main():
             summary.write(
                 f"{message}\n\nSHA-256 verified against the published GitHub release. No latest alias was changed.\n"
             )
-
 
 if __name__ == "__main__":
     main()

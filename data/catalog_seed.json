@@ -1,0 +1,6023 @@
+{
+  "asn_catalog": [
+    {
+      "asn": 4134,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "CN",
+      "name_en": "China Telecom",
+      "name_zh": "中国电信",
+      "carrier_group": "china-telecom",
+      "source": "seed"
+    },
+    {
+      "asn": 4809,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "CN",
+      "name_en": "China Telecom",
+      "name_zh": "中国电信",
+      "carrier_group": "china-telecom",
+      "source": "seed"
+    },
+    {
+      "asn": 4812,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "CN",
+      "name_en": "China Telecom",
+      "name_zh": "中国电信",
+      "carrier_group": "china-telecom",
+      "source": "seed"
+    },
+    {
+      "asn": 4816,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "CN",
+      "name_en": "China Telecom",
+      "name_zh": "中国电信",
+      "carrier_group": "china-telecom",
+      "source": "seed"
+    },
+    {
+      "asn": 4837,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "CN",
+      "name_en": "China Unicom",
+      "name_zh": "中国联通",
+      "carrier_group": "china-unicom",
+      "source": "seed"
+    },
+    {
+      "asn": 17621,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "CN",
+      "name_en": "China Unicom",
+      "name_zh": "中国联通",
+      "carrier_group": "china-unicom",
+      "source": "seed"
+    },
+    {
+      "asn": 17622,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "CN",
+      "name_en": "China Unicom",
+      "name_zh": "中国联通",
+      "carrier_group": "china-unicom",
+      "source": "seed"
+    },
+    {
+      "asn": 17623,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "CN",
+      "name_en": "China Unicom",
+      "name_zh": "中国联通",
+      "carrier_group": "china-unicom",
+      "source": "seed"
+    },
+    {
+      "asn": 9808,
+      "role": "access",
+      "network_kind": "mobile",
+      "country": "CN",
+      "name_en": "China Mobile",
+      "name_zh": "中国移动",
+      "carrier_group": "china-mobile",
+      "source": "seed"
+    },
+    {
+      "asn": 56040,
+      "role": "access",
+      "network_kind": "mobile",
+      "country": "CN",
+      "name_en": "China Mobile",
+      "name_zh": "中国移动",
+      "carrier_group": "china-mobile",
+      "source": "seed"
+    },
+    {
+      "asn": 56041,
+      "role": "access",
+      "network_kind": "mobile",
+      "country": "CN",
+      "name_en": "China Mobile",
+      "name_zh": "中国移动",
+      "carrier_group": "china-mobile",
+      "source": "seed"
+    },
+    {
+      "asn": 56042,
+      "role": "access",
+      "network_kind": "mobile",
+      "country": "CN",
+      "name_en": "China Mobile",
+      "name_zh": "中国移动",
+      "carrier_group": "china-mobile",
+      "source": "seed"
+    },
+    {
+      "asn": 56044,
+      "role": "access",
+      "network_kind": "mobile",
+      "country": "CN",
+      "name_en": "China Mobile",
+      "name_zh": "中国移动",
+      "carrier_group": "china-mobile",
+      "source": "seed"
+    },
+    {
+      "asn": 56046,
+      "role": "access",
+      "network_kind": "mobile",
+      "country": "CN",
+      "name_en": "China Mobile",
+      "name_zh": "中国移动",
+      "carrier_group": "china-mobile",
+      "source": "seed"
+    },
+    {
+      "asn": 56047,
+      "role": "access",
+      "network_kind": "mobile",
+      "country": "CN",
+      "name_en": "China Mobile",
+      "name_zh": "中国移动",
+      "carrier_group": "china-mobile",
+      "source": "seed"
+    },
+    {
+      "asn": 56048,
+      "role": "access",
+      "network_kind": "mobile",
+      "country": "CN",
+      "name_en": "China Mobile",
+      "name_zh": "中国移动",
+      "carrier_group": "china-mobile",
+      "source": "seed"
+    },
+    {
+      "asn": 7640,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "CN",
+      "name_en": "China Broadnet",
+      "name_zh": "中国广电",
+      "carrier_group": "china-broadnet",
+      "source": "seed"
+    },
+    {
+      "asn": 17964,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "CN",
+      "name_en": "Dr. Peng",
+      "name_zh": "鹏博士",
+      "carrier_group": "dr-peng",
+      "source": "seed"
+    },
+    {
+      "asn": 4538,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "CN",
+      "name_en": "CERNET",
+      "name_zh": "中国教育网",
+      "carrier_group": "cernet",
+      "source": "seed"
+    },
+    {
+      "asn": 7497,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "CN",
+      "name_en": "CSTNET",
+      "name_zh": "中国科技网",
+      "carrier_group": "cstnet",
+      "source": "seed"
+    },
+    {
+      "asn": 4760,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "HK",
+      "name_en": "PCCW / HKT",
+      "name_zh": "电讯盈科 / HKT",
+      "carrier_group": "hkt",
+      "source": "seed"
+    },
+    {
+      "asn": 4515,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "HK",
+      "name_en": "PCCW / HKT",
+      "name_zh": "电讯盈科 / HKT",
+      "carrier_group": "hkt",
+      "source": "seed"
+    },
+    {
+      "asn": 9269,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "HK",
+      "name_en": "HKBN",
+      "name_zh": "香港宽频",
+      "carrier_group": "hkbn",
+      "source": "seed"
+    },
+    {
+      "asn": 9304,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "HK",
+      "name_en": "HGC Global Communications",
+      "name_zh": "和记环球电讯",
+      "carrier_group": "hgc",
+      "source": "seed"
+    },
+    {
+      "asn": 4609,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "MO",
+      "name_en": "CTM",
+      "name_zh": "澳门电讯",
+      "carrier_group": "ctm",
+      "source": "seed"
+    },
+    {
+      "asn": 3462,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "TW",
+      "name_en": "Chunghwa Telecom",
+      "name_zh": "中华电信",
+      "carrier_group": "chunghwa-telecom",
+      "source": "seed"
+    },
+    {
+      "asn": 24158,
+      "role": "access",
+      "network_kind": "mobile",
+      "country": "TW",
+      "name_en": "Taiwan Mobile",
+      "name_zh": "台湾大哥大",
+      "carrier_group": "taiwan-mobile",
+      "source": "seed"
+    },
+    {
+      "asn": 9674,
+      "role": "access",
+      "network_kind": "mobile",
+      "country": "TW",
+      "name_en": "FarEasTone",
+      "name_zh": "远传电信",
+      "carrier_group": "fareastone",
+      "source": "seed"
+    },
+    {
+      "asn": 9924,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "TW",
+      "name_en": "Taiwan Fixed Network",
+      "name_zh": "台湾固网",
+      "carrier_group": "taiwan-fixed",
+      "source": "seed"
+    },
+    {
+      "asn": 7922,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "US",
+      "name_en": "Comcast",
+      "name_zh": "Comcast",
+      "carrier_group": "comcast",
+      "source": "seed"
+    },
+    {
+      "asn": 7018,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "US",
+      "name_en": "AT&T",
+      "name_zh": "AT&T",
+      "carrier_group": "att",
+      "source": "seed"
+    },
+    {
+      "asn": 7132,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "US",
+      "name_en": "AT&T",
+      "name_zh": "AT&T",
+      "carrier_group": "att",
+      "source": "seed"
+    },
+    {
+      "asn": 6389,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "US",
+      "name_en": "AT&T",
+      "name_zh": "AT&T",
+      "carrier_group": "att",
+      "source": "seed"
+    },
+    {
+      "asn": 20057,
+      "role": "access",
+      "network_kind": "mobile",
+      "country": "US",
+      "name_en": "AT&T Mobility",
+      "name_zh": "AT&T Mobility",
+      "carrier_group": "att",
+      "source": "seed"
+    },
+    {
+      "asn": 701,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "US",
+      "name_en": "Verizon",
+      "name_zh": "Verizon",
+      "carrier_group": "verizon",
+      "source": "seed"
+    },
+    {
+      "asn": 19262,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "US",
+      "name_en": "Verizon",
+      "name_zh": "Verizon",
+      "carrier_group": "verizon",
+      "source": "seed"
+    },
+    {
+      "asn": 6167,
+      "role": "access",
+      "network_kind": "mobile",
+      "country": "US",
+      "name_en": "Verizon Wireless",
+      "name_zh": "Verizon Wireless",
+      "carrier_group": "verizon",
+      "source": "seed"
+    },
+    {
+      "asn": 22394,
+      "role": "access",
+      "network_kind": "mobile",
+      "country": "US",
+      "name_en": "Verizon Wireless",
+      "name_zh": "Verizon Wireless",
+      "carrier_group": "verizon",
+      "source": "seed"
+    },
+    {
+      "asn": 20115,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "US",
+      "name_en": "Charter Spectrum",
+      "name_zh": "Charter Spectrum",
+      "carrier_group": "charter",
+      "source": "seed"
+    },
+    {
+      "asn": 10796,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "US",
+      "name_en": "Charter Spectrum",
+      "name_zh": "Charter Spectrum",
+      "carrier_group": "charter",
+      "source": "seed"
+    },
+    {
+      "asn": 11351,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "US",
+      "name_en": "Charter Spectrum",
+      "name_zh": "Charter Spectrum",
+      "carrier_group": "charter",
+      "source": "seed"
+    },
+    {
+      "asn": 11427,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "US",
+      "name_en": "Charter Spectrum",
+      "name_zh": "Charter Spectrum",
+      "carrier_group": "charter",
+      "source": "seed"
+    },
+    {
+      "asn": 11426,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "US",
+      "name_en": "Charter Spectrum",
+      "name_zh": "Charter Spectrum",
+      "carrier_group": "charter",
+      "source": "seed"
+    },
+    {
+      "asn": 12271,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "US",
+      "name_en": "Charter Spectrum",
+      "name_zh": "Charter Spectrum",
+      "carrier_group": "charter",
+      "source": "seed"
+    },
+    {
+      "asn": 20001,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "US",
+      "name_en": "Charter Spectrum",
+      "name_zh": "Charter Spectrum",
+      "carrier_group": "charter",
+      "source": "seed"
+    },
+    {
+      "asn": 33363,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "US",
+      "name_en": "Charter Spectrum",
+      "name_zh": "Charter Spectrum",
+      "carrier_group": "charter",
+      "source": "seed"
+    },
+    {
+      "asn": 21928,
+      "role": "access",
+      "network_kind": "mobile",
+      "country": "US",
+      "name_en": "T-Mobile USA",
+      "name_zh": "T-Mobile USA",
+      "carrier_group": "t-mobile",
+      "source": "seed"
+    },
+    {
+      "asn": 22773,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "US",
+      "name_en": "Cox Communications",
+      "name_zh": "Cox Communications",
+      "carrier_group": "cox-communications",
+      "source": "seed"
+    },
+    {
+      "asn": 209,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "US",
+      "name_en": "CenturyLink",
+      "name_zh": "CenturyLink",
+      "carrier_group": "centurylink",
+      "source": "seed"
+    },
+    {
+      "asn": 5650,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "US",
+      "name_en": "Frontier Communications",
+      "name_zh": "Frontier Communications",
+      "carrier_group": "frontier-communications",
+      "source": "seed"
+    },
+    {
+      "asn": 6128,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "US",
+      "name_en": "Optimum",
+      "name_zh": "Optimum",
+      "carrier_group": "optimum",
+      "source": "seed"
+    },
+    {
+      "asn": 16591,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "US",
+      "name_en": "Google Fiber",
+      "name_zh": "Google Fiber",
+      "carrier_group": "google-fiber",
+      "source": "seed"
+    },
+    {
+      "asn": 14593,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "US",
+      "name_en": "Starlink",
+      "name_zh": "Starlink",
+      "carrier_group": "starlink",
+      "source": "seed"
+    },
+    {
+      "asn": 577,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "CA",
+      "name_en": "Bell Canada",
+      "name_zh": "Bell Canada",
+      "carrier_group": "bell-canada",
+      "source": "seed"
+    },
+    {
+      "asn": 812,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "CA",
+      "name_en": "Rogers Communications",
+      "name_zh": "Rogers Communications",
+      "carrier_group": "rogers",
+      "source": "seed"
+    },
+    {
+      "asn": 852,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "CA",
+      "name_en": "TELUS",
+      "name_zh": "TELUS",
+      "carrier_group": "telus",
+      "source": "seed"
+    },
+    {
+      "asn": 6327,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "CA",
+      "name_en": "Shaw Communications",
+      "name_zh": "Shaw Communications",
+      "carrier_group": "shaw-communications",
+      "source": "seed"
+    },
+    {
+      "asn": 5769,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "CA",
+      "name_en": "Videotron",
+      "name_zh": "Videotron",
+      "carrier_group": "videotron",
+      "source": "seed"
+    },
+    {
+      "asn": 2856,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "GB",
+      "name_en": "BT",
+      "name_zh": "BT",
+      "carrier_group": "bt",
+      "source": "seed"
+    },
+    {
+      "asn": 5089,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "GB",
+      "name_en": "Virgin Media",
+      "name_zh": "Virgin Media",
+      "carrier_group": "virgin-media",
+      "source": "seed"
+    },
+    {
+      "asn": 5607,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "GB",
+      "name_en": "Sky UK",
+      "name_zh": "Sky UK",
+      "carrier_group": "sky-uk",
+      "source": "seed"
+    },
+    {
+      "asn": 13285,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "GB",
+      "name_en": "TalkTalk",
+      "name_zh": "TalkTalk",
+      "carrier_group": "talktalk",
+      "source": "seed"
+    },
+    {
+      "asn": 12576,
+      "role": "access",
+      "network_kind": "mobile",
+      "country": "GB",
+      "name_en": "EE",
+      "name_zh": "EE",
+      "carrier_group": "bt",
+      "source": "seed"
+    },
+    {
+      "asn": 5378,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "GB",
+      "name_en": "Vodafone UK",
+      "name_zh": "Vodafone UK",
+      "carrier_group": "vodafone",
+      "source": "seed"
+    },
+    {
+      "asn": 25135,
+      "role": "access",
+      "network_kind": "mobile",
+      "country": "GB",
+      "name_en": "Three UK",
+      "name_zh": "Three UK",
+      "carrier_group": "three-uk",
+      "source": "seed"
+    },
+    {
+      "asn": 3320,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "DE",
+      "name_en": "Deutsche Telekom",
+      "name_zh": "Deutsche Telekom",
+      "carrier_group": "deutsche-telekom",
+      "source": "seed"
+    },
+    {
+      "asn": 3209,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "DE",
+      "name_en": "Vodafone Germany",
+      "name_zh": "Vodafone Germany",
+      "carrier_group": "vodafone",
+      "source": "seed"
+    },
+    {
+      "asn": 6805,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "DE",
+      "name_en": "Telefonica Germany",
+      "name_zh": "Telefonica Germany",
+      "carrier_group": "telefonica-germany",
+      "source": "seed"
+    },
+    {
+      "asn": 8881,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "DE",
+      "name_en": "1&1 Versatel",
+      "name_zh": "1&1 Versatel",
+      "carrier_group": "11-versatel",
+      "source": "seed"
+    },
+    {
+      "asn": 60294,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "DE",
+      "name_en": "Deutsche Glasfaser",
+      "name_zh": "Deutsche Glasfaser",
+      "carrier_group": "deutsche-glasfaser",
+      "source": "seed"
+    },
+    {
+      "asn": 3215,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "FR",
+      "name_en": "Orange France",
+      "name_zh": "Orange France",
+      "carrier_group": "orange",
+      "source": "seed"
+    },
+    {
+      "asn": 12322,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "FR",
+      "name_en": "Free SAS",
+      "name_zh": "Free SAS",
+      "carrier_group": "free-sas",
+      "source": "seed"
+    },
+    {
+      "asn": 15557,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "FR",
+      "name_en": "SFR",
+      "name_zh": "SFR",
+      "carrier_group": "sfr",
+      "source": "seed"
+    },
+    {
+      "asn": 5410,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "FR",
+      "name_en": "Bouygues Telecom",
+      "name_zh": "Bouygues Telecom",
+      "carrier_group": "bouygues-telecom",
+      "source": "seed"
+    },
+    {
+      "asn": 1136,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "NL",
+      "name_en": "KPN",
+      "name_zh": "KPN",
+      "carrier_group": "kpn",
+      "source": "seed"
+    },
+    {
+      "asn": 9143,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "NL",
+      "name_en": "Ziggo",
+      "name_zh": "Ziggo",
+      "carrier_group": "ziggo",
+      "source": "seed"
+    },
+    {
+      "asn": 3303,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "CH",
+      "name_en": "Swisscom",
+      "name_zh": "Swisscom",
+      "carrier_group": "swisscom",
+      "source": "seed"
+    },
+    {
+      "asn": 3301,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "SE",
+      "name_en": "Telia",
+      "name_zh": "Telia",
+      "carrier_group": "telia",
+      "source": "seed"
+    },
+    {
+      "asn": 3269,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "IT",
+      "name_en": "TIM",
+      "name_zh": "TIM",
+      "carrier_group": "tim",
+      "source": "seed"
+    },
+    {
+      "asn": 12874,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "IT",
+      "name_en": "Fastweb",
+      "name_zh": "Fastweb",
+      "carrier_group": "fastweb",
+      "source": "seed"
+    },
+    {
+      "asn": 3352,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "ES",
+      "name_en": "Telefonica Spain",
+      "name_zh": "Telefonica Spain",
+      "carrier_group": "telefonica-spain",
+      "source": "seed"
+    },
+    {
+      "asn": 12479,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "ES",
+      "name_en": "Orange Spain",
+      "name_zh": "Orange Spain",
+      "carrier_group": "orange",
+      "source": "seed"
+    },
+    {
+      "asn": 5617,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "PL",
+      "name_en": "Orange Poland",
+      "name_zh": "Orange Poland",
+      "carrier_group": "orange",
+      "source": "seed"
+    },
+    {
+      "asn": 4713,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "JP",
+      "name_en": "NTT OCN",
+      "name_zh": "NTT OCN",
+      "carrier_group": "ntt",
+      "source": "seed"
+    },
+    {
+      "asn": 9607,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "JP",
+      "name_en": "NTT Plala",
+      "name_zh": "NTT Plala",
+      "carrier_group": "ntt",
+      "source": "seed"
+    },
+    {
+      "asn": 2516,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "JP",
+      "name_en": "KDDI",
+      "name_zh": "KDDI",
+      "carrier_group": "kddi",
+      "source": "seed"
+    },
+    {
+      "asn": 17676,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "JP",
+      "name_en": "SoftBank",
+      "name_zh": "SoftBank",
+      "carrier_group": "softbank",
+      "source": "seed"
+    },
+    {
+      "asn": 2527,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "JP",
+      "name_en": "Sony Network Communications",
+      "name_zh": "Sony Network Communications",
+      "carrier_group": "sony-network-communications",
+      "source": "seed"
+    },
+    {
+      "asn": 2497,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "JP",
+      "name_en": "IIJ",
+      "name_zh": "IIJ",
+      "carrier_group": "iij",
+      "source": "seed"
+    },
+    {
+      "asn": 9605,
+      "role": "access",
+      "network_kind": "mobile",
+      "country": "JP",
+      "name_en": "NTT DOCOMO",
+      "name_zh": "NTT DOCOMO",
+      "carrier_group": "ntt",
+      "source": "seed"
+    },
+    {
+      "asn": 131965,
+      "role": "access",
+      "network_kind": "mobile",
+      "country": "JP",
+      "name_en": "Rakuten Mobile",
+      "name_zh": "Rakuten Mobile",
+      "carrier_group": "rakuten-mobile",
+      "source": "seed"
+    },
+    {
+      "asn": 4766,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "KR",
+      "name_en": "KT",
+      "name_zh": "KT",
+      "carrier_group": "kt",
+      "source": "seed"
+    },
+    {
+      "asn": 9318,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "KR",
+      "name_en": "SK Broadband",
+      "name_zh": "SK Broadband",
+      "carrier_group": "sk",
+      "source": "seed"
+    },
+    {
+      "asn": 3786,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "KR",
+      "name_en": "LG Uplus",
+      "name_zh": "LG Uplus",
+      "carrier_group": "lg-uplus",
+      "source": "seed"
+    },
+    {
+      "asn": 9644,
+      "role": "access",
+      "network_kind": "mobile",
+      "country": "KR",
+      "name_en": "SK Telecom",
+      "name_zh": "SK Telecom",
+      "carrier_group": "sk",
+      "source": "seed"
+    },
+    {
+      "asn": 3758,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "SG",
+      "name_en": "Singtel",
+      "name_zh": "Singtel",
+      "carrier_group": "singtel",
+      "source": "seed"
+    },
+    {
+      "asn": 7473,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "SG",
+      "name_en": "Singtel",
+      "name_zh": "Singtel",
+      "carrier_group": "singtel",
+      "source": "seed"
+    },
+    {
+      "asn": 9506,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "SG",
+      "name_en": "Singtel",
+      "name_zh": "Singtel",
+      "carrier_group": "singtel",
+      "source": "seed"
+    },
+    {
+      "asn": 4657,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "SG",
+      "name_en": "StarHub",
+      "name_zh": "StarHub",
+      "carrier_group": "starhub",
+      "source": "seed"
+    },
+    {
+      "asn": 4773,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "SG",
+      "name_en": "M1",
+      "name_zh": "M1",
+      "carrier_group": "m1",
+      "source": "seed"
+    },
+    {
+      "asn": 1221,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "AU",
+      "name_en": "Telstra",
+      "name_zh": "Telstra",
+      "carrier_group": "telstra",
+      "source": "seed"
+    },
+    {
+      "asn": 7474,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "AU",
+      "name_en": "Optus",
+      "name_zh": "Optus",
+      "carrier_group": "optus",
+      "source": "seed"
+    },
+    {
+      "asn": 7545,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "AU",
+      "name_en": "TPG Telecom",
+      "name_zh": "TPG Telecom",
+      "carrier_group": "tpg-telecom",
+      "source": "seed"
+    },
+    {
+      "asn": 4764,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "AU",
+      "name_en": "Aussie Broadband",
+      "name_zh": "Aussie Broadband",
+      "carrier_group": "aussie-broadband",
+      "source": "seed"
+    },
+    {
+      "asn": 4771,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "NZ",
+      "name_en": "Spark NZ",
+      "name_zh": "Spark NZ",
+      "carrier_group": "spark-nz",
+      "source": "seed"
+    },
+    {
+      "asn": 9500,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "NZ",
+      "name_en": "One NZ",
+      "name_zh": "One NZ",
+      "carrier_group": "one-nz",
+      "source": "seed"
+    },
+    {
+      "asn": 28573,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "BR",
+      "name_en": "Claro Brazil",
+      "name_zh": "Claro Brazil",
+      "carrier_group": "claro-brazil",
+      "source": "seed"
+    },
+    {
+      "asn": 26599,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "BR",
+      "name_en": "Vivo",
+      "name_zh": "Vivo",
+      "carrier_group": "vivo",
+      "source": "seed"
+    },
+    {
+      "asn": 55836,
+      "role": "access",
+      "network_kind": "mobile",
+      "country": "IN",
+      "name_en": "Reliance Jio",
+      "name_zh": "Reliance Jio",
+      "carrier_group": "reliance-jio",
+      "source": "seed"
+    },
+    {
+      "asn": 24560,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "IN",
+      "name_en": "Bharti Airtel",
+      "name_zh": "Bharti Airtel",
+      "carrier_group": "bharti-airtel",
+      "source": "seed"
+    },
+    {
+      "asn": 9829,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "IN",
+      "name_en": "BSNL",
+      "name_zh": "BSNL",
+      "carrier_group": "bsnl",
+      "source": "seed"
+    },
+    {
+      "asn": 4788,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "MY",
+      "name_en": "TM Net",
+      "name_zh": "TM Net",
+      "carrier_group": "tm-net",
+      "source": "seed"
+    },
+    {
+      "asn": 7713,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "ID",
+      "name_en": "Telkom Indonesia",
+      "name_zh": "Telkom Indonesia",
+      "carrier_group": "telkom-indonesia",
+      "source": "seed"
+    },
+    {
+      "asn": 45899,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "VN",
+      "name_en": "VNPT",
+      "name_zh": "VNPT",
+      "carrier_group": "vnpt",
+      "source": "seed"
+    },
+    {
+      "asn": 7552,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "VN",
+      "name_en": "Viettel",
+      "name_zh": "Viettel",
+      "carrier_group": "viettel",
+      "source": "seed"
+    },
+    {
+      "asn": 131445,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "TH",
+      "name_en": "AIS Fibre",
+      "name_zh": "AIS Fibre",
+      "carrier_group": "ais-fibre",
+      "source": "seed"
+    },
+    {
+      "asn": 9299,
+      "role": "access",
+      "network_kind": "residential",
+      "country": "PH",
+      "name_en": "PLDT",
+      "name_zh": "PLDT",
+      "carrier_group": "pldt",
+      "source": "seed"
+    },
+    {
+      "asn": 13335,
+      "role": "public_dns",
+      "network_kind": "",
+      "country": "",
+      "name_en": "Cloudflare",
+      "name_zh": "Cloudflare",
+      "carrier_group": "cloudflare",
+      "source": "seed"
+    },
+    {
+      "asn": 15169,
+      "role": "public_dns",
+      "network_kind": "",
+      "country": "",
+      "name_en": "Google",
+      "name_zh": "Google",
+      "carrier_group": "google",
+      "source": "seed"
+    },
+    {
+      "asn": 19281,
+      "role": "public_dns",
+      "network_kind": "",
+      "country": "",
+      "name_en": "Quad9",
+      "name_zh": "Quad9",
+      "carrier_group": "quad9",
+      "source": "seed"
+    },
+    {
+      "asn": 42,
+      "role": "public_dns",
+      "network_kind": "",
+      "country": "",
+      "name_en": "Quad9",
+      "name_zh": "Quad9",
+      "carrier_group": "quad9",
+      "source": "seed"
+    },
+    {
+      "asn": 36692,
+      "role": "public_dns",
+      "network_kind": "",
+      "country": "",
+      "name_en": "OpenDNS",
+      "name_zh": "OpenDNS",
+      "carrier_group": "opendns",
+      "source": "seed"
+    },
+    {
+      "asn": 34939,
+      "role": "public_dns",
+      "network_kind": "",
+      "country": "",
+      "name_en": "NextDNS",
+      "name_zh": "NextDNS",
+      "carrier_group": "nextdns",
+      "source": "seed"
+    },
+    {
+      "asn": 398962,
+      "role": "public_dns",
+      "network_kind": "",
+      "country": "",
+      "name_en": "Control D",
+      "name_zh": "Control D",
+      "carrier_group": "control-d",
+      "source": "seed"
+    },
+    {
+      "asn": 39351,
+      "role": "public_dns",
+      "network_kind": "",
+      "country": "",
+      "name_en": "Mullvad DNS",
+      "name_zh": "Mullvad DNS",
+      "carrier_group": "mullvad-dns",
+      "source": "seed"
+    },
+    {
+      "asn": 198093,
+      "role": "public_dns",
+      "network_kind": "",
+      "country": "",
+      "name_en": "Mullvad DNS",
+      "name_zh": "Mullvad DNS",
+      "carrier_group": "mullvad-dns",
+      "source": "seed"
+    }
+  ],
+  "network_aliases": [
+    {
+      "alias_key": "cloudflare",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 13335,
+      "role": "public_dns",
+      "canonical_key": "cloudflare",
+      "name_en": "Cloudflare",
+      "name_zh": "Cloudflare",
+      "source": "seed"
+    },
+    {
+      "alias_key": "cloudflarenet",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 13335,
+      "role": "public_dns",
+      "canonical_key": "cloudflare",
+      "name_en": "Cloudflare",
+      "name_zh": "Cloudflare",
+      "source": "seed"
+    },
+    {
+      "alias_key": "cloudflare inc",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 13335,
+      "role": "public_dns",
+      "canonical_key": "cloudflare",
+      "name_en": "Cloudflare",
+      "name_zh": "Cloudflare",
+      "source": "seed"
+    },
+    {
+      "alias_key": "cloudflare warp",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 13335,
+      "role": "public_dns",
+      "canonical_key": "cloudflare",
+      "name_en": "Cloudflare",
+      "name_zh": "Cloudflare",
+      "source": "seed"
+    },
+    {
+      "alias_key": "google",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 15169,
+      "role": "public_dns",
+      "canonical_key": "google",
+      "name_en": "Google",
+      "name_zh": "Google",
+      "source": "seed"
+    },
+    {
+      "alias_key": "google llc",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 15169,
+      "role": "public_dns",
+      "canonical_key": "google",
+      "name_en": "Google",
+      "name_zh": "Google",
+      "source": "seed"
+    },
+    {
+      "alias_key": "google public dns",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 15169,
+      "role": "public_dns",
+      "canonical_key": "google",
+      "name_en": "Google",
+      "name_zh": "Google",
+      "source": "seed"
+    },
+    {
+      "alias_key": "quad9",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 19281,
+      "role": "public_dns",
+      "canonical_key": "quad9",
+      "name_en": "Quad9",
+      "name_zh": "Quad9",
+      "source": "seed"
+    },
+    {
+      "alias_key": "quad9 foundation",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 19281,
+      "role": "public_dns",
+      "canonical_key": "quad9",
+      "name_en": "Quad9",
+      "name_zh": "Quad9",
+      "source": "seed"
+    },
+    {
+      "alias_key": "woodynet",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 42,
+      "role": "public_dns",
+      "canonical_key": "quad9",
+      "name_en": "Quad9",
+      "name_zh": "Quad9",
+      "source": "seed"
+    },
+    {
+      "alias_key": "woodynets",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 42,
+      "role": "public_dns",
+      "canonical_key": "quad9",
+      "name_en": "Quad9",
+      "name_zh": "Quad9",
+      "source": "seed"
+    },
+    {
+      "alias_key": "opendns",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 36692,
+      "role": "public_dns",
+      "canonical_key": "opendns",
+      "name_en": "OpenDNS",
+      "name_zh": "OpenDNS",
+      "source": "seed"
+    },
+    {
+      "alias_key": "cisco opendns",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 36692,
+      "role": "public_dns",
+      "canonical_key": "opendns",
+      "name_en": "OpenDNS",
+      "name_zh": "OpenDNS",
+      "source": "seed"
+    },
+    {
+      "alias_key": "cisco opendns llc",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 36692,
+      "role": "public_dns",
+      "canonical_key": "opendns",
+      "name_en": "OpenDNS",
+      "name_zh": "OpenDNS",
+      "source": "seed"
+    },
+    {
+      "alias_key": "cisco umbrella",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 36692,
+      "role": "public_dns",
+      "canonical_key": "opendns",
+      "name_en": "OpenDNS",
+      "name_zh": "OpenDNS",
+      "source": "seed"
+    },
+    {
+      "alias_key": "nextdns",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 34939,
+      "role": "public_dns",
+      "canonical_key": "nextdns",
+      "name_en": "NextDNS",
+      "name_zh": "NextDNS",
+      "source": "seed"
+    },
+    {
+      "alias_key": "nextdns inc",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 34939,
+      "role": "public_dns",
+      "canonical_key": "nextdns",
+      "name_en": "NextDNS",
+      "name_zh": "NextDNS",
+      "source": "seed"
+    },
+    {
+      "alias_key": "control d",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 398962,
+      "role": "public_dns",
+      "canonical_key": "control-d",
+      "name_en": "Control D",
+      "name_zh": "Control D",
+      "source": "seed"
+    },
+    {
+      "alias_key": "controld",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 398962,
+      "role": "public_dns",
+      "canonical_key": "control-d",
+      "name_en": "Control D",
+      "name_zh": "Control D",
+      "source": "seed"
+    },
+    {
+      "alias_key": "windscribe limited",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 398962,
+      "role": "public_dns",
+      "canonical_key": "control-d",
+      "name_en": "Control D",
+      "name_zh": "Control D",
+      "source": "seed"
+    },
+    {
+      "alias_key": "mullvad",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 39351,
+      "role": "public_dns",
+      "canonical_key": "mullvad-dns",
+      "name_en": "Mullvad DNS",
+      "name_zh": "Mullvad DNS",
+      "source": "seed"
+    },
+    {
+      "alias_key": "mullvad dns",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 39351,
+      "role": "public_dns",
+      "canonical_key": "mullvad-dns",
+      "name_en": "Mullvad DNS",
+      "name_zh": "Mullvad DNS",
+      "source": "seed"
+    },
+    {
+      "alias_key": "mullvad vpn",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 39351,
+      "role": "public_dns",
+      "canonical_key": "mullvad-dns",
+      "name_en": "Mullvad DNS",
+      "name_zh": "Mullvad DNS",
+      "source": "seed"
+    },
+    {
+      "alias_key": "cleanbrowsing",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 0,
+      "role": "public_dns",
+      "canonical_key": "cleanbrowsing",
+      "name_en": "CleanBrowsing",
+      "name_zh": "CleanBrowsing",
+      "source": "seed"
+    },
+    {
+      "alias_key": "alidns",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 0,
+      "role": "public_dns",
+      "canonical_key": "alidns",
+      "name_en": "AliDNS",
+      "name_zh": "阿里 DNS",
+      "source": "seed"
+    },
+    {
+      "alias_key": "阿里公共dns",
+      "match_mode": "contains",
+      "priority": 10,
+      "asn": 0,
+      "role": "public_dns",
+      "canonical_key": "alidns",
+      "name_en": "AliDNS",
+      "name_zh": "阿里 DNS",
+      "source": "seed"
+    },
+    {
+      "alias_key": "alibaba public dns",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 0,
+      "role": "public_dns",
+      "canonical_key": "alidns",
+      "name_en": "AliDNS",
+      "name_zh": "阿里 DNS",
+      "source": "seed"
+    },
+    {
+      "alias_key": "dnspod",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 0,
+      "role": "public_dns",
+      "canonical_key": "dnspod",
+      "name_en": "DNSPod",
+      "name_zh": "腾讯 DNSPod",
+      "source": "seed"
+    },
+    {
+      "alias_key": "dnspod public dns",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 0,
+      "role": "public_dns",
+      "canonical_key": "dnspod",
+      "name_en": "DNSPod",
+      "name_zh": "腾讯 DNSPod",
+      "source": "seed"
+    },
+    {
+      "alias_key": "腾讯云公共dns",
+      "match_mode": "contains",
+      "priority": 10,
+      "asn": 0,
+      "role": "public_dns",
+      "canonical_key": "dnspod",
+      "name_en": "DNSPod",
+      "name_zh": "腾讯 DNSPod",
+      "source": "seed"
+    },
+    {
+      "alias_key": "adguard",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 0,
+      "role": "public_dns",
+      "canonical_key": "adguard-dns",
+      "name_en": "AdGuard DNS",
+      "name_zh": "AdGuard DNS",
+      "source": "seed"
+    },
+    {
+      "alias_key": "adguard dns",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 0,
+      "role": "public_dns",
+      "canonical_key": "adguard-dns",
+      "name_en": "AdGuard DNS",
+      "name_zh": "AdGuard DNS",
+      "source": "seed"
+    },
+    {
+      "alias_key": "adguard software limited",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 0,
+      "role": "public_dns",
+      "canonical_key": "adguard-dns",
+      "name_en": "AdGuard DNS",
+      "name_zh": "AdGuard DNS",
+      "source": "seed"
+    },
+    {
+      "alias_key": "114dns",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 0,
+      "role": "public_dns",
+      "canonical_key": "114dns",
+      "name_en": "114DNS",
+      "name_zh": "114DNS",
+      "source": "seed"
+    },
+    {
+      "alias_key": "中华电信",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 3462,
+      "role": "access",
+      "canonical_key": "chunghwa-telecom",
+      "name_en": "Chunghwa Telecom",
+      "name_zh": "中华电信",
+      "source": "seed"
+    },
+    {
+      "alias_key": "中華電信",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 3462,
+      "role": "access",
+      "canonical_key": "chunghwa-telecom",
+      "name_en": "Chunghwa Telecom",
+      "name_zh": "中华电信",
+      "source": "seed"
+    },
+    {
+      "alias_key": "chunghwa telecom",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 3462,
+      "role": "access",
+      "canonical_key": "chunghwa-telecom",
+      "name_en": "Chunghwa Telecom",
+      "name_zh": "中华电信",
+      "source": "seed"
+    },
+    {
+      "alias_key": "hinet",
+      "match_mode": "exact",
+      "priority": 20,
+      "asn": 3462,
+      "role": "access",
+      "canonical_key": "chunghwa-telecom",
+      "name_en": "Chunghwa Telecom",
+      "name_zh": "中华电信",
+      "source": "seed"
+    },
+    {
+      "alias_key": "远传电信",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 9674,
+      "role": "access",
+      "canonical_key": "fareastone",
+      "name_en": "FarEasTone",
+      "name_zh": "远传电信",
+      "source": "seed"
+    },
+    {
+      "alias_key": "遠傳電信",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 9674,
+      "role": "access",
+      "canonical_key": "fareastone",
+      "name_en": "FarEasTone",
+      "name_zh": "远传电信",
+      "source": "seed"
+    },
+    {
+      "alias_key": "fareastone",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 9674,
+      "role": "access",
+      "canonical_key": "fareastone",
+      "name_en": "FarEasTone",
+      "name_zh": "远传电信",
+      "source": "seed"
+    },
+    {
+      "alias_key": "亚太电信",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 0,
+      "role": "access",
+      "canonical_key": "aptg",
+      "name_en": "Asia Pacific Telecom",
+      "name_zh": "亚太电信",
+      "source": "seed"
+    },
+    {
+      "alias_key": "亞太電信",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 0,
+      "role": "access",
+      "canonical_key": "aptg",
+      "name_en": "Asia Pacific Telecom",
+      "name_zh": "亚太电信",
+      "source": "seed"
+    },
+    {
+      "alias_key": "asia pacific telecom",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 0,
+      "role": "access",
+      "canonical_key": "aptg",
+      "name_en": "Asia Pacific Telecom",
+      "name_zh": "亚太电信",
+      "source": "seed"
+    },
+    {
+      "alias_key": "台湾大哥大",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 24158,
+      "role": "access",
+      "canonical_key": "taiwan-mobile",
+      "name_en": "Taiwan Mobile",
+      "name_zh": "台湾大哥大",
+      "source": "seed"
+    },
+    {
+      "alias_key": "台灣大哥大",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 24158,
+      "role": "access",
+      "canonical_key": "taiwan-mobile",
+      "name_en": "Taiwan Mobile",
+      "name_zh": "台湾大哥大",
+      "source": "seed"
+    },
+    {
+      "alias_key": "taiwan mobile",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 24158,
+      "role": "access",
+      "canonical_key": "taiwan-mobile",
+      "name_en": "Taiwan Mobile",
+      "name_zh": "台湾大哥大",
+      "source": "seed"
+    },
+    {
+      "alias_key": "台湾固网",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 9924,
+      "role": "access",
+      "canonical_key": "taiwan-fixed",
+      "name_en": "Taiwan Fixed Network",
+      "name_zh": "台湾固网",
+      "source": "seed"
+    },
+    {
+      "alias_key": "台灣固網",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 9924,
+      "role": "access",
+      "canonical_key": "taiwan-fixed",
+      "name_en": "Taiwan Fixed Network",
+      "name_zh": "台湾固网",
+      "source": "seed"
+    },
+    {
+      "alias_key": "taiwan fixed network",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 9924,
+      "role": "access",
+      "canonical_key": "taiwan-fixed",
+      "name_en": "Taiwan Fixed Network",
+      "name_zh": "台湾固网",
+      "source": "seed"
+    },
+    {
+      "alias_key": "凯擘",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 0,
+      "role": "access",
+      "canonical_key": "kbro",
+      "name_en": "Kbro",
+      "name_zh": "凯擘",
+      "source": "seed"
+    },
+    {
+      "alias_key": "kbro",
+      "match_mode": "exact",
+      "priority": 20,
+      "asn": 0,
+      "role": "access",
+      "canonical_key": "kbro",
+      "name_en": "Kbro",
+      "name_zh": "凯擘",
+      "source": "seed"
+    },
+    {
+      "alias_key": "澳门电讯",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 4609,
+      "role": "access",
+      "canonical_key": "ctm",
+      "name_en": "CTM",
+      "name_zh": "澳门电讯",
+      "source": "seed"
+    },
+    {
+      "alias_key": "澳門電訊",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 4609,
+      "role": "access",
+      "canonical_key": "ctm",
+      "name_en": "CTM",
+      "name_zh": "澳门电讯",
+      "source": "seed"
+    },
+    {
+      "alias_key": "ctm",
+      "match_mode": "exact",
+      "priority": 20,
+      "asn": 4609,
+      "role": "access",
+      "canonical_key": "ctm",
+      "name_en": "CTM",
+      "name_zh": "澳门电讯",
+      "source": "seed"
+    },
+    {
+      "alias_key": "和记环球电讯",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 9304,
+      "role": "access",
+      "canonical_key": "hgc",
+      "name_en": "HGC",
+      "name_zh": "和记环球电讯",
+      "source": "seed"
+    },
+    {
+      "alias_key": "和記環球電訊",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 9304,
+      "role": "access",
+      "canonical_key": "hgc",
+      "name_en": "HGC",
+      "name_zh": "和记环球电讯",
+      "source": "seed"
+    },
+    {
+      "alias_key": "hgc",
+      "match_mode": "exact",
+      "priority": 20,
+      "asn": 9304,
+      "role": "access",
+      "canonical_key": "hgc",
+      "name_en": "HGC",
+      "name_zh": "和记环球电讯",
+      "source": "seed"
+    },
+    {
+      "alias_key": "hgc global communications",
+      "match_mode": "exact",
+      "priority": 20,
+      "asn": 9304,
+      "role": "access",
+      "canonical_key": "hgc",
+      "name_en": "HGC",
+      "name_zh": "和记环球电讯",
+      "source": "seed"
+    },
+    {
+      "alias_key": "电讯盈科",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 4760,
+      "role": "access",
+      "canonical_key": "hkt",
+      "name_en": "PCCW / HKT",
+      "name_zh": "电讯盈科 / HKT",
+      "source": "seed"
+    },
+    {
+      "alias_key": "電訊盈科",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 4760,
+      "role": "access",
+      "canonical_key": "hkt",
+      "name_en": "PCCW / HKT",
+      "name_zh": "电讯盈科 / HKT",
+      "source": "seed"
+    },
+    {
+      "alias_key": "香港电讯",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 4760,
+      "role": "access",
+      "canonical_key": "hkt",
+      "name_en": "PCCW / HKT",
+      "name_zh": "电讯盈科 / HKT",
+      "source": "seed"
+    },
+    {
+      "alias_key": "pccw",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 4760,
+      "role": "access",
+      "canonical_key": "hkt",
+      "name_en": "PCCW / HKT",
+      "name_zh": "电讯盈科 / HKT",
+      "source": "seed"
+    },
+    {
+      "alias_key": "pccw / hkt",
+      "match_mode": "exact",
+      "priority": 20,
+      "asn": 4760,
+      "role": "access",
+      "canonical_key": "hkt",
+      "name_en": "PCCW / HKT",
+      "name_zh": "电讯盈科 / HKT",
+      "source": "seed"
+    },
+    {
+      "alias_key": "hkt",
+      "match_mode": "exact",
+      "priority": 20,
+      "asn": 4760,
+      "role": "access",
+      "canonical_key": "hkt",
+      "name_en": "PCCW / HKT",
+      "name_zh": "电讯盈科 / HKT",
+      "source": "seed"
+    },
+    {
+      "alias_key": "香港宽频",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 9269,
+      "role": "access",
+      "canonical_key": "hkbn",
+      "name_en": "HKBN",
+      "name_zh": "香港宽频",
+      "source": "seed"
+    },
+    {
+      "alias_key": "香港寬頻",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 9269,
+      "role": "access",
+      "canonical_key": "hkbn",
+      "name_en": "HKBN",
+      "name_zh": "香港宽频",
+      "source": "seed"
+    },
+    {
+      "alias_key": "hkbn",
+      "match_mode": "contains",
+      "priority": 20,
+      "asn": 9269,
+      "role": "access",
+      "canonical_key": "hkbn",
+      "name_en": "HKBN",
+      "name_zh": "香港宽频",
+      "source": "seed"
+    },
+    {
+      "alias_key": "电信",
+      "match_mode": "contains",
+      "priority": 40,
+      "asn": 4134,
+      "role": "access",
+      "canonical_key": "china-telecom",
+      "name_en": "China Telecom",
+      "name_zh": "中国电信",
+      "source": "seed"
+    },
+    {
+      "alias_key": "中国电信",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 4134,
+      "role": "access",
+      "canonical_key": "china-telecom",
+      "name_en": "China Telecom",
+      "name_zh": "中国电信",
+      "source": "seed"
+    },
+    {
+      "alias_key": "china telecom",
+      "match_mode": "contains",
+      "priority": 40,
+      "asn": 4134,
+      "role": "access",
+      "canonical_key": "china-telecom",
+      "name_en": "China Telecom",
+      "name_zh": "中国电信",
+      "source": "seed"
+    },
+    {
+      "alias_key": "chinanet",
+      "match_mode": "contains",
+      "priority": 40,
+      "asn": 4134,
+      "role": "access",
+      "canonical_key": "china-telecom",
+      "name_en": "China Telecom",
+      "name_zh": "中国电信",
+      "source": "seed"
+    },
+    {
+      "alias_key": "chinanet backbone",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 4134,
+      "role": "access",
+      "canonical_key": "china-telecom",
+      "name_en": "China Telecom",
+      "name_zh": "中国电信",
+      "source": "seed"
+    },
+    {
+      "alias_key": "chinanet-backbone",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 4134,
+      "role": "access",
+      "canonical_key": "china-telecom",
+      "name_en": "China Telecom",
+      "name_zh": "中国电信",
+      "source": "seed"
+    },
+    {
+      "alias_key": "移动",
+      "match_mode": "contains",
+      "priority": 40,
+      "asn": 9808,
+      "role": "access",
+      "canonical_key": "china-mobile",
+      "name_en": "China Mobile",
+      "name_zh": "中国移动",
+      "source": "seed"
+    },
+    {
+      "alias_key": "中国移动",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 9808,
+      "role": "access",
+      "canonical_key": "china-mobile",
+      "name_en": "China Mobile",
+      "name_zh": "中国移动",
+      "source": "seed"
+    },
+    {
+      "alias_key": "中国移动通信",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 9808,
+      "role": "access",
+      "canonical_key": "china-mobile",
+      "name_en": "China Mobile",
+      "name_zh": "中国移动",
+      "source": "seed"
+    },
+    {
+      "alias_key": "china mobile",
+      "match_mode": "contains",
+      "priority": 40,
+      "asn": 9808,
+      "role": "access",
+      "canonical_key": "china-mobile",
+      "name_en": "China Mobile",
+      "name_zh": "中国移动",
+      "source": "seed"
+    },
+    {
+      "alias_key": "china mobile communications group co ltd",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 9808,
+      "role": "access",
+      "canonical_key": "china-mobile",
+      "name_en": "China Mobile",
+      "name_zh": "中国移动",
+      "source": "seed"
+    },
+    {
+      "alias_key": "cmnet",
+      "match_mode": "contains",
+      "priority": 40,
+      "asn": 9808,
+      "role": "access",
+      "canonical_key": "china-mobile",
+      "name_en": "China Mobile",
+      "name_zh": "中国移动",
+      "source": "seed"
+    },
+    {
+      "alias_key": "联通",
+      "match_mode": "contains",
+      "priority": 40,
+      "asn": 4837,
+      "role": "access",
+      "canonical_key": "china-unicom",
+      "name_en": "China Unicom",
+      "name_zh": "中国联通",
+      "source": "seed"
+    },
+    {
+      "alias_key": "中国联通",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 4837,
+      "role": "access",
+      "canonical_key": "china-unicom",
+      "name_en": "China Unicom",
+      "name_zh": "中国联通",
+      "source": "seed"
+    },
+    {
+      "alias_key": "china unicom",
+      "match_mode": "contains",
+      "priority": 40,
+      "asn": 4837,
+      "role": "access",
+      "canonical_key": "china-unicom",
+      "name_en": "China Unicom",
+      "name_zh": "中国联通",
+      "source": "seed"
+    },
+    {
+      "alias_key": "china unicom backbone",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 4837,
+      "role": "access",
+      "canonical_key": "china-unicom",
+      "name_en": "China Unicom",
+      "name_zh": "中国联通",
+      "source": "seed"
+    },
+    {
+      "alias_key": "china unicom china169 backbone",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 4837,
+      "role": "access",
+      "canonical_key": "china-unicom",
+      "name_en": "China Unicom",
+      "name_zh": "中国联通",
+      "source": "seed"
+    },
+    {
+      "alias_key": "china169-backbone",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 4837,
+      "role": "access",
+      "canonical_key": "china-unicom",
+      "name_en": "China Unicom",
+      "name_zh": "中国联通",
+      "source": "seed"
+    },
+    {
+      "alias_key": "cncgroup",
+      "match_mode": "contains",
+      "priority": 40,
+      "asn": 4837,
+      "role": "access",
+      "canonical_key": "china-unicom",
+      "name_en": "China Unicom",
+      "name_zh": "中国联通",
+      "source": "seed"
+    },
+    {
+      "alias_key": "广电",
+      "match_mode": "contains",
+      "priority": 40,
+      "asn": 7640,
+      "role": "access",
+      "canonical_key": "china-broadnet",
+      "name_en": "China Broadnet",
+      "name_zh": "中国广电",
+      "source": "seed"
+    },
+    {
+      "alias_key": "中国广电",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 7640,
+      "role": "access",
+      "canonical_key": "china-broadnet",
+      "name_en": "China Broadnet",
+      "name_zh": "中国广电",
+      "source": "seed"
+    },
+    {
+      "alias_key": "china broadnet",
+      "match_mode": "contains",
+      "priority": 40,
+      "asn": 7640,
+      "role": "access",
+      "canonical_key": "china-broadnet",
+      "name_en": "China Broadnet",
+      "name_zh": "中国广电",
+      "source": "seed"
+    },
+    {
+      "alias_key": "铁通",
+      "match_mode": "contains",
+      "priority": 40,
+      "asn": 0,
+      "role": "access",
+      "canonical_key": "china-tietong",
+      "name_en": "China Tietong",
+      "name_zh": "中国铁通",
+      "source": "seed"
+    },
+    {
+      "alias_key": "中移铁通",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "access",
+      "canonical_key": "china-tietong",
+      "name_en": "China Tietong",
+      "name_zh": "中国铁通",
+      "source": "seed"
+    },
+    {
+      "alias_key": "中国铁通",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "access",
+      "canonical_key": "china-tietong",
+      "name_en": "China Tietong",
+      "name_zh": "中国铁通",
+      "source": "seed"
+    },
+    {
+      "alias_key": "china tietong",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "access",
+      "canonical_key": "china-tietong",
+      "name_en": "China Tietong",
+      "name_zh": "中国铁通",
+      "source": "seed"
+    },
+    {
+      "alias_key": "教育网",
+      "match_mode": "contains",
+      "priority": 40,
+      "asn": 4538,
+      "role": "access",
+      "canonical_key": "cernet",
+      "name_en": "CERNET",
+      "name_zh": "中国教育网",
+      "source": "seed"
+    },
+    {
+      "alias_key": "教育科研网",
+      "match_mode": "contains",
+      "priority": 40,
+      "asn": 4538,
+      "role": "access",
+      "canonical_key": "cernet",
+      "name_en": "CERNET",
+      "name_zh": "中国教育网",
+      "source": "seed"
+    },
+    {
+      "alias_key": "中国教育网",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 4538,
+      "role": "access",
+      "canonical_key": "cernet",
+      "name_en": "CERNET",
+      "name_zh": "中国教育网",
+      "source": "seed"
+    },
+    {
+      "alias_key": "中国教育科研网",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 4538,
+      "role": "access",
+      "canonical_key": "cernet",
+      "name_en": "CERNET",
+      "name_zh": "中国教育网",
+      "source": "seed"
+    },
+    {
+      "alias_key": "cernet",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 4538,
+      "role": "access",
+      "canonical_key": "cernet",
+      "name_en": "CERNET",
+      "name_zh": "中国教育网",
+      "source": "seed"
+    },
+    {
+      "alias_key": "科技网",
+      "match_mode": "contains",
+      "priority": 40,
+      "asn": 7497,
+      "role": "access",
+      "canonical_key": "cstnet",
+      "name_en": "CSTNET",
+      "name_zh": "中国科技网",
+      "source": "seed"
+    },
+    {
+      "alias_key": "中国科技网",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 7497,
+      "role": "access",
+      "canonical_key": "cstnet",
+      "name_en": "CSTNET",
+      "name_zh": "中国科技网",
+      "source": "seed"
+    },
+    {
+      "alias_key": "cstnet",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 7497,
+      "role": "access",
+      "canonical_key": "cstnet",
+      "name_en": "CSTNET",
+      "name_zh": "中国科技网",
+      "source": "seed"
+    },
+    {
+      "alias_key": "鹏博士",
+      "match_mode": "contains",
+      "priority": 40,
+      "asn": 17964,
+      "role": "access",
+      "canonical_key": "dr-peng",
+      "name_en": "Dr. Peng",
+      "name_zh": "鹏博士",
+      "source": "seed"
+    },
+    {
+      "alias_key": "鹏博视",
+      "match_mode": "contains",
+      "priority": 40,
+      "asn": 17964,
+      "role": "access",
+      "canonical_key": "dr-peng",
+      "name_en": "Dr. Peng",
+      "name_zh": "鹏博士",
+      "source": "seed"
+    },
+    {
+      "alias_key": "dr peng",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 17964,
+      "role": "access",
+      "canonical_key": "dr-peng",
+      "name_en": "Dr. Peng",
+      "name_zh": "鹏博士",
+      "source": "seed"
+    },
+    {
+      "alias_key": "长城宽带",
+      "match_mode": "contains",
+      "priority": 40,
+      "asn": 17964,
+      "role": "access",
+      "canonical_key": "great-wall-broadband",
+      "name_en": "Great Wall Broadband",
+      "name_zh": "长城宽带",
+      "source": "seed"
+    },
+    {
+      "alias_key": "great wall broadband",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 17964,
+      "role": "access",
+      "canonical_key": "great-wall-broadband",
+      "name_en": "Great Wall Broadband",
+      "name_zh": "长城宽带",
+      "source": "seed"
+    },
+    {
+      "alias_key": "方正宽带",
+      "match_mode": "contains",
+      "priority": 40,
+      "asn": 0,
+      "role": "access",
+      "canonical_key": "founder-broadband",
+      "name_en": "Founder Broadband",
+      "name_zh": "方正宽带",
+      "source": "seed"
+    },
+    {
+      "alias_key": "founder broadband",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "access",
+      "canonical_key": "founder-broadband",
+      "name_en": "Founder Broadband",
+      "name_zh": "方正宽带",
+      "source": "seed"
+    },
+    {
+      "alias_key": "歌华有线",
+      "match_mode": "contains",
+      "priority": 40,
+      "asn": 0,
+      "role": "access",
+      "canonical_key": "gehua",
+      "name_en": "Gehua",
+      "name_zh": "歌华有线",
+      "source": "seed"
+    },
+    {
+      "alias_key": "gehua",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "access",
+      "canonical_key": "gehua",
+      "name_en": "Gehua",
+      "name_zh": "歌华有线",
+      "source": "seed"
+    },
+    {
+      "alias_key": "comcast",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 7922,
+      "role": "access",
+      "canonical_key": "comcast",
+      "name_en": "Comcast",
+      "name_zh": "Comcast",
+      "source": "seed"
+    },
+    {
+      "alias_key": "comcast cable communications llc",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 7922,
+      "role": "access",
+      "canonical_key": "comcast",
+      "name_en": "Comcast",
+      "name_zh": "Comcast",
+      "source": "seed"
+    },
+    {
+      "alias_key": "xfinity",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 7922,
+      "role": "access",
+      "canonical_key": "comcast",
+      "name_en": "Comcast",
+      "name_zh": "Comcast",
+      "source": "seed"
+    },
+    {
+      "alias_key": "at&t",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 7018,
+      "role": "access",
+      "canonical_key": "att",
+      "name_en": "AT&T",
+      "name_zh": "AT&T",
+      "source": "seed"
+    },
+    {
+      "alias_key": "at&t services inc",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 7018,
+      "role": "access",
+      "canonical_key": "att",
+      "name_en": "AT&T",
+      "name_zh": "AT&T",
+      "source": "seed"
+    },
+    {
+      "alias_key": "att",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 7018,
+      "role": "access",
+      "canonical_key": "att",
+      "name_en": "AT&T",
+      "name_zh": "AT&T",
+      "source": "seed"
+    },
+    {
+      "alias_key": "verizon",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 701,
+      "role": "access",
+      "canonical_key": "verizon",
+      "name_en": "Verizon",
+      "name_zh": "Verizon",
+      "source": "seed"
+    },
+    {
+      "alias_key": "verizon business",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 701,
+      "role": "access",
+      "canonical_key": "verizon",
+      "name_en": "Verizon",
+      "name_zh": "Verizon",
+      "source": "seed"
+    },
+    {
+      "alias_key": "mci communications services",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 701,
+      "role": "access",
+      "canonical_key": "verizon",
+      "name_en": "Verizon",
+      "name_zh": "Verizon",
+      "source": "seed"
+    },
+    {
+      "alias_key": "charter communications",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 20115,
+      "role": "access",
+      "canonical_key": "charter",
+      "name_en": "Charter Spectrum",
+      "name_zh": "Charter Spectrum",
+      "source": "seed"
+    },
+    {
+      "alias_key": "charter",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 20115,
+      "role": "access",
+      "canonical_key": "charter",
+      "name_en": "Charter Spectrum",
+      "name_zh": "Charter Spectrum",
+      "source": "seed"
+    },
+    {
+      "alias_key": "spectrum",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 20115,
+      "role": "access",
+      "canonical_key": "charter",
+      "name_en": "Charter Spectrum",
+      "name_zh": "Charter Spectrum",
+      "source": "seed"
+    },
+    {
+      "alias_key": "time warner cable",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 20115,
+      "role": "access",
+      "canonical_key": "charter",
+      "name_en": "Charter Spectrum",
+      "name_zh": "Charter Spectrum",
+      "source": "seed"
+    },
+    {
+      "alias_key": "t-mobile",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 21928,
+      "role": "access",
+      "canonical_key": "t-mobile",
+      "name_en": "T-Mobile USA",
+      "name_zh": "T-Mobile USA",
+      "source": "seed"
+    },
+    {
+      "alias_key": "t-mobile usa",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 21928,
+      "role": "access",
+      "canonical_key": "t-mobile",
+      "name_en": "T-Mobile USA",
+      "name_zh": "T-Mobile USA",
+      "source": "seed"
+    },
+    {
+      "alias_key": "t-mobile usa inc",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 21928,
+      "role": "access",
+      "canonical_key": "t-mobile",
+      "name_en": "T-Mobile USA",
+      "name_zh": "T-Mobile USA",
+      "source": "seed"
+    },
+    {
+      "alias_key": "cox communications",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 22773,
+      "role": "access",
+      "canonical_key": "cox",
+      "name_en": "Cox Communications",
+      "name_zh": "Cox Communications",
+      "source": "seed"
+    },
+    {
+      "alias_key": "cox communications inc",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 22773,
+      "role": "access",
+      "canonical_key": "cox",
+      "name_en": "Cox Communications",
+      "name_zh": "Cox Communications",
+      "source": "seed"
+    },
+    {
+      "alias_key": "deutsche telekom",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 3320,
+      "role": "access",
+      "canonical_key": "deutsche-telekom",
+      "name_en": "Deutsche Telekom",
+      "name_zh": "Deutsche Telekom",
+      "source": "seed"
+    },
+    {
+      "alias_key": "deutsche telekom ag",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 3320,
+      "role": "access",
+      "canonical_key": "deutsche-telekom",
+      "name_en": "Deutsche Telekom",
+      "name_zh": "Deutsche Telekom",
+      "source": "seed"
+    },
+    {
+      "alias_key": "dtag",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 3320,
+      "role": "access",
+      "canonical_key": "deutsche-telekom",
+      "name_en": "Deutsche Telekom",
+      "name_zh": "Deutsche Telekom",
+      "source": "seed"
+    },
+    {
+      "alias_key": "vodafone",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 3209,
+      "role": "access",
+      "canonical_key": "vodafone",
+      "name_en": "Vodafone",
+      "name_zh": "Vodafone",
+      "source": "seed"
+    },
+    {
+      "alias_key": "vodafone gmbh",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 3209,
+      "role": "access",
+      "canonical_key": "vodafone",
+      "name_en": "Vodafone Germany",
+      "name_zh": "Vodafone Germany",
+      "source": "seed"
+    },
+    {
+      "alias_key": "vodafone germany",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 3209,
+      "role": "access",
+      "canonical_key": "vodafone",
+      "name_en": "Vodafone Germany",
+      "name_zh": "Vodafone Germany",
+      "source": "seed"
+    },
+    {
+      "alias_key": "british telecommunications",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 2856,
+      "role": "access",
+      "canonical_key": "bt",
+      "name_en": "BT",
+      "name_zh": "BT",
+      "source": "seed"
+    },
+    {
+      "alias_key": "british telecom",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 2856,
+      "role": "access",
+      "canonical_key": "bt",
+      "name_en": "BT",
+      "name_zh": "BT",
+      "source": "seed"
+    },
+    {
+      "alias_key": "bt",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 2856,
+      "role": "access",
+      "canonical_key": "bt",
+      "name_en": "BT",
+      "name_zh": "BT",
+      "source": "seed"
+    },
+    {
+      "alias_key": "ee limited",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 12576,
+      "role": "access",
+      "canonical_key": "bt",
+      "name_en": "EE",
+      "name_zh": "EE",
+      "source": "seed"
+    },
+    {
+      "alias_key": "virgin media",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 5089,
+      "role": "access",
+      "canonical_key": "virgin-media",
+      "name_en": "Virgin Media",
+      "name_zh": "Virgin Media",
+      "source": "seed"
+    },
+    {
+      "alias_key": "virgin media limited",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 5089,
+      "role": "access",
+      "canonical_key": "virgin-media",
+      "name_en": "Virgin Media",
+      "name_zh": "Virgin Media",
+      "source": "seed"
+    },
+    {
+      "alias_key": "sky uk",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 5607,
+      "role": "access",
+      "canonical_key": "sky-uk",
+      "name_en": "Sky UK",
+      "name_zh": "Sky UK",
+      "source": "seed"
+    },
+    {
+      "alias_key": "sky uk limited",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 5607,
+      "role": "access",
+      "canonical_key": "sky-uk",
+      "name_en": "Sky UK",
+      "name_zh": "Sky UK",
+      "source": "seed"
+    },
+    {
+      "alias_key": "orange",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 3215,
+      "role": "access",
+      "canonical_key": "orange",
+      "name_en": "Orange",
+      "name_zh": "Orange",
+      "source": "seed"
+    },
+    {
+      "alias_key": "orange sa",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 3215,
+      "role": "access",
+      "canonical_key": "orange",
+      "name_en": "Orange France",
+      "name_zh": "Orange France",
+      "source": "seed"
+    },
+    {
+      "alias_key": "orange france",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 3215,
+      "role": "access",
+      "canonical_key": "orange",
+      "name_en": "Orange France",
+      "name_zh": "Orange France",
+      "source": "seed"
+    },
+    {
+      "alias_key": "free sas",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 12322,
+      "role": "access",
+      "canonical_key": "free-sas",
+      "name_en": "Free SAS",
+      "name_zh": "Free SAS",
+      "source": "seed"
+    },
+    {
+      "alias_key": "ntt",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 4713,
+      "role": "access",
+      "canonical_key": "ntt",
+      "name_en": "NTT",
+      "name_zh": "NTT",
+      "source": "seed"
+    },
+    {
+      "alias_key": "ntt communications",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 2914,
+      "role": "access",
+      "canonical_key": "ntt",
+      "name_en": "NTT",
+      "name_zh": "NTT",
+      "source": "seed"
+    },
+    {
+      "alias_key": "ntt ocn",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 4713,
+      "role": "access",
+      "canonical_key": "ntt",
+      "name_en": "NTT OCN",
+      "name_zh": "NTT OCN",
+      "source": "seed"
+    },
+    {
+      "alias_key": "kddi",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 2516,
+      "role": "access",
+      "canonical_key": "kddi",
+      "name_en": "KDDI",
+      "name_zh": "KDDI",
+      "source": "seed"
+    },
+    {
+      "alias_key": "kddi corporation",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 2516,
+      "role": "access",
+      "canonical_key": "kddi",
+      "name_en": "KDDI",
+      "name_zh": "KDDI",
+      "source": "seed"
+    },
+    {
+      "alias_key": "softbank",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 17676,
+      "role": "access",
+      "canonical_key": "softbank",
+      "name_en": "SoftBank",
+      "name_zh": "SoftBank",
+      "source": "seed"
+    },
+    {
+      "alias_key": "softbank bb",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 17676,
+      "role": "access",
+      "canonical_key": "softbank",
+      "name_en": "SoftBank",
+      "name_zh": "SoftBank",
+      "source": "seed"
+    },
+    {
+      "alias_key": "softbank corp",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 17676,
+      "role": "access",
+      "canonical_key": "softbank",
+      "name_en": "SoftBank",
+      "name_zh": "SoftBank",
+      "source": "seed"
+    },
+    {
+      "alias_key": "kt",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 4766,
+      "role": "access",
+      "canonical_key": "kt",
+      "name_en": "KT",
+      "name_zh": "KT",
+      "source": "seed"
+    },
+    {
+      "alias_key": "korea telecom",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 4766,
+      "role": "access",
+      "canonical_key": "kt",
+      "name_en": "KT",
+      "name_zh": "KT",
+      "source": "seed"
+    },
+    {
+      "alias_key": "sk broadband",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 9318,
+      "role": "access",
+      "canonical_key": "sk",
+      "name_en": "SK Broadband",
+      "name_zh": "SK Broadband",
+      "source": "seed"
+    },
+    {
+      "alias_key": "sk telecom",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 9644,
+      "role": "access",
+      "canonical_key": "sk",
+      "name_en": "SK Telecom",
+      "name_zh": "SK Telecom",
+      "source": "seed"
+    },
+    {
+      "alias_key": "lg uplus",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 3786,
+      "role": "access",
+      "canonical_key": "lg-uplus",
+      "name_en": "LG Uplus",
+      "name_zh": "LG Uplus",
+      "source": "seed"
+    },
+    {
+      "alias_key": "lg dacom",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 3786,
+      "role": "access",
+      "canonical_key": "lg-uplus",
+      "name_en": "LG Uplus",
+      "name_zh": "LG Uplus",
+      "source": "seed"
+    },
+    {
+      "alias_key": "singtel",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 3758,
+      "role": "access",
+      "canonical_key": "singtel",
+      "name_en": "Singtel",
+      "name_zh": "Singtel",
+      "source": "seed"
+    },
+    {
+      "alias_key": "singnet",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 3758,
+      "role": "access",
+      "canonical_key": "singtel",
+      "name_en": "Singtel",
+      "name_zh": "Singtel",
+      "source": "seed"
+    },
+    {
+      "alias_key": "singapore telecommunications",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 3758,
+      "role": "access",
+      "canonical_key": "singtel",
+      "name_en": "Singtel",
+      "name_zh": "Singtel",
+      "source": "seed"
+    },
+    {
+      "alias_key": "telstra",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 1221,
+      "role": "access",
+      "canonical_key": "telstra",
+      "name_en": "Telstra",
+      "name_zh": "Telstra",
+      "source": "seed"
+    },
+    {
+      "alias_key": "telstra limited",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 1221,
+      "role": "access",
+      "canonical_key": "telstra",
+      "name_en": "Telstra",
+      "name_zh": "Telstra",
+      "source": "seed"
+    },
+    {
+      "alias_key": "bell canada",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 577,
+      "role": "access",
+      "canonical_key": "bell-canada",
+      "name_en": "Bell Canada",
+      "name_zh": "Bell Canada",
+      "source": "seed"
+    },
+    {
+      "alias_key": "rogers",
+      "match_mode": "contains",
+      "priority": 50,
+      "asn": 812,
+      "role": "access",
+      "canonical_key": "rogers",
+      "name_en": "Rogers Communications",
+      "name_zh": "Rogers Communications",
+      "source": "seed"
+    },
+    {
+      "alias_key": "rogers communications",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 812,
+      "role": "access",
+      "canonical_key": "rogers",
+      "name_en": "Rogers Communications",
+      "name_zh": "Rogers Communications",
+      "source": "seed"
+    },
+    {
+      "alias_key": "telus",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 852,
+      "role": "access",
+      "canonical_key": "telus",
+      "name_en": "TELUS",
+      "name_zh": "TELUS",
+      "source": "seed"
+    },
+    {
+      "alias_key": "阿里",
+      "match_mode": "contains",
+      "priority": 60,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "alibaba-cloud",
+      "name_en": "Alibaba Cloud",
+      "name_zh": "阿里云",
+      "source": "seed"
+    },
+    {
+      "alias_key": "阿里云",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "alibaba-cloud",
+      "name_en": "Alibaba Cloud",
+      "name_zh": "阿里云",
+      "source": "seed"
+    },
+    {
+      "alias_key": "alibaba cloud",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "alibaba-cloud",
+      "name_en": "Alibaba Cloud",
+      "name_zh": "阿里云",
+      "source": "seed"
+    },
+    {
+      "alias_key": "腾讯",
+      "match_mode": "contains",
+      "priority": 60,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "tencent-cloud",
+      "name_en": "Tencent Cloud",
+      "name_zh": "腾讯云",
+      "source": "seed"
+    },
+    {
+      "alias_key": "腾讯云",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "tencent-cloud",
+      "name_en": "Tencent Cloud",
+      "name_zh": "腾讯云",
+      "source": "seed"
+    },
+    {
+      "alias_key": "tencent cloud",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "tencent-cloud",
+      "name_en": "Tencent Cloud",
+      "name_zh": "腾讯云",
+      "source": "seed"
+    },
+    {
+      "alias_key": "华为",
+      "match_mode": "contains",
+      "priority": 60,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "huawei-cloud",
+      "name_en": "Huawei Cloud",
+      "name_zh": "华为云",
+      "source": "seed"
+    },
+    {
+      "alias_key": "华为云",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "huawei-cloud",
+      "name_en": "Huawei Cloud",
+      "name_zh": "华为云",
+      "source": "seed"
+    },
+    {
+      "alias_key": "huawei cloud",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "huawei-cloud",
+      "name_en": "Huawei Cloud",
+      "name_zh": "华为云",
+      "source": "seed"
+    },
+    {
+      "alias_key": "百度",
+      "match_mode": "contains",
+      "priority": 60,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "baidu-cloud",
+      "name_en": "Baidu Cloud",
+      "name_zh": "百度云",
+      "source": "seed"
+    },
+    {
+      "alias_key": "百度云",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "baidu-cloud",
+      "name_en": "Baidu Cloud",
+      "name_zh": "百度云",
+      "source": "seed"
+    },
+    {
+      "alias_key": "baidu cloud",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "baidu-cloud",
+      "name_en": "Baidu Cloud",
+      "name_zh": "百度云",
+      "source": "seed"
+    },
+    {
+      "alias_key": "金山云",
+      "match_mode": "contains",
+      "priority": 60,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "kingsoft-cloud",
+      "name_en": "Kingsoft Cloud",
+      "name_zh": "金山云",
+      "source": "seed"
+    },
+    {
+      "alias_key": "kingsoft cloud",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "kingsoft-cloud",
+      "name_en": "Kingsoft Cloud",
+      "name_zh": "金山云",
+      "source": "seed"
+    },
+    {
+      "alias_key": "天翼云",
+      "match_mode": "contains",
+      "priority": 15,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "ctyun",
+      "name_en": "CTYun",
+      "name_zh": "天翼云",
+      "source": "seed"
+    },
+    {
+      "alias_key": "ctyun",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "ctyun",
+      "name_en": "CTYun",
+      "name_zh": "天翼云",
+      "source": "seed"
+    },
+    {
+      "alias_key": "火山引擎",
+      "match_mode": "contains",
+      "priority": 60,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "volcengine",
+      "name_en": "Volcengine",
+      "name_zh": "火山引擎",
+      "source": "seed"
+    },
+    {
+      "alias_key": "volcengine",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "volcengine",
+      "name_en": "Volcengine",
+      "name_zh": "火山引擎",
+      "source": "seed"
+    },
+    {
+      "alias_key": "字节",
+      "match_mode": "contains",
+      "priority": 60,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "bytedance",
+      "name_en": "ByteDance",
+      "name_zh": "字节跳动",
+      "source": "seed"
+    },
+    {
+      "alias_key": "字节跳动",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "bytedance",
+      "name_en": "ByteDance",
+      "name_zh": "字节跳动",
+      "source": "seed"
+    },
+    {
+      "alias_key": "bytedance",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "bytedance",
+      "name_en": "ByteDance",
+      "name_zh": "字节跳动",
+      "source": "seed"
+    },
+    {
+      "alias_key": "优刻得",
+      "match_mode": "contains",
+      "priority": 60,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "ucloud",
+      "name_en": "UCloud",
+      "name_zh": "优刻得",
+      "source": "seed"
+    },
+    {
+      "alias_key": "ucloud",
+      "match_mode": "contains",
+      "priority": 60,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "ucloud",
+      "name_en": "UCloud",
+      "name_zh": "优刻得",
+      "source": "seed"
+    },
+    {
+      "alias_key": "青云",
+      "match_mode": "contains",
+      "priority": 60,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "qingcloud",
+      "name_en": "QingCloud",
+      "name_zh": "青云",
+      "source": "seed"
+    },
+    {
+      "alias_key": "qingcloud",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "qingcloud",
+      "name_en": "QingCloud",
+      "name_zh": "青云",
+      "source": "seed"
+    },
+    {
+      "alias_key": "dmit cloud services",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "dmit",
+      "name_en": "DMIT",
+      "name_zh": "DMIT",
+      "source": "seed"
+    },
+    {
+      "alias_key": "anexia internetdienstleistungs gmbh",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "anexia",
+      "name_en": "Anexia",
+      "name_zh": "Anexia",
+      "source": "seed"
+    },
+    {
+      "alias_key": "阿里 dns",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 0,
+      "role": "public_dns",
+      "canonical_key": "alidns",
+      "name_en": "AliDNS",
+      "name_zh": "阿里 DNS",
+      "source": "seed"
+    },
+    {
+      "alias_key": "腾讯 dnspod",
+      "match_mode": "exact",
+      "priority": 10,
+      "asn": 0,
+      "role": "public_dns",
+      "canonical_key": "dnspod",
+      "name_en": "DNSPod",
+      "name_zh": "腾讯 DNSPod",
+      "source": "seed"
+    },
+    {
+      "alias_key": "电讯盈科 / hkt",
+      "match_mode": "exact",
+      "priority": 20,
+      "asn": 4760,
+      "role": "access",
+      "canonical_key": "hkt",
+      "name_en": "PCCW / HKT",
+      "name_zh": "电讯盈科 / HKT",
+      "source": "seed"
+    },
+    {
+      "alias_key": "dmit",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 906,
+      "role": "hosting",
+      "canonical_key": "dmit",
+      "name_en": "DMIT",
+      "name_zh": "DMIT",
+      "source": "seed"
+    },
+    {
+      "alias_key": "anexia",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 0,
+      "role": "hosting",
+      "canonical_key": "anexia",
+      "name_en": "Anexia",
+      "name_zh": "Anexia",
+      "source": "seed"
+    },
+    {
+      "alias_key": "ee",
+      "match_mode": "exact",
+      "priority": 30,
+      "asn": 12576,
+      "role": "access",
+      "canonical_key": "bt",
+      "name_en": "EE",
+      "name_zh": "EE",
+      "source": "seed"
+    }
+  ],
+  "public_dns_ips": [
+    {
+      "ip": "1.1.1.1",
+      "canonical_key": "cloudflare",
+      "name_en": "Cloudflare",
+      "name_zh": "Cloudflare"
+    },
+    {
+      "ip": "1.0.0.1",
+      "canonical_key": "cloudflare",
+      "name_en": "Cloudflare",
+      "name_zh": "Cloudflare"
+    },
+    {
+      "ip": "8.8.8.8",
+      "canonical_key": "google",
+      "name_en": "Google",
+      "name_zh": "Google"
+    },
+    {
+      "ip": "8.8.4.4",
+      "canonical_key": "google",
+      "name_en": "Google",
+      "name_zh": "Google"
+    },
+    {
+      "ip": "9.9.9.9",
+      "canonical_key": "quad9",
+      "name_en": "Quad9",
+      "name_zh": "Quad9"
+    },
+    {
+      "ip": "149.112.112.112",
+      "canonical_key": "quad9",
+      "name_en": "Quad9",
+      "name_zh": "Quad9"
+    },
+    {
+      "ip": "208.67.222.222",
+      "canonical_key": "opendns",
+      "name_en": "OpenDNS",
+      "name_zh": "OpenDNS"
+    },
+    {
+      "ip": "208.67.220.220",
+      "canonical_key": "opendns",
+      "name_en": "OpenDNS",
+      "name_zh": "OpenDNS"
+    },
+    {
+      "ip": "45.90.28.0",
+      "canonical_key": "nextdns",
+      "name_en": "NextDNS",
+      "name_zh": "NextDNS"
+    },
+    {
+      "ip": "45.90.30.0",
+      "canonical_key": "nextdns",
+      "name_en": "NextDNS",
+      "name_zh": "NextDNS"
+    },
+    {
+      "ip": "76.76.2.0",
+      "canonical_key": "control-d",
+      "name_en": "Control D",
+      "name_zh": "Control D"
+    },
+    {
+      "ip": "76.76.10.0",
+      "canonical_key": "control-d",
+      "name_en": "Control D",
+      "name_zh": "Control D"
+    },
+    {
+      "ip": "194.242.2.2",
+      "canonical_key": "mullvad-dns",
+      "name_en": "Mullvad DNS",
+      "name_zh": "Mullvad DNS"
+    },
+    {
+      "ip": "194.242.2.3",
+      "canonical_key": "mullvad-dns",
+      "name_en": "Mullvad DNS",
+      "name_zh": "Mullvad DNS"
+    },
+    {
+      "ip": "185.228.168.9",
+      "canonical_key": "cleanbrowsing",
+      "name_en": "CleanBrowsing",
+      "name_zh": "CleanBrowsing"
+    },
+    {
+      "ip": "185.228.169.9",
+      "canonical_key": "cleanbrowsing",
+      "name_en": "CleanBrowsing",
+      "name_zh": "CleanBrowsing"
+    },
+    {
+      "ip": "223.5.5.5",
+      "canonical_key": "alidns",
+      "name_en": "AliDNS",
+      "name_zh": "阿里 DNS"
+    },
+    {
+      "ip": "223.6.6.6",
+      "canonical_key": "alidns",
+      "name_en": "AliDNS",
+      "name_zh": "阿里 DNS"
+    },
+    {
+      "ip": "119.29.29.29",
+      "canonical_key": "dnspod",
+      "name_en": "DNSPod",
+      "name_zh": "腾讯 DNSPod"
+    },
+    {
+      "ip": "119.28.28.28",
+      "canonical_key": "dnspod",
+      "name_en": "DNSPod",
+      "name_zh": "腾讯 DNSPod"
+    },
+    {
+      "ip": "114.114.114.114",
+      "canonical_key": "114dns",
+      "name_en": "114DNS",
+      "name_zh": "114DNS"
+    },
+    {
+      "ip": "114.114.115.115",
+      "canonical_key": "114dns",
+      "name_en": "114DNS",
+      "name_zh": "114DNS"
+    },
+    {
+      "ip": "94.140.14.14",
+      "canonical_key": "adguard-dns",
+      "name_en": "AdGuard DNS",
+      "name_zh": "AdGuard DNS"
+    },
+    {
+      "ip": "94.140.15.15",
+      "canonical_key": "adguard-dns",
+      "name_en": "AdGuard DNS",
+      "name_zh": "AdGuard DNS"
+    }
+  ],
+  "geo_names": [
+    {
+      "kind": "province",
+      "key": "北京",
+      "name_en": "Beijing",
+      "name_zh": "北京"
+    },
+    {
+      "kind": "province",
+      "key": "天津",
+      "name_en": "Tianjin",
+      "name_zh": "天津"
+    },
+    {
+      "kind": "province",
+      "key": "上海",
+      "name_en": "Shanghai",
+      "name_zh": "上海"
+    },
+    {
+      "kind": "province",
+      "key": "重庆",
+      "name_en": "Chongqing",
+      "name_zh": "重庆"
+    },
+    {
+      "kind": "province",
+      "key": "河北",
+      "name_en": "Hebei",
+      "name_zh": "河北"
+    },
+    {
+      "kind": "province",
+      "key": "山西",
+      "name_en": "Shanxi",
+      "name_zh": "山西"
+    },
+    {
+      "kind": "province",
+      "key": "辽宁",
+      "name_en": "Liaoning",
+      "name_zh": "辽宁"
+    },
+    {
+      "kind": "province",
+      "key": "吉林",
+      "name_en": "Jilin",
+      "name_zh": "吉林"
+    },
+    {
+      "kind": "province",
+      "key": "黑龙江",
+      "name_en": "Heilongjiang",
+      "name_zh": "黑龙江"
+    },
+    {
+      "kind": "province",
+      "key": "江苏",
+      "name_en": "Jiangsu",
+      "name_zh": "江苏"
+    },
+    {
+      "kind": "province",
+      "key": "浙江",
+      "name_en": "Zhejiang",
+      "name_zh": "浙江"
+    },
+    {
+      "kind": "province",
+      "key": "安徽",
+      "name_en": "Anhui",
+      "name_zh": "安徽"
+    },
+    {
+      "kind": "province",
+      "key": "福建",
+      "name_en": "Fujian",
+      "name_zh": "福建"
+    },
+    {
+      "kind": "province",
+      "key": "江西",
+      "name_en": "Jiangxi",
+      "name_zh": "江西"
+    },
+    {
+      "kind": "province",
+      "key": "山东",
+      "name_en": "Shandong",
+      "name_zh": "山东"
+    },
+    {
+      "kind": "province",
+      "key": "河南",
+      "name_en": "Henan",
+      "name_zh": "河南"
+    },
+    {
+      "kind": "province",
+      "key": "湖北",
+      "name_en": "Hubei",
+      "name_zh": "湖北"
+    },
+    {
+      "kind": "province",
+      "key": "湖南",
+      "name_en": "Hunan",
+      "name_zh": "湖南"
+    },
+    {
+      "kind": "province",
+      "key": "广东",
+      "name_en": "Guangdong",
+      "name_zh": "广东"
+    },
+    {
+      "kind": "province",
+      "key": "海南",
+      "name_en": "Hainan",
+      "name_zh": "海南"
+    },
+    {
+      "kind": "province",
+      "key": "四川",
+      "name_en": "Sichuan",
+      "name_zh": "四川"
+    },
+    {
+      "kind": "province",
+      "key": "贵州",
+      "name_en": "Guizhou",
+      "name_zh": "贵州"
+    },
+    {
+      "kind": "province",
+      "key": "云南",
+      "name_en": "Yunnan",
+      "name_zh": "云南"
+    },
+    {
+      "kind": "province",
+      "key": "陕西",
+      "name_en": "Shaanxi",
+      "name_zh": "陕西"
+    },
+    {
+      "kind": "province",
+      "key": "甘肃",
+      "name_en": "Gansu",
+      "name_zh": "甘肃"
+    },
+    {
+      "kind": "province",
+      "key": "青海",
+      "name_en": "Qinghai",
+      "name_zh": "青海"
+    },
+    {
+      "kind": "province",
+      "key": "台湾",
+      "name_en": "Taiwan",
+      "name_zh": "台湾"
+    },
+    {
+      "kind": "province",
+      "key": "内蒙古",
+      "name_en": "Inner Mongolia",
+      "name_zh": "内蒙古"
+    },
+    {
+      "kind": "province",
+      "key": "广西",
+      "name_en": "Guangxi",
+      "name_zh": "广西"
+    },
+    {
+      "kind": "province",
+      "key": "西藏",
+      "name_en": "Tibet",
+      "name_zh": "西藏"
+    },
+    {
+      "kind": "province",
+      "key": "宁夏",
+      "name_en": "Ningxia",
+      "name_zh": "宁夏"
+    },
+    {
+      "kind": "province",
+      "key": "新疆",
+      "name_en": "Xinjiang",
+      "name_zh": "新疆"
+    },
+    {
+      "kind": "province",
+      "key": "香港",
+      "name_en": "Hong Kong",
+      "name_zh": "香港"
+    },
+    {
+      "kind": "province",
+      "key": "澳门",
+      "name_en": "Macao",
+      "name_zh": "澳门"
+    },
+    {
+      "kind": "city",
+      "key": "北京",
+      "name_en": "Beijing",
+      "name_zh": "北京"
+    },
+    {
+      "kind": "city",
+      "key": "上海",
+      "name_en": "Shanghai",
+      "name_zh": "上海"
+    },
+    {
+      "kind": "city",
+      "key": "天津",
+      "name_en": "Tianjin",
+      "name_zh": "天津"
+    },
+    {
+      "kind": "city",
+      "key": "重庆",
+      "name_en": "Chongqing",
+      "name_zh": "重庆"
+    },
+    {
+      "kind": "city",
+      "key": "广州",
+      "name_en": "Guangzhou",
+      "name_zh": "广州"
+    },
+    {
+      "kind": "city",
+      "key": "深圳",
+      "name_en": "Shenzhen",
+      "name_zh": "深圳"
+    },
+    {
+      "kind": "city",
+      "key": "杭州",
+      "name_en": "Hangzhou",
+      "name_zh": "杭州"
+    },
+    {
+      "kind": "city",
+      "key": "南京",
+      "name_en": "Nanjing",
+      "name_zh": "南京"
+    },
+    {
+      "kind": "city",
+      "key": "苏州",
+      "name_en": "Suzhou",
+      "name_zh": "苏州"
+    },
+    {
+      "kind": "city",
+      "key": "成都",
+      "name_en": "Chengdu",
+      "name_zh": "成都"
+    },
+    {
+      "kind": "city",
+      "key": "武汉",
+      "name_en": "Wuhan",
+      "name_zh": "武汉"
+    },
+    {
+      "kind": "city",
+      "key": "西安",
+      "name_en": "Xi'an",
+      "name_zh": "西安"
+    },
+    {
+      "kind": "city",
+      "key": "长沙",
+      "name_en": "Changsha",
+      "name_zh": "长沙"
+    },
+    {
+      "kind": "city",
+      "key": "郑州",
+      "name_en": "Zhengzhou",
+      "name_zh": "郑州"
+    },
+    {
+      "kind": "city",
+      "key": "青岛",
+      "name_en": "Qingdao",
+      "name_zh": "青岛"
+    },
+    {
+      "kind": "city",
+      "key": "大连",
+      "name_en": "Dalian",
+      "name_zh": "大连"
+    },
+    {
+      "kind": "city",
+      "key": "厦门",
+      "name_en": "Xiamen",
+      "name_zh": "厦门"
+    },
+    {
+      "kind": "city",
+      "key": "宁波",
+      "name_en": "Ningbo",
+      "name_zh": "宁波"
+    },
+    {
+      "kind": "city",
+      "key": "无锡",
+      "name_en": "Wuxi",
+      "name_zh": "无锡"
+    },
+    {
+      "kind": "city",
+      "key": "合肥",
+      "name_en": "Hefei",
+      "name_zh": "合肥"
+    },
+    {
+      "kind": "city",
+      "key": "福州",
+      "name_en": "Fuzhou",
+      "name_zh": "福州"
+    },
+    {
+      "kind": "city",
+      "key": "济南",
+      "name_en": "Jinan",
+      "name_zh": "济南"
+    },
+    {
+      "kind": "city",
+      "key": "沈阳",
+      "name_en": "Shenyang",
+      "name_zh": "沈阳"
+    },
+    {
+      "kind": "city",
+      "key": "哈尔滨",
+      "name_en": "Harbin",
+      "name_zh": "哈尔滨"
+    },
+    {
+      "kind": "city",
+      "key": "长春",
+      "name_en": "Changchun",
+      "name_zh": "长春"
+    },
+    {
+      "kind": "city",
+      "key": "昆明",
+      "name_en": "Kunming",
+      "name_zh": "昆明"
+    },
+    {
+      "kind": "city",
+      "key": "南宁",
+      "name_en": "Nanning",
+      "name_zh": "南宁"
+    },
+    {
+      "kind": "city",
+      "key": "海口",
+      "name_en": "Haikou",
+      "name_zh": "海口"
+    },
+    {
+      "kind": "city",
+      "key": "三亚",
+      "name_en": "Sanya",
+      "name_zh": "三亚"
+    },
+    {
+      "kind": "city",
+      "key": "贵阳",
+      "name_en": "Guiyang",
+      "name_zh": "贵阳"
+    },
+    {
+      "kind": "city",
+      "key": "兰州",
+      "name_en": "Lanzhou",
+      "name_zh": "兰州"
+    },
+    {
+      "kind": "city",
+      "key": "太原",
+      "name_en": "Taiyuan",
+      "name_zh": "太原"
+    },
+    {
+      "kind": "city",
+      "key": "石家庄",
+      "name_en": "Shijiazhuang",
+      "name_zh": "石家庄"
+    },
+    {
+      "kind": "city",
+      "key": "南昌",
+      "name_en": "Nanchang",
+      "name_zh": "南昌"
+    },
+    {
+      "kind": "city",
+      "key": "呼和浩特",
+      "name_en": "Hohhot",
+      "name_zh": "呼和浩特"
+    },
+    {
+      "kind": "city",
+      "key": "乌鲁木齐",
+      "name_en": "Urumqi",
+      "name_zh": "乌鲁木齐"
+    },
+    {
+      "kind": "city",
+      "key": "银川",
+      "name_en": "Yinchuan",
+      "name_zh": "银川"
+    },
+    {
+      "kind": "city",
+      "key": "西宁",
+      "name_en": "Xining",
+      "name_zh": "西宁"
+    },
+    {
+      "kind": "city",
+      "key": "拉萨",
+      "name_en": "Lhasa",
+      "name_zh": "拉萨"
+    },
+    {
+      "kind": "city",
+      "key": "香港",
+      "name_en": "Hong Kong",
+      "name_zh": "香港"
+    },
+    {
+      "kind": "city",
+      "key": "香港岛",
+      "name_en": "Hong Kong Island",
+      "name_zh": "香港岛"
+    },
+    {
+      "kind": "city",
+      "key": "九龙",
+      "name_en": "Kowloon",
+      "name_zh": "九龙"
+    },
+    {
+      "kind": "city",
+      "key": "新界",
+      "name_en": "New Territories",
+      "name_zh": "新界"
+    },
+    {
+      "kind": "city",
+      "key": "澳门",
+      "name_en": "Macao",
+      "name_zh": "澳门"
+    },
+    {
+      "kind": "city",
+      "key": "澳门半岛",
+      "name_en": "Macao Peninsula",
+      "name_zh": "澳门半岛"
+    },
+    {
+      "kind": "city",
+      "key": "台北",
+      "name_en": "Taipei",
+      "name_zh": "台北"
+    },
+    {
+      "kind": "city",
+      "key": "新北",
+      "name_en": "New Taipei",
+      "name_zh": "新北"
+    },
+    {
+      "kind": "city",
+      "key": "桃园",
+      "name_en": "Taoyuan",
+      "name_zh": "桃园"
+    },
+    {
+      "kind": "city",
+      "key": "台中",
+      "name_en": "Taichung",
+      "name_zh": "台中"
+    },
+    {
+      "kind": "city",
+      "key": "台南",
+      "name_en": "Tainan",
+      "name_zh": "台南"
+    },
+    {
+      "kind": "city",
+      "key": "高雄",
+      "name_en": "Kaohsiung",
+      "name_zh": "高雄"
+    },
+    {
+      "kind": "city",
+      "key": "基隆",
+      "name_en": "Keelung",
+      "name_zh": "基隆"
+    },
+    {
+      "kind": "city",
+      "key": "新竹",
+      "name_en": "Hsinchu",
+      "name_zh": "新竹"
+    },
+    {
+      "kind": "city",
+      "key": "彰化",
+      "name_en": "Changhua",
+      "name_zh": "彰化"
+    },
+    {
+      "kind": "city",
+      "key": "嘉义",
+      "name_en": "Chiayi",
+      "name_zh": "嘉义"
+    },
+    {
+      "kind": "city",
+      "key": "宜兰",
+      "name_en": "Yilan",
+      "name_zh": "宜兰"
+    },
+    {
+      "kind": "city",
+      "key": "花莲",
+      "name_en": "Hualien",
+      "name_zh": "花莲"
+    },
+    {
+      "kind": "city",
+      "key": "屏东",
+      "name_en": "Pingtung",
+      "name_zh": "屏东"
+    },
+    {
+      "kind": "city",
+      "key": "云林",
+      "name_en": "Yunlin",
+      "name_zh": "云林"
+    },
+    {
+      "kind": "city",
+      "key": "南投",
+      "name_en": "Nantou",
+      "name_zh": "南投"
+    },
+    {
+      "kind": "city",
+      "key": "苗栗",
+      "name_en": "Miaoli",
+      "name_zh": "苗栗"
+    },
+    {
+      "kind": "city",
+      "key": "台东",
+      "name_en": "Taitung",
+      "name_zh": "台东"
+    },
+    {
+      "kind": "city",
+      "key": "澎湖",
+      "name_en": "Penghu",
+      "name_zh": "澎湖"
+    },
+    {
+      "kind": "city",
+      "key": "金门",
+      "name_en": "Kinmen",
+      "name_zh": "金门"
+    },
+    {
+      "kind": "city",
+      "key": "佛山",
+      "name_en": "Foshan",
+      "name_zh": "佛山"
+    },
+    {
+      "kind": "city",
+      "key": "东莞",
+      "name_en": "Dongguan",
+      "name_zh": "东莞"
+    },
+    {
+      "kind": "city",
+      "key": "珠海",
+      "name_en": "Zhuhai",
+      "name_zh": "珠海"
+    },
+    {
+      "kind": "city",
+      "key": "中山",
+      "name_en": "Zhongshan",
+      "name_zh": "中山"
+    },
+    {
+      "kind": "city",
+      "key": "惠州",
+      "name_en": "Huizhou",
+      "name_zh": "惠州"
+    },
+    {
+      "kind": "city",
+      "key": "汕头",
+      "name_en": "Shantou",
+      "name_zh": "汕头"
+    },
+    {
+      "kind": "city",
+      "key": "湛江",
+      "name_en": "Zhanjiang",
+      "name_zh": "湛江"
+    },
+    {
+      "kind": "city",
+      "key": "江门",
+      "name_en": "Jiangmen",
+      "name_zh": "江门"
+    },
+    {
+      "kind": "city",
+      "key": "茂名",
+      "name_en": "Maoming",
+      "name_zh": "茂名"
+    },
+    {
+      "kind": "city",
+      "key": "韶关",
+      "name_en": "Shaoguan",
+      "name_zh": "韶关"
+    },
+    {
+      "kind": "city",
+      "key": "揭阳",
+      "name_en": "Jieyang",
+      "name_zh": "揭阳"
+    },
+    {
+      "kind": "city",
+      "key": "肇庆",
+      "name_en": "Zhaoqing",
+      "name_zh": "肇庆"
+    },
+    {
+      "kind": "city",
+      "key": "清远",
+      "name_en": "Qingyuan",
+      "name_zh": "清远"
+    },
+    {
+      "kind": "city",
+      "key": "梅州",
+      "name_en": "Meizhou",
+      "name_zh": "梅州"
+    },
+    {
+      "kind": "city",
+      "key": "潮州",
+      "name_en": "Chaozhou",
+      "name_zh": "潮州"
+    },
+    {
+      "kind": "city",
+      "key": "阳江",
+      "name_en": "Yangjiang",
+      "name_zh": "阳江"
+    },
+    {
+      "kind": "city",
+      "key": "河源",
+      "name_en": "Heyuan",
+      "name_zh": "河源"
+    },
+    {
+      "kind": "city",
+      "key": "云浮",
+      "name_en": "Yunfu",
+      "name_zh": "云浮"
+    },
+    {
+      "kind": "city",
+      "key": "汕尾",
+      "name_en": "Shanwei",
+      "name_zh": "汕尾"
+    },
+    {
+      "kind": "city",
+      "key": "常州",
+      "name_en": "Changzhou",
+      "name_zh": "常州"
+    },
+    {
+      "kind": "city",
+      "key": "南通",
+      "name_en": "Nantong",
+      "name_zh": "南通"
+    },
+    {
+      "kind": "city",
+      "key": "徐州",
+      "name_en": "Xuzhou",
+      "name_zh": "徐州"
+    },
+    {
+      "kind": "city",
+      "key": "扬州",
+      "name_en": "Yangzhou",
+      "name_zh": "扬州"
+    },
+    {
+      "kind": "city",
+      "key": "盐城",
+      "name_en": "Yancheng",
+      "name_zh": "盐城"
+    },
+    {
+      "kind": "city",
+      "key": "镇江",
+      "name_en": "Zhenjiang",
+      "name_zh": "镇江"
+    },
+    {
+      "kind": "city",
+      "key": "宿迁",
+      "name_en": "Suqian",
+      "name_zh": "宿迁"
+    },
+    {
+      "kind": "city",
+      "key": "淮安",
+      "name_en": "Huai'an",
+      "name_zh": "淮安"
+    },
+    {
+      "kind": "city",
+      "key": "泰州",
+      "name_en": "Taizhou",
+      "name_zh": "泰州"
+    },
+    {
+      "kind": "city",
+      "key": "连云港",
+      "name_en": "Lianyungang",
+      "name_zh": "连云港"
+    },
+    {
+      "kind": "city",
+      "key": "温州",
+      "name_en": "Wenzhou",
+      "name_zh": "温州"
+    },
+    {
+      "kind": "city",
+      "key": "嘉兴",
+      "name_en": "Jiaxing",
+      "name_zh": "嘉兴"
+    },
+    {
+      "kind": "city",
+      "key": "金华",
+      "name_en": "Jinhua",
+      "name_zh": "金华"
+    },
+    {
+      "kind": "city",
+      "key": "绍兴",
+      "name_en": "Shaoxing",
+      "name_zh": "绍兴"
+    },
+    {
+      "kind": "city",
+      "key": "台州",
+      "name_en": "Taizhou",
+      "name_zh": "台州"
+    },
+    {
+      "kind": "city",
+      "key": "湖州",
+      "name_en": "Huzhou",
+      "name_zh": "湖州"
+    },
+    {
+      "kind": "city",
+      "key": "丽水",
+      "name_en": "Lishui",
+      "name_zh": "丽水"
+    },
+    {
+      "kind": "city",
+      "key": "衢州",
+      "name_en": "Quzhou",
+      "name_zh": "衢州"
+    },
+    {
+      "kind": "city",
+      "key": "舟山",
+      "name_en": "Zhoushan",
+      "name_zh": "舟山"
+    },
+    {
+      "kind": "city",
+      "key": "泉州",
+      "name_en": "Quanzhou",
+      "name_zh": "泉州"
+    },
+    {
+      "kind": "city",
+      "key": "漳州",
+      "name_en": "Zhangzhou",
+      "name_zh": "漳州"
+    },
+    {
+      "kind": "city",
+      "key": "三明",
+      "name_en": "Sanming",
+      "name_zh": "三明"
+    },
+    {
+      "kind": "city",
+      "key": "龙岩",
+      "name_en": "Longyan",
+      "name_zh": "龙岩"
+    },
+    {
+      "kind": "city",
+      "key": "南平",
+      "name_en": "Nanping",
+      "name_zh": "南平"
+    },
+    {
+      "kind": "city",
+      "key": "莆田",
+      "name_en": "Putian",
+      "name_zh": "莆田"
+    },
+    {
+      "kind": "city",
+      "key": "宁德",
+      "name_en": "Ningde",
+      "name_zh": "宁德"
+    },
+    {
+      "kind": "city",
+      "key": "烟台",
+      "name_en": "Yantai",
+      "name_zh": "烟台"
+    },
+    {
+      "kind": "city",
+      "key": "潍坊",
+      "name_en": "Weifang",
+      "name_zh": "潍坊"
+    },
+    {
+      "kind": "city",
+      "key": "临沂",
+      "name_en": "Linyi",
+      "name_zh": "临沂"
+    },
+    {
+      "kind": "city",
+      "key": "济宁",
+      "name_en": "Jining",
+      "name_zh": "济宁"
+    },
+    {
+      "kind": "city",
+      "key": "淄博",
+      "name_en": "Zibo",
+      "name_zh": "淄博"
+    },
+    {
+      "kind": "city",
+      "key": "泰安",
+      "name_en": "Tai'an",
+      "name_zh": "泰安"
+    },
+    {
+      "kind": "city",
+      "key": "菏泽",
+      "name_en": "Heze",
+      "name_zh": "菏泽"
+    },
+    {
+      "kind": "city",
+      "key": "德州",
+      "name_en": "Dezhou",
+      "name_zh": "德州"
+    },
+    {
+      "kind": "city",
+      "key": "聊城",
+      "name_en": "Liaocheng",
+      "name_zh": "聊城"
+    },
+    {
+      "kind": "city",
+      "key": "威海",
+      "name_en": "Weihai",
+      "name_zh": "威海"
+    },
+    {
+      "kind": "city",
+      "key": "滨州",
+      "name_en": "Binzhou",
+      "name_zh": "滨州"
+    },
+    {
+      "kind": "city",
+      "key": "日照",
+      "name_en": "Rizhao",
+      "name_zh": "日照"
+    },
+    {
+      "kind": "city",
+      "key": "枣庄",
+      "name_en": "Zaozhuang",
+      "name_zh": "枣庄"
+    },
+    {
+      "kind": "city",
+      "key": "东营",
+      "name_en": "Dongying",
+      "name_zh": "东营"
+    },
+    {
+      "kind": "city",
+      "key": "洛阳",
+      "name_en": "Luoyang",
+      "name_zh": "洛阳"
+    },
+    {
+      "kind": "city",
+      "key": "开封",
+      "name_en": "Kaifeng",
+      "name_zh": "开封"
+    },
+    {
+      "kind": "city",
+      "key": "新乡",
+      "name_en": "Xinxiang",
+      "name_zh": "新乡"
+    },
+    {
+      "kind": "city",
+      "key": "驻马店",
+      "name_en": "Zhumadian",
+      "name_zh": "驻马店"
+    },
+    {
+      "kind": "city",
+      "key": "焦作",
+      "name_en": "Jiaozuo",
+      "name_zh": "焦作"
+    },
+    {
+      "kind": "city",
+      "key": "濮阳",
+      "name_en": "Puyang",
+      "name_zh": "濮阳"
+    },
+    {
+      "kind": "city",
+      "key": "南阳",
+      "name_en": "Nanyang",
+      "name_zh": "南阳"
+    },
+    {
+      "kind": "city",
+      "key": "信阳",
+      "name_en": "Xinyang",
+      "name_zh": "信阳"
+    },
+    {
+      "kind": "city",
+      "key": "安阳",
+      "name_en": "Anyang",
+      "name_zh": "安阳"
+    },
+    {
+      "kind": "city",
+      "key": "商丘",
+      "name_en": "Shangqiu",
+      "name_zh": "商丘"
+    },
+    {
+      "kind": "city",
+      "key": "平顶山",
+      "name_en": "Pingdingshan",
+      "name_zh": "平顶山"
+    },
+    {
+      "kind": "city",
+      "key": "周口",
+      "name_en": "Zhoukou",
+      "name_zh": "周口"
+    },
+    {
+      "kind": "city",
+      "key": "三门峡",
+      "name_en": "Sanmenxia",
+      "name_zh": "三门峡"
+    },
+    {
+      "kind": "city",
+      "key": "鹤壁",
+      "name_en": "Hebi",
+      "name_zh": "鹤壁"
+    },
+    {
+      "kind": "city",
+      "key": "许昌",
+      "name_en": "Xuchang",
+      "name_zh": "许昌"
+    },
+    {
+      "kind": "city",
+      "key": "漯河",
+      "name_en": "Luohe",
+      "name_zh": "漯河"
+    },
+    {
+      "kind": "city",
+      "key": "济源",
+      "name_en": "Jiyuan",
+      "name_zh": "济源"
+    },
+    {
+      "kind": "city",
+      "key": "保定",
+      "name_en": "Baoding",
+      "name_zh": "保定"
+    },
+    {
+      "kind": "city",
+      "key": "唐山",
+      "name_en": "Tangshan",
+      "name_zh": "唐山"
+    },
+    {
+      "kind": "city",
+      "key": "廊坊",
+      "name_en": "Langfang",
+      "name_zh": "廊坊"
+    },
+    {
+      "kind": "city",
+      "key": "沧州",
+      "name_en": "Cangzhou",
+      "name_zh": "沧州"
+    },
+    {
+      "kind": "city",
+      "key": "邯郸",
+      "name_en": "Handan",
+      "name_zh": "邯郸"
+    },
+    {
+      "kind": "city",
+      "key": "张家口",
+      "name_en": "Zhangjiakou",
+      "name_zh": "张家口"
+    },
+    {
+      "kind": "city",
+      "key": "秦皇岛",
+      "name_en": "Qinhuangdao",
+      "name_zh": "秦皇岛"
+    },
+    {
+      "kind": "city",
+      "key": "承德",
+      "name_en": "Chengde",
+      "name_zh": "承德"
+    },
+    {
+      "kind": "city",
+      "key": "邢台",
+      "name_en": "Xingtai",
+      "name_zh": "邢台"
+    },
+    {
+      "kind": "city",
+      "key": "衡水",
+      "name_en": "Hengshui",
+      "name_zh": "衡水"
+    },
+    {
+      "kind": "city",
+      "key": "芜湖",
+      "name_en": "Wuhu",
+      "name_zh": "芜湖"
+    },
+    {
+      "kind": "city",
+      "key": "安庆",
+      "name_en": "Anqing",
+      "name_zh": "安庆"
+    },
+    {
+      "kind": "city",
+      "key": "六安",
+      "name_en": "Lu'an",
+      "name_zh": "六安"
+    },
+    {
+      "kind": "city",
+      "key": "蚌埠",
+      "name_en": "Bengbu",
+      "name_zh": "蚌埠"
+    },
+    {
+      "kind": "city",
+      "key": "阜阳",
+      "name_en": "Fuyang",
+      "name_zh": "阜阳"
+    },
+    {
+      "kind": "city",
+      "key": "马鞍山",
+      "name_en": "Ma'anshan",
+      "name_zh": "马鞍山"
+    },
+    {
+      "kind": "city",
+      "key": "宿州",
+      "name_en": "Suzhou",
+      "name_zh": "宿州"
+    },
+    {
+      "kind": "city",
+      "key": "淮南",
+      "name_en": "Huainan",
+      "name_zh": "淮南"
+    },
+    {
+      "kind": "city",
+      "key": "滁州",
+      "name_en": "Chuzhou",
+      "name_zh": "滁州"
+    },
+    {
+      "kind": "city",
+      "key": "亳州",
+      "name_en": "Bozhou",
+      "name_zh": "亳州"
+    },
+    {
+      "kind": "city",
+      "key": "宣城",
+      "name_en": "Xuancheng",
+      "name_zh": "宣城"
+    },
+    {
+      "kind": "city",
+      "key": "淮北",
+      "name_en": "Huaibei",
+      "name_zh": "淮北"
+    },
+    {
+      "kind": "city",
+      "key": "铜陵",
+      "name_en": "Tongling",
+      "name_zh": "铜陵"
+    },
+    {
+      "kind": "city",
+      "key": "黄山",
+      "name_en": "Huangshan",
+      "name_zh": "黄山"
+    },
+    {
+      "kind": "city",
+      "key": "池州",
+      "name_en": "Chizhou",
+      "name_zh": "池州"
+    },
+    {
+      "kind": "city",
+      "key": "赣州",
+      "name_en": "Ganzhou",
+      "name_zh": "赣州"
+    },
+    {
+      "kind": "city",
+      "key": "九江",
+      "name_en": "Jiujiang",
+      "name_zh": "九江"
+    },
+    {
+      "kind": "city",
+      "key": "上饶",
+      "name_en": "Shangrao",
+      "name_zh": "上饶"
+    },
+    {
+      "kind": "city",
+      "key": "吉安",
+      "name_en": "Ji'an",
+      "name_zh": "吉安"
+    },
+    {
+      "kind": "city",
+      "key": "抚州",
+      "name_en": "Fuzhou",
+      "name_zh": "抚州"
+    },
+    {
+      "kind": "city",
+      "key": "宜春",
+      "name_en": "Yichun",
+      "name_zh": "宜春"
+    },
+    {
+      "kind": "city",
+      "key": "景德镇",
+      "name_en": "Jingdezhen",
+      "name_zh": "景德镇"
+    },
+    {
+      "kind": "city",
+      "key": "萍乡",
+      "name_en": "Pingxiang",
+      "name_zh": "萍乡"
+    },
+    {
+      "kind": "city",
+      "key": "新余",
+      "name_en": "Xinyu",
+      "name_zh": "新余"
+    },
+    {
+      "kind": "city",
+      "key": "鹰潭",
+      "name_en": "Yingtan",
+      "name_zh": "鹰潭"
+    },
+    {
+      "kind": "city",
+      "key": "襄阳",
+      "name_en": "Xiangyang",
+      "name_zh": "襄阳"
+    },
+    {
+      "kind": "city",
+      "key": "宜昌",
+      "name_en": "Yichang",
+      "name_zh": "宜昌"
+    },
+    {
+      "kind": "city",
+      "key": "十堰",
+      "name_en": "Shiyan",
+      "name_zh": "十堰"
+    },
+    {
+      "kind": "city",
+      "key": "黄冈",
+      "name_en": "Huanggang",
+      "name_zh": "黄冈"
+    },
+    {
+      "kind": "city",
+      "key": "荆州",
+      "name_en": "Jingzhou",
+      "name_zh": "荆州"
+    },
+    {
+      "kind": "city",
+      "key": "黄石",
+      "name_en": "Huangshi",
+      "name_zh": "黄石"
+    },
+    {
+      "kind": "city",
+      "key": "孝感",
+      "name_en": "Xiaogan",
+      "name_zh": "孝感"
+    },
+    {
+      "kind": "city",
+      "key": "荆门",
+      "name_en": "Jingmen",
+      "name_zh": "荆门"
+    },
+    {
+      "kind": "city",
+      "key": "咸宁",
+      "name_en": "Xianning",
+      "name_zh": "咸宁"
+    },
+    {
+      "kind": "city",
+      "key": "恩施",
+      "name_en": "Enshi",
+      "name_zh": "恩施"
+    },
+    {
+      "kind": "city",
+      "key": "随州",
+      "name_en": "Suizhou",
+      "name_zh": "随州"
+    },
+    {
+      "kind": "city",
+      "key": "鄂州",
+      "name_en": "Ezhou",
+      "name_zh": "鄂州"
+    },
+    {
+      "kind": "city",
+      "key": "娄底",
+      "name_en": "Loudi",
+      "name_zh": "娄底"
+    },
+    {
+      "kind": "city",
+      "key": "衡阳",
+      "name_en": "Hengyang",
+      "name_zh": "衡阳"
+    },
+    {
+      "kind": "city",
+      "key": "郴州",
+      "name_en": "Chenzhou",
+      "name_zh": "郴州"
+    },
+    {
+      "kind": "city",
+      "key": "岳阳",
+      "name_en": "Yueyang",
+      "name_zh": "岳阳"
+    },
+    {
+      "kind": "city",
+      "key": "永州",
+      "name_en": "Yongzhou",
+      "name_zh": "永州"
+    },
+    {
+      "kind": "city",
+      "key": "益阳",
+      "name_en": "Yiyang",
+      "name_zh": "益阳"
+    },
+    {
+      "kind": "city",
+      "key": "株洲",
+      "name_en": "Zhuzhou",
+      "name_zh": "株洲"
+    },
+    {
+      "kind": "city",
+      "key": "常德",
+      "name_en": "Changde",
+      "name_zh": "常德"
+    },
+    {
+      "kind": "city",
+      "key": "怀化",
+      "name_en": "Huaihua",
+      "name_zh": "怀化"
+    },
+    {
+      "kind": "city",
+      "key": "湘潭",
+      "name_en": "Xiangtan",
+      "name_zh": "湘潭"
+    },
+    {
+      "kind": "city",
+      "key": "邵阳",
+      "name_en": "Shaoyang",
+      "name_zh": "邵阳"
+    },
+    {
+      "kind": "city",
+      "key": "张家界",
+      "name_en": "Zhangjiajie",
+      "name_zh": "张家界"
+    },
+    {
+      "kind": "city",
+      "key": "湘西",
+      "name_en": "Xiangxi",
+      "name_zh": "湘西"
+    },
+    {
+      "kind": "city",
+      "key": "绵阳",
+      "name_en": "Mianyang",
+      "name_zh": "绵阳"
+    },
+    {
+      "kind": "city",
+      "key": "南充",
+      "name_en": "Nanchong",
+      "name_zh": "南充"
+    },
+    {
+      "kind": "city",
+      "key": "德阳",
+      "name_en": "Deyang",
+      "name_zh": "德阳"
+    },
+    {
+      "kind": "city",
+      "key": "眉山",
+      "name_en": "Meishan",
+      "name_zh": "眉山"
+    },
+    {
+      "kind": "city",
+      "key": "达州",
+      "name_en": "Dazhou",
+      "name_zh": "达州"
+    },
+    {
+      "kind": "city",
+      "key": "乐山",
+      "name_en": "Leshan",
+      "name_zh": "乐山"
+    },
+    {
+      "kind": "city",
+      "key": "宜宾",
+      "name_en": "Yibin",
+      "name_zh": "宜宾"
+    },
+    {
+      "kind": "city",
+      "key": "广元",
+      "name_en": "Guangyuan",
+      "name_zh": "广元"
+    },
+    {
+      "kind": "city",
+      "key": "自贡",
+      "name_en": "Zigong",
+      "name_zh": "自贡"
+    },
+    {
+      "kind": "city",
+      "key": "泸州",
+      "name_en": "Luzhou",
+      "name_zh": "泸州"
+    },
+    {
+      "kind": "city",
+      "key": "遂宁",
+      "name_en": "Suining",
+      "name_zh": "遂宁"
+    },
+    {
+      "kind": "city",
+      "key": "广安",
+      "name_en": "Guang'an",
+      "name_zh": "广安"
+    },
+    {
+      "kind": "city",
+      "key": "甘孜",
+      "name_en": "Garze",
+      "name_zh": "甘孜"
+    },
+    {
+      "kind": "city",
+      "key": "攀枝花",
+      "name_en": "Panzhihua",
+      "name_zh": "攀枝花"
+    },
+    {
+      "kind": "city",
+      "key": "雅安",
+      "name_en": "Ya'an",
+      "name_zh": "雅安"
+    },
+    {
+      "kind": "city",
+      "key": "凉山",
+      "name_en": "Liangshan",
+      "name_zh": "凉山"
+    },
+    {
+      "kind": "city",
+      "key": "阿坝",
+      "name_en": "Aba",
+      "name_zh": "阿坝"
+    },
+    {
+      "kind": "city",
+      "key": "内江",
+      "name_en": "Neijiang",
+      "name_zh": "内江"
+    },
+    {
+      "kind": "city",
+      "key": "巴中",
+      "name_en": "Bazhong",
+      "name_zh": "巴中"
+    },
+    {
+      "kind": "city",
+      "key": "资阳",
+      "name_en": "Ziyang",
+      "name_zh": "资阳"
+    },
+    {
+      "kind": "city",
+      "key": "咸阳",
+      "name_en": "Xianyang",
+      "name_zh": "咸阳"
+    },
+    {
+      "kind": "city",
+      "key": "宝鸡",
+      "name_en": "Baoji",
+      "name_zh": "宝鸡"
+    },
+    {
+      "kind": "city",
+      "key": "延安",
+      "name_en": "Yan'an",
+      "name_zh": "延安"
+    },
+    {
+      "kind": "city",
+      "key": "渭南",
+      "name_en": "Weinan",
+      "name_zh": "渭南"
+    },
+    {
+      "kind": "city",
+      "key": "榆林",
+      "name_en": "Yulin",
+      "name_zh": "榆林"
+    },
+    {
+      "kind": "city",
+      "key": "安康",
+      "name_en": "Ankang",
+      "name_zh": "安康"
+    },
+    {
+      "kind": "city",
+      "key": "商洛",
+      "name_en": "Shangluo",
+      "name_zh": "商洛"
+    },
+    {
+      "kind": "city",
+      "key": "汉中",
+      "name_en": "Hanzhong",
+      "name_zh": "汉中"
+    },
+    {
+      "kind": "city",
+      "key": "铜川",
+      "name_en": "Tongchuan",
+      "name_zh": "铜川"
+    },
+    {
+      "kind": "city",
+      "key": "临汾",
+      "name_en": "Linfen",
+      "name_zh": "临汾"
+    },
+    {
+      "kind": "city",
+      "key": "长治",
+      "name_en": "Changzhi",
+      "name_zh": "长治"
+    },
+    {
+      "kind": "city",
+      "key": "晋中",
+      "name_en": "Jinzhong",
+      "name_zh": "晋中"
+    },
+    {
+      "kind": "city",
+      "key": "运城",
+      "name_en": "Yuncheng",
+      "name_zh": "运城"
+    },
+    {
+      "kind": "city",
+      "key": "忻州",
+      "name_en": "Xinzhou",
+      "name_zh": "忻州"
+    },
+    {
+      "kind": "city",
+      "key": "大同",
+      "name_en": "Datong",
+      "name_zh": "大同"
+    },
+    {
+      "kind": "city",
+      "key": "晋城",
+      "name_en": "Jincheng",
+      "name_zh": "晋城"
+    },
+    {
+      "kind": "city",
+      "key": "吕梁",
+      "name_en": "Luliang",
+      "name_zh": "吕梁"
+    },
+    {
+      "kind": "city",
+      "key": "阳泉",
+      "name_en": "Yangquan",
+      "name_zh": "阳泉"
+    },
+    {
+      "kind": "city",
+      "key": "朔州",
+      "name_en": "Shuozhou",
+      "name_zh": "朔州"
+    },
+    {
+      "kind": "city",
+      "key": "锦州",
+      "name_en": "Jinzhou",
+      "name_zh": "锦州"
+    },
+    {
+      "kind": "city",
+      "key": "朝阳",
+      "name_en": "Chaoyang",
+      "name_zh": "朝阳"
+    },
+    {
+      "kind": "city",
+      "key": "丹东",
+      "name_en": "Dandong",
+      "name_zh": "丹东"
+    },
+    {
+      "kind": "city",
+      "key": "鞍山",
+      "name_en": "Anshan",
+      "name_zh": "鞍山"
+    },
+    {
+      "kind": "city",
+      "key": "葫芦岛",
+      "name_en": "Huludao",
+      "name_zh": "葫芦岛"
+    },
+    {
+      "kind": "city",
+      "key": "抚顺",
+      "name_en": "Fushun",
+      "name_zh": "抚顺"
+    },
+    {
+      "kind": "city",
+      "key": "盘锦",
+      "name_en": "Panjin",
+      "name_zh": "盘锦"
+    },
+    {
+      "kind": "city",
+      "key": "阜新",
+      "name_en": "Fuxin",
+      "name_zh": "阜新"
+    },
+    {
+      "kind": "city",
+      "key": "铁岭",
+      "name_en": "Tieling",
+      "name_zh": "铁岭"
+    },
+    {
+      "kind": "city",
+      "key": "营口",
+      "name_en": "Yingkou",
+      "name_zh": "营口"
+    },
+    {
+      "kind": "city",
+      "key": "辽阳",
+      "name_en": "Liaoyang",
+      "name_zh": "辽阳"
+    },
+    {
+      "kind": "city",
+      "key": "本溪",
+      "name_en": "Benxi",
+      "name_zh": "本溪"
+    },
+    {
+      "kind": "city",
+      "key": "吉林",
+      "name_en": "Jilin",
+      "name_zh": "吉林"
+    },
+    {
+      "kind": "city",
+      "key": "通化",
+      "name_en": "Tonghua",
+      "name_zh": "通化"
+    },
+    {
+      "kind": "city",
+      "key": "延边",
+      "name_en": "Yanbian",
+      "name_zh": "延边"
+    },
+    {
+      "kind": "city",
+      "key": "白城",
+      "name_en": "Baicheng",
+      "name_zh": "白城"
+    },
+    {
+      "kind": "city",
+      "key": "松原",
+      "name_en": "Songyuan",
+      "name_zh": "松原"
+    },
+    {
+      "kind": "city",
+      "key": "白山",
+      "name_en": "Baishan",
+      "name_zh": "白山"
+    },
+    {
+      "kind": "city",
+      "key": "四平",
+      "name_en": "Siping",
+      "name_zh": "四平"
+    },
+    {
+      "kind": "city",
+      "key": "辽源",
+      "name_en": "Liaoyuan",
+      "name_zh": "辽源"
+    },
+    {
+      "kind": "city",
+      "key": "大庆",
+      "name_en": "Daqing",
+      "name_zh": "大庆"
+    },
+    {
+      "kind": "city",
+      "key": "绥化",
+      "name_en": "Suihua",
+      "name_zh": "绥化"
+    },
+    {
+      "kind": "city",
+      "key": "牡丹江",
+      "name_en": "Mudanjiang",
+      "name_zh": "牡丹江"
+    },
+    {
+      "kind": "city",
+      "key": "齐齐哈尔",
+      "name_en": "Qiqihar",
+      "name_zh": "齐齐哈尔"
+    },
+    {
+      "kind": "city",
+      "key": "佳木斯",
+      "name_en": "Jiamusi",
+      "name_zh": "佳木斯"
+    },
+    {
+      "kind": "city",
+      "key": "黑河",
+      "name_en": "Heihe",
+      "name_zh": "黑河"
+    },
+    {
+      "kind": "city",
+      "key": "伊春",
+      "name_en": "Yichun",
+      "name_zh": "伊春"
+    },
+    {
+      "kind": "city",
+      "key": "鸡西",
+      "name_en": "Jixi",
+      "name_zh": "鸡西"
+    },
+    {
+      "kind": "city",
+      "key": "双鸭山",
+      "name_en": "Shuangyashan",
+      "name_zh": "双鸭山"
+    },
+    {
+      "kind": "city",
+      "key": "鹤岗",
+      "name_en": "Hegang",
+      "name_zh": "鹤岗"
+    },
+    {
+      "kind": "city",
+      "key": "大兴安岭",
+      "name_en": "Daxing'anling",
+      "name_zh": "大兴安岭"
+    },
+    {
+      "kind": "city",
+      "key": "七台河",
+      "name_en": "Qitaihe",
+      "name_zh": "七台河"
+    },
+    {
+      "kind": "city",
+      "key": "通辽",
+      "name_en": "Tongliao",
+      "name_zh": "通辽"
+    },
+    {
+      "kind": "city",
+      "key": "呼伦贝尔",
+      "name_en": "Hulunbuir",
+      "name_zh": "呼伦贝尔"
+    },
+    {
+      "kind": "city",
+      "key": "包头",
+      "name_en": "Baotou",
+      "name_zh": "包头"
+    },
+    {
+      "kind": "city",
+      "key": "赤峰",
+      "name_en": "Chifeng",
+      "name_zh": "赤峰"
+    },
+    {
+      "kind": "city",
+      "key": "鄂尔多斯",
+      "name_en": "Ordos",
+      "name_zh": "鄂尔多斯"
+    },
+    {
+      "kind": "city",
+      "key": "乌兰察布",
+      "name_en": "Ulanqab",
+      "name_zh": "乌兰察布"
+    },
+    {
+      "kind": "city",
+      "key": "兴安",
+      "name_en": "Hinggan",
+      "name_zh": "兴安"
+    },
+    {
+      "kind": "city",
+      "key": "乌海",
+      "name_en": "Wuhai",
+      "name_zh": "乌海"
+    },
+    {
+      "kind": "city",
+      "key": "巴彦淖尔",
+      "name_en": "Bayannur",
+      "name_zh": "巴彦淖尔"
+    },
+    {
+      "kind": "city",
+      "key": "锡林郭勒",
+      "name_en": "Xilingol",
+      "name_zh": "锡林郭勒"
+    },
+    {
+      "kind": "city",
+      "key": "阿拉善",
+      "name_en": "Alxa",
+      "name_zh": "阿拉善"
+    },
+    {
+      "kind": "city",
+      "key": "柳州",
+      "name_en": "Liuzhou",
+      "name_zh": "柳州"
+    },
+    {
+      "kind": "city",
+      "key": "桂林",
+      "name_en": "Guilin",
+      "name_zh": "桂林"
+    },
+    {
+      "kind": "city",
+      "key": "玉林",
+      "name_en": "Yulin",
+      "name_zh": "玉林"
+    },
+    {
+      "kind": "city",
+      "key": "钦州",
+      "name_en": "Qinzhou",
+      "name_zh": "钦州"
+    },
+    {
+      "kind": "city",
+      "key": "北海",
+      "name_en": "Beihai",
+      "name_zh": "北海"
+    },
+    {
+      "kind": "city",
+      "key": "百色",
+      "name_en": "Baise",
+      "name_zh": "百色"
+    },
+    {
+      "kind": "city",
+      "key": "河池",
+      "name_en": "Hechi",
+      "name_zh": "河池"
+    },
+    {
+      "kind": "city",
+      "key": "梧州",
+      "name_en": "Wuzhou",
+      "name_zh": "梧州"
+    },
+    {
+      "kind": "city",
+      "key": "来宾",
+      "name_en": "Laibin",
+      "name_zh": "来宾"
+    },
+    {
+      "kind": "city",
+      "key": "崇左",
+      "name_en": "Chongzuo",
+      "name_zh": "崇左"
+    },
+    {
+      "kind": "city",
+      "key": "贵港",
+      "name_en": "Guigang",
+      "name_zh": "贵港"
+    },
+    {
+      "kind": "city",
+      "key": "贺州",
+      "name_en": "Hezhou",
+      "name_zh": "贺州"
+    },
+    {
+      "kind": "city",
+      "key": "防城港",
+      "name_en": "Fangchenggang",
+      "name_zh": "防城港"
+    },
+    {
+      "kind": "city",
+      "key": "遵义",
+      "name_en": "Zunyi",
+      "name_zh": "遵义"
+    },
+    {
+      "kind": "city",
+      "key": "安顺",
+      "name_en": "Anshun",
+      "name_zh": "安顺"
+    },
+    {
+      "kind": "city",
+      "key": "黔南",
+      "name_en": "Qiannan",
+      "name_zh": "黔南"
+    },
+    {
+      "kind": "city",
+      "key": "铜仁",
+      "name_en": "Tongren",
+      "name_zh": "铜仁"
+    },
+    {
+      "kind": "city",
+      "key": "六盘水",
+      "name_en": "Liupanshui",
+      "name_zh": "六盘水"
+    },
+    {
+      "kind": "city",
+      "key": "毕节",
+      "name_en": "Bijie",
+      "name_zh": "毕节"
+    },
+    {
+      "kind": "city",
+      "key": "黔东南",
+      "name_en": "Qiandongnan",
+      "name_zh": "黔东南"
+    },
+    {
+      "kind": "city",
+      "key": "黔西南",
+      "name_en": "Qianxinan",
+      "name_zh": "黔西南"
+    },
+    {
+      "kind": "city",
+      "key": "红河",
+      "name_en": "Honghe",
+      "name_zh": "红河"
+    },
+    {
+      "kind": "city",
+      "key": "曲靖",
+      "name_en": "Qujing",
+      "name_zh": "曲靖"
+    },
+    {
+      "kind": "city",
+      "key": "大理",
+      "name_en": "Dali",
+      "name_zh": "大理"
+    },
+    {
+      "kind": "city",
+      "key": "玉溪",
+      "name_en": "Yuxi",
+      "name_zh": "玉溪"
+    },
+    {
+      "kind": "city",
+      "key": "楚雄",
+      "name_en": "Chuxiong",
+      "name_zh": "楚雄"
+    },
+    {
+      "kind": "city",
+      "key": "昭通",
+      "name_en": "Zhaotong",
+      "name_zh": "昭通"
+    },
+    {
+      "kind": "city",
+      "key": "保山",
+      "name_en": "Baoshan",
+      "name_zh": "保山"
+    },
+    {
+      "kind": "city",
+      "key": "临沧",
+      "name_en": "Lincang",
+      "name_zh": "临沧"
+    },
+    {
+      "kind": "city",
+      "key": "普洱",
+      "name_en": "Pu'er",
+      "name_zh": "普洱"
+    },
+    {
+      "kind": "city",
+      "key": "丽江",
+      "name_en": "Lijiang",
+      "name_zh": "丽江"
+    },
+    {
+      "kind": "city",
+      "key": "西双版纳",
+      "name_en": "Xishuangbanna",
+      "name_zh": "西双版纳"
+    },
+    {
+      "kind": "city",
+      "key": "文山",
+      "name_en": "Wenshan",
+      "name_zh": "文山"
+    },
+    {
+      "kind": "city",
+      "key": "迪庆",
+      "name_en": "Diqing",
+      "name_zh": "迪庆"
+    },
+    {
+      "kind": "city",
+      "key": "德宏",
+      "name_en": "Dehong",
+      "name_zh": "德宏"
+    },
+    {
+      "kind": "city",
+      "key": "怒江",
+      "name_en": "Nujiang",
+      "name_zh": "怒江"
+    },
+    {
+      "kind": "city",
+      "key": "天水",
+      "name_en": "Tianshui",
+      "name_zh": "天水"
+    },
+    {
+      "kind": "city",
+      "key": "定西",
+      "name_en": "Dingxi",
+      "name_zh": "定西"
+    },
+    {
+      "kind": "city",
+      "key": "庆阳",
+      "name_en": "Qingyang",
+      "name_zh": "庆阳"
+    },
+    {
+      "kind": "city",
+      "key": "酒泉",
+      "name_en": "Jiuquan",
+      "name_zh": "酒泉"
+    },
+    {
+      "kind": "city",
+      "key": "张掖",
+      "name_en": "Zhangye",
+      "name_zh": "张掖"
+    },
+    {
+      "kind": "city",
+      "key": "陇南",
+      "name_en": "Longnan",
+      "name_zh": "陇南"
+    },
+    {
+      "kind": "city",
+      "key": "武威",
+      "name_en": "Wuwei",
+      "name_zh": "武威"
+    },
+    {
+      "kind": "city",
+      "key": "临夏",
+      "name_en": "Linxia",
+      "name_zh": "临夏"
+    },
+    {
+      "kind": "city",
+      "key": "金昌",
+      "name_en": "Jinchang",
+      "name_zh": "金昌"
+    },
+    {
+      "kind": "city",
+      "key": "平凉",
+      "name_en": "Pingliang",
+      "name_zh": "平凉"
+    },
+    {
+      "kind": "city",
+      "key": "白银",
+      "name_en": "Baiyin",
+      "name_zh": "白银"
+    },
+    {
+      "kind": "city",
+      "key": "甘南",
+      "name_en": "Gannan",
+      "name_zh": "甘南"
+    },
+    {
+      "kind": "city",
+      "key": "嘉峪关",
+      "name_en": "Jiayuguan",
+      "name_zh": "嘉峪关"
+    },
+    {
+      "kind": "city",
+      "key": "中卫",
+      "name_en": "Zhongwei",
+      "name_zh": "中卫"
+    },
+    {
+      "kind": "city",
+      "key": "固原",
+      "name_en": "Guyuan",
+      "name_zh": "固原"
+    },
+    {
+      "kind": "city",
+      "key": "吴忠",
+      "name_en": "Wuzhong",
+      "name_zh": "吴忠"
+    },
+    {
+      "kind": "city",
+      "key": "石嘴山",
+      "name_en": "Shizuishan",
+      "name_zh": "石嘴山"
+    },
+    {
+      "kind": "city",
+      "key": "海东",
+      "name_en": "Haidong",
+      "name_zh": "海东"
+    },
+    {
+      "kind": "city",
+      "key": "海西",
+      "name_en": "Haixi",
+      "name_zh": "海西"
+    },
+    {
+      "kind": "city",
+      "key": "黄南",
+      "name_en": "Huangnan",
+      "name_zh": "黄南"
+    },
+    {
+      "kind": "city",
+      "key": "海南",
+      "name_en": "Hainan",
+      "name_zh": "海南"
+    },
+    {
+      "kind": "city",
+      "key": "玉树",
+      "name_en": "Yushu",
+      "name_zh": "玉树"
+    },
+    {
+      "kind": "city",
+      "key": "海北",
+      "name_en": "Haibei",
+      "name_zh": "海北"
+    },
+    {
+      "kind": "city",
+      "key": "果洛",
+      "name_en": "Golog",
+      "name_zh": "果洛"
+    },
+    {
+      "kind": "city",
+      "key": "伊犁",
+      "name_en": "Ili",
+      "name_zh": "伊犁"
+    },
+    {
+      "kind": "city",
+      "key": "塔城",
+      "name_en": "Tacheng",
+      "name_zh": "塔城"
+    },
+    {
+      "kind": "city",
+      "key": "阿克苏",
+      "name_en": "Aksu",
+      "name_zh": "阿克苏"
+    },
+    {
+      "kind": "city",
+      "key": "巴音郭楞",
+      "name_en": "Bayingolin",
+      "name_zh": "巴音郭楞"
+    },
+    {
+      "kind": "city",
+      "key": "和田",
+      "name_en": "Hotan",
+      "name_zh": "和田"
+    },
+    {
+      "kind": "city",
+      "key": "哈密",
+      "name_en": "Hami",
+      "name_zh": "哈密"
+    },
+    {
+      "kind": "city",
+      "key": "喀什",
+      "name_en": "Kashgar",
+      "name_zh": "喀什"
+    },
+    {
+      "kind": "city",
+      "key": "昌吉",
+      "name_en": "Changji",
+      "name_zh": "昌吉"
+    },
+    {
+      "kind": "city",
+      "key": "克孜勒苏",
+      "name_en": "Kizilsu",
+      "name_zh": "克孜勒苏"
+    },
+    {
+      "kind": "city",
+      "key": "阿勒泰",
+      "name_en": "Altay",
+      "name_zh": "阿勒泰"
+    },
+    {
+      "kind": "city",
+      "key": "博尔塔拉",
+      "name_en": "Bortala",
+      "name_zh": "博尔塔拉"
+    },
+    {
+      "kind": "city",
+      "key": "吐鲁番",
+      "name_en": "Turpan",
+      "name_zh": "吐鲁番"
+    },
+    {
+      "kind": "city",
+      "key": "克拉玛依",
+      "name_en": "Karamay",
+      "name_zh": "克拉玛依"
+    },
+    {
+      "kind": "city",
+      "key": "日喀则",
+      "name_en": "Shigatse",
+      "name_zh": "日喀则"
+    },
+    {
+      "kind": "city",
+      "key": "昌都",
+      "name_en": "Chamdo",
+      "name_zh": "昌都"
+    },
+    {
+      "kind": "city",
+      "key": "林芝",
+      "name_en": "Nyingchi",
+      "name_zh": "林芝"
+    },
+    {
+      "kind": "city",
+      "key": "山南",
+      "name_en": "Shannan",
+      "name_zh": "山南"
+    },
+    {
+      "kind": "city",
+      "key": "那曲",
+      "name_en": "Nagqu",
+      "name_zh": "那曲"
+    },
+    {
+      "kind": "city",
+      "key": "阿里",
+      "name_en": "Ngari",
+      "name_zh": "阿里"
+    },
+    {
+      "kind": "city",
+      "key": "儋州",
+      "name_en": "Danzhou",
+      "name_zh": "儋州"
+    }
+  ]
+}

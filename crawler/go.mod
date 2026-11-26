@@ -1,4 +1,4 @@
-module github.com/harrisonwang/detect-radar/cloud-ip-crawler
+module github.com/harrisonwang/detect-radar/crawler
 
 go 1.24.0
 

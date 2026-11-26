@@ -15,25 +15,30 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: cloud-ip-crawler
+        working-directory: crawler
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24'
           cache: true
-          cache-dependency-path: cloud-ip-crawler/go.sum
+          cache-dependency-path: crawler/go.sum
 
       - name: 构建
         run: |
           CGO_ENABLED=0 go build -trimpath \
-            -ldflags "-s -w -X github.com/harrisonwang/detect-radar/cloud-ip-crawler/internal/crawler.Version=$(date -u +%Y.%m.%d)" \
-            -o cloud-ip-crawler ./cmd/cloud-ip-crawler
+            -ldflags "-s -w -X github.com/harrisonwang/detect-radar/crawler/cloud-ip/internal/crawler.Version=$(date -u +%Y.%m.%d)" \
+            -o cloud-ip-crawler ./cloud-ip/cmd/cloud-ip-crawler
+          CGO_ENABLED=0 go build -trimpath \
+            -ldflags "-s -w -X github.com/harrisonwang/detect-radar/crawler/catalog/internal/sync.Version=$(date -u +%Y.%m.%d)" \
+            -o catalog-crawler ./catalog/cmd/catalog-crawler
 
       # 任一上游数据源失败，crawler 就以非零码退出，这一步随之失败，
       # 于是残缺的数据集永远不会被发布出去（宁可今天没有更新，也不要一份缺了 Azure 的库）
       - name: 抓取
-        run: ./cloud-ip-crawler --db cloud-ip.db
+        run: |
+          ./cloud-ip-crawler --db cloud-ip.db
+          ./catalog-crawler --db cloud-ip.db --seed ../data/catalog_seed.json
 
       - name: 导出与校验
         run: |
@@ -53,6 +58,13 @@ jobs:
           echo "总计 $rows 条"
           if [ "$rows" -lt 130000 ]; then
             echo "::error::只有 $rows 条，远低于常态（约 18 万），疑似上游数据异常，中止发布"
+            exit 1
+          fi
+
+          asn_rows=$(sqlite3 cloud-ip.db "SELECT COUNT(*) FROM asn_catalog;")
+          echo "ASN 目录总计 $asn_rows 条"
+          if [ "$asn_rows" -lt 1000 ]; then
+            echo "::error::asn_catalog 只有 $asn_rows 条，疑似 PeeringDB/bgp.tools 同步缺失，中止发布"
             exit 1
           fi
 

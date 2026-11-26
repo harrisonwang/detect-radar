@@ -1,14 +1,16 @@
-name: cloud-ip-crawler CI
+name: crawler CI
 
 on:
   push:
     branches: [main]
     paths:
-      - 'cloud-ip-crawler/**'
+      - 'crawler/**'
+      - 'data/catalog_seed.json'
       - '.github/workflows/crawler-ci.yml'
   pull_request:
     paths:
-      - 'cloud-ip-crawler/**'
+      - 'crawler/**'
+      - 'data/catalog_seed.json'
       - '.github/workflows/crawler-ci.yml'
 
 jobs:
@@ -16,14 +18,14 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: cloud-ip-crawler
+        working-directory: crawler
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
           go-version: '1.24'
           cache: true
-          cache-dependency-path: cloud-ip-crawler/go.sum
+          cache-dependency-path: crawler/go.sum
 
       - name: gofmt
         run: test -z "$(gofmt -l .)" || { gofmt -l .; echo '::error::请先运行 gofmt -w .'; exit 1; }
@@ -35,6 +37,7 @@ jobs:
       - name: 交叉编译（CGO_ENABLED=0）
         run: |
           for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64; do
-            CGO_ENABLED=0 GOOS=${target%/*} GOARCH=${target#*/} go build -o /dev/null ./cmd/cloud-ip-crawler \
+            CGO_ENABLED=0 GOOS=${target%/*} GOARCH=${target#*/} go build -o /dev/null ./cloud-ip/cmd/cloud-ip-crawler \
+              && CGO_ENABLED=0 GOOS=${target%/*} GOARCH=${target#*/} go build -o /dev/null ./catalog/cmd/catalog-crawler \
               && echo "  ok  $target" || { echo "  FAIL $target"; exit 1; }
           done

@@ -71,6 +71,9 @@ cmd/*/bin/
 temp/
 
 data/
+!/data/
+/data/*
+!/data/catalog_seed.json
 config.yaml
 
 # Compiled server binary (Makefile: go build -o detect-radar)
@@ -79,7 +82,7 @@ config.yaml
 testdata/
 
 *_test.go
-!cloud-ip-crawler/**/*_test.go
+!crawler/**/*_test.go
 server/scripts/
 
 # Swift / macOS

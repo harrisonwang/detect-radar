@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/harrisonwang/detect-radar/cloud-ip-crawler/internal/crawler"
+	"github.com/harrisonwang/detect-radar/crawler/cloud-ip/internal/crawler"
 
 	_ "modernc.org/sqlite"
 )
@@ -22,8 +22,6 @@ func main() {
 			os.Exit(runLookup(os.Args[2:]))
 		case "export":
 			os.Exit(runExport(os.Args[2:]))
-		case "access-asns":
-			os.Exit(runAccessASNs(os.Args[2:]))
 		}
 	}
 
@@ -87,10 +85,11 @@ func main() {
 	var db *sql.DB
 	if !*dryRun {
 		var err error
-		db, err = sql.Open("sqlite", *dbPath)
+		db, err = sql.Open("sqlite", *dbPath+"?_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=busy_timeout(5000)")
 		if err != nil {
 			log.Fatalf("无法打开数据库 %s: %v", *dbPath, err)
 		}
+		db.SetMaxOpenConns(1)
 		defer db.Close()
 		if err := crawler.EnsureSchema(db); err != nil {
 			log.Fatalf("建表失败: %v", err)
@@ -253,51 +252,5 @@ func runExport(args []string) int {
 		return 2
 	}
 	log.Printf("已导出 %d 个网段到 %s", n, *outPath)
-	return 0
-}
-
-func runAccessASNs(args []string) int {
-	fs := flag.NewFlagSet("access-asns", flag.ExitOnError)
-	dbPath := fs.String("db", "cloud-ip.db", "SQLite 数据库路径")
-	offline := fs.Bool("offline", false, "仅写入内置精选全球接入网 ASN，不拉取 PeeringDB")
-	dryRun := fs.Bool("dry-run", false, "仅拉取并打印样例，不写数据库")
-	fs.Parse(args) //nolint:errcheck
-
-	items, err := crawler.CrawlAccessASNs(*offline)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "拉取 access_asns 失败: %v\n", err)
-		return 1
-	}
-	log.Printf("获取到 %d 条接入网 ASN", len(items))
-
-	if *dryRun {
-		for i, item := range items {
-			if i >= 10 {
-				fmt.Printf("  ... 还有 %d 条\n", len(items)-10)
-				break
-			}
-			fmt.Printf("  AS%d  %s  country=%s  kind=%s  source=%s\n", item.ASN, item.Name, item.Country, item.NetworkKind, item.Source)
-		}
-		return 0
-	}
-
-	db, err := sql.Open("sqlite", *dbPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "无法打开数据库: %v\n", err)
-		return 1
-	}
-	defer db.Close()
-
-	if err := crawler.EnsureSchema(db); err != nil {
-		fmt.Fprintf(os.Stderr, "建表失败: %v\n", err)
-		return 1
-	}
-
-	n, err := crawler.InsertAccessASNs(db, items)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "写入 access_asns 失败: %v\n", err)
-		return 1
-	}
-	log.Printf("已写入 %d 条 access_asns 到 %s", n, *dbPath)
 	return 0
 }

@@ -28,6 +28,54 @@ CREATE TABLE IF NOT EXISTS access_asns (
     network_kind TEXT NOT NULL DEFAULT 'residential',
     source       TEXT NOT NULL
 );
+CREATE TABLE IF NOT EXISTS asn_catalog (
+    asn              INTEGER PRIMARY KEY,
+    role             TEXT NOT NULL DEFAULT '',
+    network_kind     TEXT NOT NULL DEFAULT '',
+    country          TEXT NOT NULL DEFAULT '',
+    name_en          TEXT NOT NULL DEFAULT '',
+    name_zh          TEXT NOT NULL DEFAULT '',
+    carrier_group    TEXT NOT NULL DEFAULT '',
+    source           TEXT NOT NULL DEFAULT 'seed',
+    override_role    TEXT NOT NULL DEFAULT '',
+    override_name_en TEXT NOT NULL DEFAULT '',
+    override_name_zh TEXT NOT NULL DEFAULT '',
+    updated_at       INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_asn_catalog_role ON asn_catalog(role);
+CREATE TABLE IF NOT EXISTS network_aliases (
+    alias_key     TEXT PRIMARY KEY,
+    match_mode    TEXT NOT NULL DEFAULT 'exact',
+    priority      INTEGER NOT NULL DEFAULT 100,
+    asn           INTEGER NOT NULL DEFAULT 0,
+    role          TEXT NOT NULL DEFAULT '',
+    canonical_key TEXT NOT NULL DEFAULT '',
+    name_en       TEXT NOT NULL DEFAULT '',
+    name_zh       TEXT NOT NULL DEFAULT '',
+    source        TEXT NOT NULL DEFAULT 'seed',
+    updated_at    INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_network_aliases_mode ON network_aliases(match_mode, priority);
+CREATE TABLE IF NOT EXISTS public_dns_ips (
+    ip            TEXT PRIMARY KEY,
+    canonical_key TEXT NOT NULL,
+    name_en       TEXT NOT NULL,
+    name_zh       TEXT NOT NULL,
+    updated_at    INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS geo_names (
+    kind    TEXT NOT NULL,
+    key     TEXT NOT NULL,
+    name_en TEXT NOT NULL,
+    name_zh TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY (kind, key)
+);
+CREATE TABLE IF NOT EXISTS sync_meta (
+    source         TEXT PRIMARY KEY,
+    cursor         TEXT NOT NULL DEFAULT '',
+    row_count      INTEGER NOT NULL DEFAULT 0,
+    last_synced_at INTEGER NOT NULL DEFAULT 0
+);
 `
 
 func EnsureSchema(db *sql.DB) error {
@@ -75,51 +123,6 @@ func InsertRanges(db *sql.DB, provider string, ranges []Range) (int, error) {
 
 	if err := tx.Commit(); err != nil {
 		return 0, fmt.Errorf("提交事务失败: %w", err)
-	}
-	return inserted, nil
-}
-
-func InsertAccessASNs(db *sql.DB, items []AccessASN) (int, error) {
-	if len(items) == 0 {
-		return 0, fmt.Errorf("access_asns 数据为空，跳过写入以保留旧表")
-	}
-
-	tx, err := db.Begin()
-	if err != nil {
-		return 0, err
-	}
-	defer tx.Rollback() //nolint:errcheck
-
-	if _, err := tx.Exec("DELETE FROM access_asns"); err != nil {
-		return 0, fmt.Errorf("清理旧 access_asns 失败: %w", err)
-	}
-
-	stmt, err := tx.Prepare(`
-		INSERT OR REPLACE INTO access_asns (asn, name, country, network_kind, source)
-		VALUES (?, ?, ?, ?, ?)
-	`)
-	if err != nil {
-		return 0, fmt.Errorf("准备 access_asns 语句失败: %w", err)
-	}
-	defer stmt.Close()
-
-	inserted := 0
-	for _, item := range items {
-		if item.ASN == 0 || item.Name == "" {
-			continue
-		}
-		kind := item.NetworkKind
-		if kind == "" {
-			kind = "residential"
-		}
-		if _, err := stmt.Exec(item.ASN, item.Name, item.Country, kind, item.Source); err != nil {
-			return 0, fmt.Errorf("写入 access_asn AS%d 失败: %w", item.ASN, err)
-		}
-		inserted++
-	}
-
-	if err := tx.Commit(); err != nil {
-		return 0, fmt.Errorf("提交 access_asns 事务失败: %w", err)
 	}
 	return inserted, nil
 }

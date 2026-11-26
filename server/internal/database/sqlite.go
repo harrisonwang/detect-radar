@@ -23,7 +23,7 @@ func NewSQLiteDB(cfg SQLiteConfig) (*SQLiteDB, error) {
 		return nil, fmt.Errorf("failed to create database directory: %w", err)
 	}
 
-	db, err := sql.Open("sqlite", cfg.Path+"?_journal_mode=WAL&_synchronous=NORMAL")
+	db, err := sql.Open("sqlite", cfg.Path+"?_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=busy_timeout(5000)")
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}
@@ -107,6 +107,61 @@ func (s *SQLiteDB) initTables() error {
 		network_kind TEXT NOT NULL DEFAULT 'residential',
 		source TEXT NOT NULL
 	);
+
+	CREATE TABLE IF NOT EXISTS asn_catalog (
+		asn INTEGER PRIMARY KEY,
+		role TEXT NOT NULL DEFAULT '',
+		network_kind TEXT NOT NULL DEFAULT '',
+		country TEXT NOT NULL DEFAULT '',
+		name_en TEXT NOT NULL DEFAULT '',
+		name_zh TEXT NOT NULL DEFAULT '',
+		carrier_group TEXT NOT NULL DEFAULT '',
+		source TEXT NOT NULL DEFAULT 'seed',
+		override_role TEXT NOT NULL DEFAULT '',
+		override_name_en TEXT NOT NULL DEFAULT '',
+		override_name_zh TEXT NOT NULL DEFAULT '',
+		updated_at INTEGER NOT NULL DEFAULT 0
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_asn_catalog_role ON asn_catalog(role);
+
+	CREATE TABLE IF NOT EXISTS network_aliases (
+		alias_key TEXT PRIMARY KEY,
+		match_mode TEXT NOT NULL DEFAULT 'exact',
+		priority INTEGER NOT NULL DEFAULT 100,
+		asn INTEGER NOT NULL DEFAULT 0,
+		role TEXT NOT NULL DEFAULT '',
+		canonical_key TEXT NOT NULL DEFAULT '',
+		name_en TEXT NOT NULL DEFAULT '',
+		name_zh TEXT NOT NULL DEFAULT '',
+		source TEXT NOT NULL DEFAULT 'seed',
+		updated_at INTEGER NOT NULL DEFAULT 0
+	);
+
+	CREATE INDEX IF NOT EXISTS idx_network_aliases_mode ON network_aliases(match_mode, priority);
+
+	CREATE TABLE IF NOT EXISTS public_dns_ips (
+		ip TEXT PRIMARY KEY,
+		canonical_key TEXT NOT NULL,
+		name_en TEXT NOT NULL,
+		name_zh TEXT NOT NULL,
+		updated_at INTEGER NOT NULL DEFAULT 0
+	);
+
+	CREATE TABLE IF NOT EXISTS geo_names (
+		kind TEXT NOT NULL,
+		key TEXT NOT NULL,
+		name_en TEXT NOT NULL,
+		name_zh TEXT NOT NULL DEFAULT '',
+		PRIMARY KEY (kind, key)
+	);
+
+	CREATE TABLE IF NOT EXISTS sync_meta (
+		source TEXT PRIMARY KEY,
+		cursor TEXT NOT NULL DEFAULT '',
+		row_count INTEGER NOT NULL DEFAULT 0,
+		last_synced_at INTEGER NOT NULL DEFAULT 0
+	);
 	`
 
 	_, err := s.db.Exec(schema)
@@ -124,7 +179,11 @@ func (s *SQLiteDB) Close() error {
 func (s *SQLiteDB) Stats() (map[string]int64, error) {
 	stats := make(map[string]int64)
 
-	tables := []string{"cloud_ip_ranges", "hosting_providers", "hosting_keywords", "hosting_provider_exclusions", "access_asns"}
+	tables := []string{
+		"cloud_ip_ranges", "hosting_providers", "hosting_keywords",
+		"hosting_provider_exclusions", "asn_catalog", "network_aliases",
+		"public_dns_ips", "geo_names",
+	}
 	for _, table := range tables {
 		var count int64
 		err := s.db.QueryRow("SELECT COUNT(*) FROM " + table).Scan(&count)

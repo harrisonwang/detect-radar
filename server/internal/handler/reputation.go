@@ -16,9 +16,10 @@ func NewReputationHandler(s *service.ReputationService) *ReputationHandler {
 }
 
 func (h *ReputationHandler) GetCurrentReputation(c *fiber.Ctx) error {
-	ip := c.IP()
+	ip := util.CanonicalIP(c.IP())
 	result := h.service.Check(c.Context(), ip)
 	cp := *result
 	cp.Recommendation = service.ReputationRecommendation(&cp, util.ResolveLang(c))
+	setNoStoreHeaders(c)
 	return c.JSON(&cp)
 }

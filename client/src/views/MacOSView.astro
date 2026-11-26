@@ -114,6 +114,8 @@ const copiedFallback = m.macos.copiedFallback;
     alternateName: 'DetectRadarBar',
     operatingSystem: 'macOS 13.0 or later',
     applicationCategory: 'UtilitiesApplication',
+    softwareVersion: MACOS_VERSION,
+    inLanguage: 'zh-CN',
     ...(primaryDownload.isDirectFile
       ? { downloadUrl: primaryDownload.href }
       : { installUrl: primaryDownload.href }),

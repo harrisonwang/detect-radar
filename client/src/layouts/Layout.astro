@@ -13,6 +13,8 @@ interface SoftwareMeta {
 	alternateName?: string;
 	operatingSystem: string;
 	applicationCategory?: string;
+	softwareVersion?: string;
+	inLanguage?: string | string[];
 	installUrl?: string;
 	downloadUrl?: string;
 	screenshots?: string[];
@@ -93,9 +95,8 @@ const graphNodes: Record<string, unknown>[] = [
 		'@id': websiteId,
 		name: BRAND,
 		url: site.origin,
-		inLanguage: ['zh-CN', 'en'],
+		inLanguage: ['zh', 'en'],
 		publisher: { '@id': orgId },
-		...(pageType === 'home' ? { description } : {}),
 	},
 	{
 		'@type': 'WebPage',
@@ -129,7 +130,6 @@ if (pageType === 'home' || pageType === 'tool') {
 		isAccessibleForFree: true,
 		inLanguage: locale,
 		license: 'https://opensource.org/licenses/MIT',
-		codeRepository: 'https://github.com/harrisonwang/detect-radar',
 		screenshot: (ogImageURL ?? new URL(locale === 'en' ? '/og-default-en.png' : '/og-default.png', site)).href,
 		publisher: { '@id': orgId },
 		offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
@@ -145,11 +145,12 @@ if (pageType === 'software') {
 		'@id': appId,
 		name: software?.name ?? appName ?? (title ? `${BRAND} ${title}` : BRAND),
 		...(software?.alternateName ? { alternateName: software.alternateName } : {}),
+		...(software?.softwareVersion ? { softwareVersion: software.softwareVersion } : {}),
 		url: canonicalURL.href,
 		applicationCategory: software?.applicationCategory ?? 'UtilitiesApplication',
 		operatingSystem: software?.operatingSystem ?? 'macOS 13.0 or later',
 		isAccessibleForFree: true,
-		inLanguage: locale,
+		inLanguage: software?.inLanguage ?? locale,
 		license: 'https://opensource.org/licenses/MIT',
 		...(screenshots && screenshots.length > 0 ? { screenshot: screenshots } : {}),
 		...(software?.installUrl ? { installUrl: software.installUrl } : {}),
@@ -167,6 +168,7 @@ if (pageType === 'article') {
 		headline: title ?? fullTitle,
 		description,
 		inLanguage: locale,
+		...(ogImageURL ? { image: { '@type': 'ImageObject', url: ogImageURL.href } } : {}),
 		...(datePublished ? { datePublished } : {}),
 		dateModified,
 		author: { '@id': orgId },
@@ -217,6 +219,7 @@ const menuCloseLabel = m.nav.closeMenu;
 		<link rel="canonical" href={canonicalURL.href} />
 		{resolvedAlternates.map((a) => <link rel="alternate" hreflang={a.hreflang} href={new URL(a.href, site).href} />)}
 		<link rel="alternate" type="text/plain" href="/llms.txt" title="LLM & Agent Documentation" />
+		{locale === 'en' && <link rel="alternate" type="text/plain" href="/en/llms-full.txt" title="LLM & Agent Documentation (English)" />}
 
 		<meta property="og:type" content={pageType === 'article' ? 'article' : 'website'} />
 		<meta property="og:site_name" content="DetectRadar" />

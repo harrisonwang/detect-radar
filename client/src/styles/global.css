@@ -199,13 +199,10 @@ body {
     #030917;
 }
 .dfs-status {
-  position: absolute;
-  top: 0.65rem;
-  left: 1rem;
-  z-index: 2;
   display: inline-flex;
   align-items: center;
   gap: 0.42rem;
+  padding: 0.55rem 1rem 0;
   font-size: 0.75rem;
   color: var(--slate-400);
   pointer-events: none;
@@ -248,11 +245,21 @@ body {
   font-size: 0.75rem;
   color: var(--slate-200);
 }
+.dfs-inspector > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.dfs-inspector > button {
+  flex-shrink: 0;
+}
 
 @media (min-width: 40rem) {
   .dfs-status {
+    position: absolute;
     top: 0.75rem;
     left: 1.5rem;
+    z-index: 2;
+    padding: 0;
   }
   .dfs-inspector {
     margin-inline: 1.5rem;

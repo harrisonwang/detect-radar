@@ -18,7 +18,7 @@ func shortProviderAndDisplayFormatting() {
     #expect(IPMasker.shortProviderName(for: cf) == "Cloudflare")
     #expect(IPMasker.providerDetailLine(for: cf) == "Cloudflare")
 
-    let telecom = IPIntel(ip: "2001:db8:390::1", country: "CN", region: "上海市", city: "上海", isp: "China Telecom", usageType: "isp")
+    let telecom = IPIntel(ip: "2001:db8:390::1", country: "CN", region: "上海市", city: "上海", isp: "中国电信", usageType: "isp")
     #expect(IPMasker.shortProviderName(for: telecom) == "中国电信")
     #expect(IPMasker.countryBadgeLine(for: telecom) == "🇨🇳 中国大陆")
     #expect(IPMasker.providerDetailLine(for: telecom) == "中国电信 · 上海")
@@ -33,9 +33,9 @@ func shortProviderAndDisplayFormatting() {
 @Test
 func hkMoTwExcludedFromMainlandCNAndIPv6LeakRules() {
     let usHosting = IPIntel(ip: "203.0.113.42", country: "US", usageType: "hosting", isHosting: true)
-    let cnBroadbandV6 = IPIntel(ip: "2001:db8:390::1", country: "CN", region: "上海市", isp: "China Telecom", usageType: "isp", isHosting: false)
+    let cnBroadbandV6 = IPIntel(ip: "2001:db8:390::1", country: "CN", region: "上海市", isp: "中国电信", usageType: "isp", isHosting: false)
     let hkHostingV6 = IPIntel(ip: "2001:db8:852::1", country: "CN", countryName: "香港", region: "香港特别行政区", city: "香港", usageType: "hosting", isHosting: true)
-    let cnBroadbandV4 = IPIntel(ip: "192.0.2.10", country: "CN", region: "北京市", isp: "China Mobile", usageType: "isp", isHosting: false)
+    let cnBroadbandV4 = IPIntel(ip: "192.0.2.10", country: "CN", region: "北京市", isp: "中国移动", usageType: "isp", isHosting: false)
 
     #expect(IPMasker.isMainlandChina(cnBroadbandV4) == true)
     #expect(IPMasker.isMainlandChina(hkHostingV6) == false)
@@ -56,7 +56,7 @@ func hkMoTwExcludedFromMainlandCNAndIPv6LeakRules() {
 @Test
 func menuBarTitleOnlyWarnsOnIPv6Leak() {
     let usHosting = IPIntel(ip: "203.0.113.42", country: "US", usageType: "hosting", isHosting: true)
-    let cnV6 = IPIntel(ip: "2001:db8:390::1", country: "CN", region: "上海市", isp: "China Telecom", usageType: "isp")
+    let cnV6 = IPIntel(ip: "2001:db8:390::1", country: "CN", region: "上海市", isp: "中国电信", usageType: "isp")
 
     let cleanSnap = EgressSnapshot(
         timestamp: Date(),

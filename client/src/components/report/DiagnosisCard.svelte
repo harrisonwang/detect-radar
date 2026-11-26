@@ -80,16 +80,16 @@
                         const to = specialistToolFromHref(href);
                         if (to) trackEvent('tool-open', { from: 'home', to, source: 'finding' });
                       }}
-                      class="text-sm text-(--slate-200) leading-snug hover:text-(--radar-400) underline decoration-slate-600 underline-offset-4"
+                      class="text-sm text-(--slate-200) leading-snug hover:text-(--radar-400) underline decoration-slate-600 underline-offset-4 wrap-anywhere"
                     >
                       {f.title}<i class="fa-solid fa-arrow-right ml-1.5 text-[10px]" aria-hidden="true"></i>
                     </a>
                   {:else}
-                    <span class="text-sm text-(--slate-200) leading-snug">{f.title}</span>
+                    <span class="text-sm text-(--slate-200) leading-snug wrap-anywhere">{f.title}</span>
                   {/if}
-                  <span class="text-xs text-(--slate-400) block sm:truncate mt-0.5">{f.fact}</span>
+                  <span class="text-xs text-(--slate-400) block mt-0.5 leading-relaxed wrap-anywhere">{f.fact}</span>
                   {#if f.fix && f.severity !== 'info'}
-                    <span class="text-xs text-(--slate-500) block mt-0.5 leading-relaxed">{d.fixPrefix}{f.fix}</span>
+                    <span class="text-xs text-(--slate-500) block mt-0.5 leading-relaxed wrap-anywhere">{d.fixPrefix}{f.fix}</span>
                   {/if}
                 </div>
               </li>

@@ -7,7 +7,7 @@
   import WebRTCFlowStage from './report/WebRTCFlowStage.svelte';
   import {
     dnsExitType,
-    dnsProviderName,
+    dnsProvider,
     dnsRegion,
     exitTypeLabel,
   } from '../lib/dnsPresentation';
@@ -71,7 +71,7 @@
       const region = dnsRegion(info.country, locale);
       if (region && region !== m.common.unknownRegion) parts.push(region);
     }
-    const provider = dnsProviderName(info.network ?? '', locale);
+    const provider = dnsProvider(info.network ?? '');
     if (provider) parts.push(provider);
     if (info.asn) parts.push(info.asn);
     return parts.join(' · ');
@@ -105,7 +105,7 @@
       const navigation = performance.getEntriesByType('navigation')[0] as
         | PerformanceNavigationTiming
         | undefined;
-      if (!history.current || navigation?.type === 'navigate') await run('auto');
+      if (!history.current || navigation?.type === 'navigate' || (history.current.locale && history.current.locale !== locale)) await run('auto');
     }
     void restore();
   });
@@ -150,7 +150,7 @@
         verdictNote,
         exit: current.exit,
         exitNetworkName: current.exit?.ip
-          ? (dnsProviderName(current.exit.network, locale) || m.common.unknownNetwork)
+          ? (dnsProvider(current.exit.network) || m.common.unknownNetwork)
           : m.common.unavailable,
         exitRegion: current.exit?.ip ? dnsRegion(current.exit.country, locale) : '',
         exitTypeLabel: current.exit?.ip ? exitTypeLabel(dnsExitType(current.exit), locale) : '',
@@ -169,7 +169,7 @@
       trackEvent('share-save-image', { page: 'webrtc' });
       toast?.show(shareMsg);
     } catch (err) {
-      toast?.show(m.common.imageFailed((err as Error).message));
+      toast?.show(m.common.imageFailed((err as Error).message), 'error');
     } finally {
       capturing = false;
     }
@@ -186,7 +186,7 @@
         verdictNote,
         exit: current.exit,
         exitNetworkName: current.exit?.ip
-          ? (dnsProviderName(current.exit.network, locale) || m.common.unknownNetwork)
+          ? (dnsProvider(current.exit.network) || m.common.unknownNetwork)
           : m.common.unavailable,
         exitRegion: current.exit?.ip ? dnsRegion(current.exit.country, locale) : '',
         exitTypeLabel: current.exit?.ip ? exitTypeLabel(dnsExitType(current.exit), locale) : '',
@@ -215,7 +215,7 @@
     {#if exit?.ip}
       {@const networkType = exitTypeLabel(dnsExitType(exit), locale)}
       <div class="network-identity exit-identity">
-        <span class="network-name">{dnsProviderName(exit.network, locale) || m.common.unknownNetwork}</span>
+        <span class="network-name">{dnsProvider(exit.network) || m.common.unknownNetwork}</span>
         <span class="region">{dnsRegion(exit.country, locale)}</span>
       </div>
       <div class="mt-0.5 mb-1.5">
@@ -590,7 +590,7 @@
         <ul class="rule-note">
           <li>{m.webrtc.page.rules[0]}</li>
           <li>
-            {m.webrtc.page.rules[1]}<strong>{statusMap.leaked.title}</strong>{locale === 'en' ? ' — see ' : '，完整口径见 '}<a href={localePath('/about/#webrtc', locale)} class="text-(--radar-400) underline underline-offset-4">{m.common.fullCriteriaLink}</a>
+            {m.webrtc.page.rules[1]}<strong>{statusMap.leaked.title}</strong>{locale === 'en' ? ' — see the ' : '，完整口径见 '}<a href={localePath('/about/#webrtc', locale)} class="text-(--radar-400) underline underline-offset-4">{m.common.fullCriteriaLink}</a>
           </li>
           <li>
             {m.webrtc.page.rules[2]}<a

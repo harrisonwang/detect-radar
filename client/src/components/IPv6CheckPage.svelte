@@ -5,7 +5,7 @@
   import ExitIPAddress from './report/ExitIPAddress.svelte';
   import ReportToast from './report/ReportToast.svelte';
   import IPv6FlowStage from './report/IPv6FlowStage.svelte';
-  import { dnsExitType, dnsProviderName, exitTypeLabel } from '../lib/dnsPresentation';
+  import { dnsExitType, dnsProvider, exitTypeLabel } from '../lib/dnsPresentation';
   import {
     compareIPv6,
     getIPv6Status,
@@ -62,7 +62,7 @@
       const navigation = performance.getEntriesByType('navigation')[0] as
         | PerformanceNavigationTiming
         | undefined;
-      if (!history.current || navigation?.type === 'navigate') await run('auto');
+      if (!history.current || navigation?.type === 'navigate' || (history.current.locale && history.current.locale !== locale)) await run('auto');
     }
     void restore();
   });
@@ -104,13 +104,13 @@
         verdictNote,
         v4: current.v4,
         v4NetworkName: current.v4?.ip
-          ? (dnsProviderName(current.v4.network, locale) || m.common.unknownNetwork)
+          ? (dnsProvider(current.v4.network) || m.common.unknownNetwork)
           : m.ipv6.page.unreachableShort,
         v4Region: current.v4?.ip ? stackRegionLabel(current.v4, locale) : '',
         v4TypeLabel: current.v4?.ip ? exitTypeLabel(dnsExitType(current.v4), locale) : '',
         v6: current.v6,
         v6NetworkName: current.v6?.ip
-          ? (dnsProviderName(current.v6.network, locale) || m.common.unknownNetwork)
+          ? (dnsProvider(current.v6.network) || m.common.unknownNetwork)
           : m.ipv6.page.unreachableShort,
         v6Region: current.v6?.ip ? stackRegionLabel(current.v6, locale) : '',
         v6TypeLabel: current.v6?.ip ? exitTypeLabel(dnsExitType(current.v6), locale) : '',
@@ -120,7 +120,7 @@
       trackEvent('share-save-image', { page: 'ipv6' });
       toast?.show(shareMsg);
     } catch (err) {
-      toast?.show(m.common.imageFailed((err as Error).message));
+      toast?.show(m.common.imageFailed((err as Error).message), 'error');
     } finally {
       capturing = false;
     }
@@ -137,13 +137,13 @@
         verdictNote,
         v4: current.v4,
         v4NetworkName: current.v4?.ip
-          ? (dnsProviderName(current.v4.network, locale) || m.common.unknownNetwork)
+          ? (dnsProvider(current.v4.network) || m.common.unknownNetwork)
           : m.ipv6.page.unreachableShort,
         v4Region: current.v4?.ip ? stackRegionLabel(current.v4, locale) : '',
         v4TypeLabel: current.v4?.ip ? exitTypeLabel(dnsExitType(current.v4), locale) : '',
         v6: current.v6,
         v6NetworkName: current.v6?.ip
-          ? (dnsProviderName(current.v6.network, locale) || m.common.unknownNetwork)
+          ? (dnsProvider(current.v6.network) || m.common.unknownNetwork)
           : m.ipv6.page.unreachableShort,
         v6Region: current.v6?.ip ? stackRegionLabel(current.v6, locale) : '',
         v6TypeLabel: current.v6?.ip ? exitTypeLabel(dnsExitType(current.v6), locale) : '',
@@ -172,7 +172,7 @@
     {#if exit?.ip}
       {@const networkType = exitTypeLabel(dnsExitType(exit), locale)}
       <div class="network-identity exit-identity">
-        <span class="network-name" class:leak-text={isLeak}>{dnsProviderName(exit.network, locale) || m.common.unknownNetwork}</span>
+        <span class="network-name" class:leak-text={isLeak}>{dnsProvider(exit.network) || m.common.unknownNetwork}</span>
         <span class="region">{stackRegionLabel(exit, locale)}</span>
       </div>
       <div class="mt-0.5 mb-1.5">
@@ -204,7 +204,7 @@
     {:else if errKind === 'limited'}
       <p class="readout-placeholder">{m.ipv6.page.errLimited}</p>
     {:else if family === 'v6'}
-      <p class="readout-placeholder">{m.ipv6.page.v6Unreachable}</p>
+      <p class="readout-placeholder">{current?.v4?.ip ? m.ipv6.page.v6Unreachable : m.ipv6.page.unreachableShort}</p>
     {:else}
       <p class="readout-placeholder">{m.ipv6.page.v4Unreachable}</p>
     {/if}
@@ -380,7 +380,7 @@
           <li>{m.ipv6.page.rules[0]}</li>
           <li>{m.ipv6.page.rules[1]}<strong>{statusMap.leaked.title}</strong></li>
           <li>
-            {m.ipv6.page.rules[2]}<strong>{statusMap.clear.title}</strong>{locale === 'en' ? ' — see ' : '，完整口径见 '}<a href={localePath('/about/#ipv6', locale)} class="text-(--radar-400) underline underline-offset-4">{m.common.fullCriteriaLink}</a>
+            {m.ipv6.page.rules[2]}<strong>{statusMap.clear.title}</strong>{locale === 'en' ? ' — see the ' : '，完整口径见 '}<a href={localePath('/about/#ipv6', locale)} class="text-(--radar-400) underline underline-offset-4">{m.common.fullCriteriaLink}</a>
           </li>
         </ul>
       </aside>

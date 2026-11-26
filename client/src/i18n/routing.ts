@@ -21,7 +21,10 @@ export function localePath(path: string, locale: Locale): string {
   const rawBase = splitIdx === -1 ? path : path.slice(0, splitIdx);
   const suffix = splitIdx === -1 ? '' : path.slice(splitIdx);
 
-  const base = stripLocalePrefix(rawBase);
+  let base = stripLocalePrefix(rawBase);
+  if (base !== '/' && !base.endsWith('/') && !/\.[a-z0-9]+$/i.test(base)) {
+    base = `${base}/`;
+  }
   if (locale === 'en') {
     return base === '/' ? `/en/${suffix}` : `/en${base}${suffix}`;
   }
@@ -37,9 +40,9 @@ export function getAlternates(canonicalPath: string): AlternateLink[] {
   const zhHref = localePath(base, 'zh-CN');
   const enHref = localePath(base, 'en');
   return [
-    { hreflang: 'zh-CN', href: zhHref },
+    { hreflang: 'zh', href: zhHref },
     { hreflang: 'en', href: enHref },
-    { hreflang: 'x-default', href: zhHref },
+    { hreflang: 'x-default', href: enHref },
   ];
 }
 

@@ -1,7 +1,7 @@
 import { getMessages, joinList, type Locale } from '../i18n';
 import { ApiError, assessDNSObservation, getBrowserExit } from './api';
 import { sampleDNSRound } from './collectors/leaks/dns';
-import { DNS_POLICY_VERSION, browserExit, dnsExitType, dnsProvider, dnsProviderName, dnsRegion } from './dnsPresentation';
+import { DNS_POLICY_VERSION, browserExit, dnsExitType, dnsProvider, dnsRegion } from './dnsPresentation';
 import type { DNSExit, DNSResolver, DNSVerdict } from './types';
 
 const DNS_ROUNDS = 3;
@@ -19,6 +19,7 @@ export interface DNSProgress {
 
 export interface DNSCheck {
   time: number;
+  locale?: Locale;
   exit: DNSExit | null;
   resolvers: DNSResolver[];
   observedRounds: number;
@@ -34,21 +35,25 @@ export class DNSCheckError extends Error {
   }
 }
 
-export async function withDNSAssessment(check: DNSCheck): Promise<DNSCheck> {
-  if (check.verdict?.policy_version === DNS_POLICY_VERSION) return check;
+export async function withDNSAssessment(check: DNSCheck, locale?: Locale): Promise<DNSCheck> {
+  const needsLocale = Boolean(locale && check.locale !== locale);
+  if (check.verdict?.policy_version === DNS_POLICY_VERSION && !needsLocale) return check;
   try {
     const result = await assessDNSObservation({
       exit: check.exit, resolvers: check.resolvers,
       observed_rounds: check.observedRounds, total_rounds: check.totalRounds,
-    });
-    if (result.verdict.policy_version === DNS_POLICY_VERSION) return { ...check, ...result };
+    }, locale);
+    if (result.verdict.policy_version === DNS_POLICY_VERSION) {
+      return { ...check, ...result, ...(locale ? { locale } : {}) };
+    }
   } catch {  }
-  return { ...check, verdict: { state: 'unknown', reason: 'assessment-unavailable' } };
+  return { ...check, verdict: check.verdict ?? { state: 'unknown', reason: 'assessment-unavailable' } };
 }
 
 export async function measureDNS(
   onExit: (exit: DNSExit) => void,
   onProgress?: (progress: DNSProgress) => void,
+  locale?: Locale,
 ): Promise<DNSCheck> {
   let exit: DNSExit | null = null;
   const resolvers = new Map<string, DNSResolver>();
@@ -70,7 +75,7 @@ export async function measureDNS(
 
   emit();
 
-  const exitRequest = getBrowserExit().then((info) => {
+  const exitRequest = getBrowserExit(locale).then((info) => {
     exit = browserExit(info);
     onExit(exit);
     emit();
@@ -80,7 +85,7 @@ export async function measureDNS(
     if (index) await new Promise<void>((resolve) => setTimeout(resolve, index * 1000));
     startedRounds++;
     emit();
-    const batch = await sampleDNSRound();
+    const batch = await sampleDNSRound(locale);
     const seen = new Set<string>();
     for (const { ip, country, isp, asn, network_type } of batch) {
       if (!ip || seen.has(ip)) continue;
@@ -117,7 +122,7 @@ export async function measureDNS(
 
   return withDNSAssessment({
     time: Date.now(), exit, resolvers: [...resolvers.values()], observedRounds, totalRounds: DNS_ROUNDS,
-  });
+  }, locale);
 }
 
 function suspectIPs(check: DNSCheck): Set<string> {
@@ -140,14 +145,13 @@ interface DNSNetwork {
   samples: DNSResolver[];
 }
 
-export function dnsNetworks(check: DNSCheck, locale: Locale = 'zh-CN'): Map<string, DNSNetwork> {
+export function dnsNetworks(check: DNSCheck): Map<string, DNSNetwork> {
   const groups = new Map<string, DNSNetwork>();
   const suspects = suspectIPs(check);
   for (const resolver of sortedResolvers(check)) {
-    const canonicalName = dnsProviderName(resolver.isp, 'en');
-    const name = dnsProviderName(resolver.isp, locale);
+    const name = dnsProvider(resolver.isp);
     const { country, network_type: type } = resolver;
-    const providerKey = canonicalName ? `provider:${canonicalName.toLowerCase()}` : resolver.asn || resolver.ip;
+    const providerKey = name ? `provider:${name.toLowerCase()}` : resolver.asn || resolver.ip;
     const key = `${providerKey}|${country}`;
     const existing = groups.get(key);
     if (existing) {
@@ -195,7 +199,7 @@ interface DNSChange {
 
 function exitLabel(exit: DNSExit, locale: Locale) {
   const region = dnsRegion(exit.country, locale);
-  const provider = dnsProviderName(exit.network, locale) || exit.asn;
+  const provider = dnsProvider(exit.network) || exit.asn;
   if (!provider) return region;
   return provider.startsWith(region) ? provider : `${region} · ${provider}`;
 }
@@ -209,7 +213,7 @@ export function compareDNS(
 ) {
   const c = getMessages(locale).dns.compare;
   const cur = tense === 'current';
-  const before = dnsNetworks(previous, locale);
+  const before = dnsNetworks(previous);
   const beforeProviders = new Set([...before.values()].map((network) => network.providerKey));
   const afterProviders = new Set([...after.values()].map((network) => network.providerKey));
   const removed = [...before].filter(([key]) => !after.has(key)).map(([, n]) => n);
@@ -247,6 +251,11 @@ export function compareDNS(
   const oldExit = previous.exit;
   const newExit = current.exit;
   let exitChange = '';
+  const sameExitIdentity =
+    Boolean(oldExit?.ip && newExit?.ip && oldExit.ip === newExit.ip) &&
+    (oldExit?.country ?? '') === (newExit?.country ?? '') &&
+    (oldExit?.asn ?? '') === (newExit?.asn ?? '') &&
+    dnsExitType(oldExit!) === dnsExitType(newExit!);
   if (!oldExit?.ip || !newExit?.ip) {
     exitChange = !oldExit?.ip && !newExit?.ip
       ? c.bothMissing
@@ -255,7 +264,7 @@ export function compareDNS(
         : cur
           ? c.curMissingCurrent
           : c.curMissingPrevious;
-  } else if (exitLabel(oldExit, locale) !== exitLabel(newExit, locale)) {
+  } else if (!sameExitIdentity && exitLabel(oldExit, locale) !== exitLabel(newExit, locale)) {
     exitChange = `${exitLabel(oldExit, locale)} → ${exitLabel(newExit, locale)}`;
   } else if (oldExit.ip !== newExit.ip) {
     exitChange = c.exitIPChanged;

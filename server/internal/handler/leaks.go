@@ -22,11 +22,31 @@ func NewDNSHandler(s *service.DNSService) *DNSHandler {
 
 func (h *DNSHandler) Assess(c *fiber.Ctx) error {
 	var input dnsassessment.Input
-	if err := c.BodyParser(&input); err != nil || !input.Valid() {
+	if err := c.BodyParser(&input); err != nil {
 		return util.InvalidParameter(c, util.Localized(c, "DNS 检测样本无效", "Invalid DNS observation payload"))
 	}
-	c.Set("Cache-Control", "no-store")
-	return c.JSON(dnsassessment.Evaluate(input))
+	if input.TotalRounds == 0 && len(input.Resolvers) > 0 {
+		input.TotalRounds = 1
+		if input.ObservedRounds == 0 {
+			input.ObservedRounds = 1
+		}
+	}
+	if !input.Valid() {
+		return util.InvalidParameter(c, util.Localized(c, "DNS 检测样本无效", "Invalid DNS observation payload"))
+	}
+	setNoStoreHeaders(c)
+	var cat dnsassessment.Catalog
+	if h.service != nil {
+		if nc := h.service.Catalog(); nc != nil {
+			cat = nc
+		}
+	}
+	if cat == nil {
+		if nc := service.DefaultCatalog(); nc != nil {
+			cat = nc
+		}
+	}
+	return c.JSON(dnsassessment.EvaluateWithCatalog(input, cat, util.ResolveLang(c)))
 }
 
 func (h *DNSHandler) CreateLeakTest(c *fiber.Ctx) error {
@@ -60,7 +80,8 @@ func (h *DNSHandler) GetLeakResult(c *fiber.Ctx) error {
 	if err != nil {
 		return storageUnavailable(c, err)
 	}
-	return c.JSON(result)
+	setNoStoreHeaders(c)
+	return c.JSON(h.service.ProjectLeakResult(result, util.ResolveLang(c)))
 }
 
 const maxWebRTCAssessInputIPs = 16
@@ -79,9 +100,7 @@ func (h *WebRTCHandler) Assess(c *fiber.Ctx) error {
 		return util.InvalidParameter(c, util.Localized(c, "WebRTC 检测样本无效", "Invalid WebRTC observation payload"))
 	}
 	clientIP := util.CanonicalIP(c.IP())
-	result := service.AssessWebRTC(c.Context(), h.ipIntel, clientIP, nil, req.PublicIPs)
-	c.Set("Cache-Control", "no-store, no-cache, must-revalidate")
-	c.Set("Pragma", "no-cache")
-	c.Set("Expires", "0")
+	result := service.AssessWebRTCWithLang(c.Context(), h.ipIntel, clientIP, nil, req.PublicIPs, util.ResolveLang(c))
+	setNoStoreHeaders(c)
 	return c.JSON(result)
 }

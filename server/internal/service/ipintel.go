@@ -394,12 +394,26 @@ func applyHostingResult(intel *model.IPIntel, result *HostingResult) bool {
 	intel.RDNS = result.RDNS
 	intel.NeedsDeepScan = result.NeedsDeepScan
 
+	if strings.EqualFold(strings.TrimSpace(intel.ASN), "AS0") {
+		intel.ASN = ""
+	}
+
 	if result.ASNStale {
-		if result.ASNStr != "" {
+		if result.ASNStr != "" && result.ASNStr != "AS0" {
 			intel.ASN = result.ASNStr
 			intel.Org = result.Org
 		}
 		intel.NeedsDeepScan = true
+	} else {
+		if intel.ASN == "" && result.ASNStr != "" && result.ASNStr != "AS0" {
+			intel.ASN = result.ASNStr
+		}
+		if cleanNetworkLabel(intel.Org) == "" && result.Org != "" {
+			intel.Org = result.Org
+		}
+		if result.Method == "cloud_ip_range" && cleanNetworkLabel(intel.ISP) == "" && result.Org != "" {
+			intel.ISP = result.Org
+		}
 	}
 
 	if result.IsHosting {
@@ -417,48 +431,56 @@ func applyHostingResult(intel *model.IPIntel, result *HostingResult) bool {
 	return result.ASNStale
 }
 
+func detectGreaterChinaGeo(cn *adapter.CNGeoResult) (code, zhCountry, enCountry, tz string) {
+	joined := strings.ToLower(cn.Province + " " + cn.City)
+	switch {
+	case strings.Contains(joined, "香港") || strings.Contains(joined, "hong kong"):
+		return "HK", "中国香港", "Hong Kong", "Asia/Hong_Kong"
+	case strings.Contains(joined, "澳门") || strings.Contains(joined, "澳門") || strings.Contains(joined, "macau") || strings.Contains(joined, "macao"):
+		return "MO", "中国澳门", "Macao", "Asia/Macau"
+	case strings.Contains(joined, "台湾") || strings.Contains(joined, "臺灣") || strings.Contains(joined, "taiwan"):
+		return "TW", "中国台湾", "Taiwan", "Asia/Taipei"
+	default:
+		return "CN", "中国", "China", "Asia/Shanghai"
+	}
+}
+
 func applyCNGeo(intel *model.IPIntel, cn *adapter.CNGeoResult) {
-	intel.Country = "CN"
-	zhGeo := &model.LocalizedGeo{CountryName: "中国"}
-	if intel.GeoZH != nil {
-		*zhGeo = *intel.GeoZH
-		if zhGeo.CountryName == "" {
-			zhGeo.CountryName = "中国"
-		}
+	prevEN := intel.GeoEN
+	code, zhCountry, enCountry, defaultTZ := detectGreaterChinaGeo(cn)
+	intel.Country = code
+	intel.CountryName = zhCountry
+	intel.Region = cn.Province
+	intel.City = cn.City
+
+	zhGeo := &model.LocalizedGeo{
+		CountryName: zhCountry,
+		Region:      cn.Province,
+		City:        cn.City,
 	}
-	enGeo := &model.LocalizedGeo{CountryName: "China"}
-	if intel.GeoEN != nil {
-		*enGeo = *intel.GeoEN
-		if enGeo.CountryName == "" {
-			enGeo.CountryName = "China"
-		}
+	enGeo := &model.LocalizedGeo{
+		CountryName: enCountry,
 	}
-	intel.CountryName = "中国"
 	if cn.Province != "" {
-		intel.Region = cn.Province
-		zhGeo.Region = cn.Province
-		if enProv := translateCNProvinceEN(cn.Province); enProv != "" {
-			enGeo.Region = enProv
-		}
+		enGeo.Region = translateCNProvinceEN(cn.Province)
 	}
 	if cn.City != "" {
-		intel.City = cn.City
-		zhGeo.City = cn.City
-		if enCity := translateCNCityEN(cn.City); enCity != "" {
-			enGeo.City = enCity
-		}
+		enGeo.City = translateCNCityEN(cn.City)
 	}
 	if cn.ISP != "" {
 		intel.ISP = cn.ISP
 		zhGeo.ISP = cn.ISP
-		if enISP := translateCNISPEN(cn.ISP); enISP != "" {
-			enGeo.ISP = enISP
-		}
+		enGeo.ISP = translateCNISPEN(cn.ISP)
+	} else if prevEN != nil && !containsCJK(prevEN.ISP) {
+		enGeo.ISP = prevEN.ISP
+	}
+	if intel.GeoZH != nil && zhGeo.ISP == "" {
+		zhGeo.ISP = intel.GeoZH.ISP
 	}
 	intel.GeoZH = zhGeo
 	intel.GeoEN = enGeo
 	if intel.Timezone == "" {
-		intel.Timezone = "Asia/Shanghai"
+		intel.Timezone = defaultTZ
 	}
 	intel.Postal = ""
 	intel.Latitude = 0
@@ -533,22 +555,37 @@ func (s *IPIntelService) merge(local, remote *model.IPIntel) *model.IPIntel {
 		remote.GeoEN = enGeo
 	}
 	if sameCountry && local.GeoZH != nil {
-		g := *local.GeoZH
+		g := model.LocalizedGeo{
+			CountryName: local.GeoZH.CountryName,
+			ISP:         local.GeoZH.ISP,
+		}
+		if remote.Region == "" || (local.GeoEN != nil && strings.EqualFold(strings.TrimSpace(remote.Region), strings.TrimSpace(local.GeoEN.Region))) {
+			g.Region = local.GeoZH.Region
+		} else {
+			g.Region = remote.Region
+		}
+		if remote.City == "" || (local.GeoEN != nil && strings.EqualFold(strings.TrimSpace(remote.City), strings.TrimSpace(local.GeoEN.City))) {
+			g.City = local.GeoZH.City
+		} else {
+			g.City = remote.City
+		}
 		remote.GeoZH = &g
 	}
 
-	if remote.City == "" && local.City != "" {
-		remote.City = local.City
-	}
-	if remote.Region == "" && local.Region != "" {
-		remote.Region = local.Region
-	}
-	if remote.Timezone == "" && local.Timezone != "" {
-		remote.Timezone = local.Timezone
-	}
-	if remote.Latitude == 0 && local.Latitude != 0 {
-		remote.Latitude = local.Latitude
-		remote.Longitude = local.Longitude
+	if sameCountry {
+		if remote.City == "" && local.City != "" {
+			remote.City = local.City
+		}
+		if remote.Region == "" && local.Region != "" {
+			remote.Region = local.Region
+		}
+		if remote.Timezone == "" && local.Timezone != "" {
+			remote.Timezone = local.Timezone
+		}
+		if remote.Latitude == 0 && local.Latitude != 0 {
+			remote.Latitude = local.Latitude
+			remote.Longitude = local.Longitude
+		}
 	}
 	if remote.ASN == "" && local.ASN != "" {
 		remote.ASN = local.ASN

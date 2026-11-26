@@ -29,7 +29,7 @@ export const ABOUT_FAQS_ZH: FAQItem[] = [
 	{
 		question: '什么是浏览器指纹检测？在线检测会泄露或保存我的个人隐私吗？',
 		answer:
-			'浏览器指纹是指网页通过读取绘图（Canvas）、音频（Audio）、显卡渲染（WebGL）以及语言、时区等细节拼出的环境特征；DetectRadar 用这些特征来检查浏览器有没有被插件改写、有没有带自动化脚本标记。检测时，绘图、音频、渲染结果和扩展列表都在浏览器本地算成无法还原原样的匿名哈希后再提交（不上传原始画面和插件明细，仅显卡型号原文核对系统），不会用来追踪个人身份；分享截图也在本地生成并自动隐藏完整 IP。',
+			'浏览器指纹是指网页通过读取绘图（Canvas）、音频接口（Audio）、显卡型号（WebGL）以及语言、时区等细节拼出的环境特征；DetectRadar 用这些特征来检查浏览器接口有没有被改写、显卡与系统是否相符、有没有带自动化脚本标记。检测时，Canvas 绘图结果在浏览器本地算成不可逆哈希后再提交（不上传原始画面），Audio 仅核对原生接口是否被改写，WebGL 仅提交显卡渲染器型号用于核对操作系统，不会用来追踪个人身份；分享截图也在本地生成并自动隐藏完整 IP。',
 	},
 ];
 
@@ -42,12 +42,12 @@ export const ABOUT_FAQS_EN: FAQItem[] = [
 	{
 		question: 'What is the difference between a datacenter IP and a residential IP?',
 		answer:
-			'Residential IPs belong to consumer broadband or mobile ISPs, while datacenter IPs belong to cloud or hosting providers. Because datacenter ranges are often shared or automated, strict sites may trigger extra challenges. On the DetectRadar home page, the Network Identity card displays ISP vs. datacenter classification, ASN, operator, Cloudflare Radar 30-day ASN human traffic ratio, public blocklists, and open proxy ports.',
+			'Residential IPs belong to consumer broadband or mobile ISPs, while datacenter IPs belong to cloud or hosting providers. Because datacenter ranges are often shared or automated, strict sites may trigger extra challenges. On the DetectRadar home page, the Network Identity card displays ISP vs. datacenter classification, ASN, ISP/organization, Cloudflare Radar 30-day ASN human traffic ratio, public blocklists, and open proxy ports.',
 	},
 	{
 		question: 'What are WebRTC leaks and IPv6 leaks?',
 		answer:
-			'WebRTC can establish direct peer-to-peer checks that reveal local or real public IP addresses outside a browser proxy. An IPv6 leak occurs on dual-stack networks when a proxy only tunnels IPv4, allowing IPv6 traffic to exit directly through your local ISP. Use the dedicated WebRTC Leak Test and IPv6 Leak Test pages to inspect each stack independently.',
+			'WebRTC can establish direct peer-to-peer connections (via STUN/ICE) that reveal local or real public IP addresses outside a browser proxy. An IPv6 leak occurs on dual-stack networks when a proxy only tunnels IPv4, allowing IPv6 traffic to exit directly through your local ISP. Use the dedicated WebRTC Leak Test and IPv6 Leak Test pages to inspect each stack independently.',
 	},
 	{
 		question: 'Why do sites flag an environment even when the exit IP looks clean?',
@@ -57,7 +57,7 @@ export const ABOUT_FAQS_EN: FAQItem[] = [
 	{
 		question: 'Does the browser fingerprint check expose or store personal data?',
 		answer:
-			'Canvas, Audio, WebGL rendering output, and extension checks are hashed locally in your browser into irreversible hashes before submission (only the WebGL renderer string is checked against your declared OS). Shareable summary text and PNG cards are also rendered locally with full IP addresses masked automatically.',
+			'Canvas rendering output is hashed locally in your browser into an irreversible hash before submission (raw pixels are never uploaded). Audio checks inspect only whether native AudioContext methods are overridden, and WebGL submits only the GPU renderer string to verify consistency with your declared OS. Shareable text summaries and PNG cards are rendered locally with full IP addresses masked automatically.',
 	},
 ];
 

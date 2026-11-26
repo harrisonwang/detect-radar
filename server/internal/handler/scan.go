@@ -20,12 +20,7 @@ func NewScanHandler(s *service.ScanService, journal *service.Journal) *ScanHandl
 }
 
 func projectScanResponse(resp *model.ScanResponse, lang string) *model.ScanResponse {
-	if resp == nil {
-		return nil
-	}
-	cp := *resp
-	cp.ServerData.IPIntel = service.ProjectIPIntel(resp.ServerData.IPIntel, lang)
-	return &cp
+	return service.ProjectScanResponse(resp, lang)
 }
 
 func (h *ScanHandler) CreateScan(c *fiber.Ctx) error {
@@ -48,6 +43,7 @@ func (h *ScanHandler) CreateScan(c *fiber.Ctx) error {
 	if err != nil {
 		return storageUnavailable(c, err)
 	}
+	setNoStoreHeaders(c)
 	return c.Status(fiber.StatusCreated).JSON(projectScanResponse(result, util.ResolveLang(c)))
 }
 
@@ -60,6 +56,7 @@ func (h *ScanHandler) GetScan(c *fiber.Ctx) error {
 	if !ok {
 		return util.ResourceNotFound(c, util.Localized(c, "扫描 '"+id+"' 不存在或已过期", "Scan '"+id+"' not found or expired"))
 	}
+	setNoStoreHeaders(c)
 	return c.JSON(projectScanResponse(result, util.ResolveLang(c)))
 }
 
@@ -114,6 +111,6 @@ func storageUnavailable(c *fiber.Ctx, err error) error {
 		util.ProblemTypeServiceUnavailable,
 		util.Localized(c, "服务暂不可用", "Service Unavailable"),
 		fiber.StatusServiceUnavailable,
-		util.Localized(c, "暂时无法保存结果，请稍后重试", "Temporarily unable to save results, please try again later"),
+		util.Localized(c, "暂时无法保存结果，请稍后重试", "Temporarily unable to save results. Please try again later."),
 	)
 }

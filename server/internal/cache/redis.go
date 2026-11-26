@@ -42,7 +42,7 @@ func NewRedisCache(cfg RedisConfig, ttl time.Duration) (*RedisCache, error) {
 	}, nil
 }
 
-const keyPrefix = "ipintel:"
+const keyPrefix = "ipintel:v2:"
 
 func (c *RedisCache) basicKey(ip string) string {
 	return keyPrefix + "basic:" + ip

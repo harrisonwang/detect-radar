@@ -98,8 +98,19 @@ func deriveRTTWithServerMin(client *model.RTTData, tcpRTT, tcpRTTVar string, ser
 			slackKM = 0
 			geoSource = "intel"
 			haveGeo = true
-		case intel.Country == "CN":
-			if plat, plon, ok := lookupCNProvinceCoords(intel.Region); ok {
+		case intel.Country == "CN" || intel.Country == "HK" || intel.Country == "MO" || intel.Country == "TW":
+			plat, plon, ok := lookupCNProvinceCoords(intel.Region)
+			if !ok {
+				switch intel.Country {
+				case "HK":
+					plat, plon, ok = lookupCNProvinceCoords("香港")
+				case "MO":
+					plat, plon, ok = lookupCNProvinceCoords("澳门")
+				case "TW":
+					plat, plon, ok = lookupCNProvinceCoords("台湾")
+				}
+			}
+			if ok {
 				lat, lon = plat, plon
 				slackKM = cnCentroidSlackKM
 				geoSource = "cn_province_centroid"

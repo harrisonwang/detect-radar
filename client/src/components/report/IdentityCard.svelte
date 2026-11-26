@@ -128,7 +128,7 @@
             <div class="text-xs text-(--slate-500) mb-1 flex items-center gap-1.5">
               <i class="fa-solid fa-location-dot text-[10px]"></i> {idCopy.location}
             </div>
-            <div class="text-sm text-(--slate-200) truncate">
+            <div class="text-sm text-(--slate-200) truncate" title={identity.geo}>
               {#if flag(identity.countryCode)}<span class="mr-1 emoji">{flag(identity.countryCode)}</span>{/if}{identity.geo}
             </div>
           </div>
@@ -151,10 +151,10 @@
             <div class="text-xs text-(--slate-500) mb-1 flex items-center gap-1.5">
               <i class="fa-solid fa-shield-halved text-[10px]"></i> {idCopy.fraudScore}
             </div>
-            <div class="text-sm whitespace-nowrap">
+            <div class="text-sm flex flex-wrap items-baseline gap-x-1 sm:whitespace-nowrap">
               <span class="tnum text-(--slate-200)">{identity.fraudScore}</span>
-              <span class="text-(--slate-600)"> / 100</span>
-              <span class="ml-1" style="color:{fraudColor}">({fraudWord})</span>
+              <span class="text-(--slate-600)">/ 100</span>
+              <span style="color:{fraudColor}">({fraudWord})</span>
             </div>
           </div>
 
@@ -162,7 +162,7 @@
             <div class="text-xs text-(--slate-500) mb-1 flex items-center gap-1.5">
               <i class="fa-solid fa-list-check text-[10px]"></i> {idCopy.blacklist}
             </div>
-            <div class="text-sm flex items-center gap-1.5 whitespace-nowrap">
+            <div class="text-sm flex flex-wrap items-center gap-1.5 sm:whitespace-nowrap">
               <span class="dot" style="background:{identity.blacklist.length ? 'var(--leak)' : 'var(--sig)'}; --_soft:transparent"></span>
               <span style="color:{identity.blacklist.length ? 'var(--leak)' : 'var(--sig)'}">{identity.blacklist.length ? idCopy.blacklistHit(identity.blacklist.length) : idCopy.blacklistClean}</span>
             </div>
@@ -179,7 +179,7 @@
               <span class="text-[10px] text-(--slate-600)">{idCopy.humanTrafficPeriod}</span>
             </div>
             {#if humanPct != null}
-              <div class="text-sm flex items-center gap-1.5 whitespace-nowrap">
+              <div class="text-sm flex flex-wrap items-center gap-x-1.5 sm:whitespace-nowrap">
                 <span class="dot" style="background:{humanColor}; --_soft:transparent"></span>
                 <span class="tnum text-(--slate-200)">{pct(humanPct)}%</span>
                 <span style="color:{humanColor}">({humanWord})</span>

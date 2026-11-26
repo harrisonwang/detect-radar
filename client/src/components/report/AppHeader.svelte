@@ -212,7 +212,7 @@
             class="hbtn lang-btn"
             title={m.nav.switchTitle}
             aria-label={m.nav.switchTitle}
-          >{m.nav.switchLabel}</a>
+          ><span lang={otherLocale}>{m.nav.switchLabel}</span></a>
 
           <button
             type="button"

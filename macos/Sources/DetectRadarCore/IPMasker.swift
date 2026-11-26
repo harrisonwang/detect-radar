@@ -6,28 +6,6 @@ public enum IPMasker {
         "hong kong", "macau", "macao", "taiwan",
     ]
 
-    private static let carrierAliases: [String: String] = [
-        "chinanet": "中国电信",
-        "chinanet backbone": "中国电信",
-        "chinanet-backbone": "中国电信",
-        "china telecom": "中国电信",
-        "电信": "中国电信",
-        "中国电信": "中国电信",
-        "cmnet": "中国移动",
-        "china mobile": "中国移动",
-        "china mobile communications": "中国移动",
-        "china mobile communications group co ltd": "中国移动",
-        "中国移动通信": "中国移动",
-        "移动": "中国移动",
-        "中国移动": "中国移动",
-        "china unicom": "中国联通",
-        "china unicom backbone": "中国联通",
-        "china unicom china169 backbone": "中国联通",
-        "china169-backbone": "中国联通",
-        "联通": "中国联通",
-        "中国联通": "中国联通",
-    ]
-
     private static let verboseSuffixes = [
         "Communications Group Co., Ltd.",
         "Communications Co., Ltd.",
@@ -147,26 +125,6 @@ public enum IPMasker {
         }
         if raw.isEmpty {
             return formatASN(intel.asn) ?? "未知网络"
-        }
-
-        let normalizedKey = raw
-            .lowercased()
-            .replacingOccurrences(of: ".", with: "")
-            .replacingOccurrences(of: ",", with: "")
-            .split(whereSeparator: { $0.isWhitespace })
-            .joined(separator: " ")
-
-        if let alias = carrierAliases[normalizedKey] {
-            return alias
-        }
-        if normalizedKey.contains("china telecom") || normalizedKey.contains("chinanet") {
-            return "中国电信"
-        }
-        if normalizedKey.contains("china mobile") || normalizedKey == "cmnet" {
-            return "中国移动"
-        }
-        if normalizedKey.contains("china unicom") {
-            return "中国联通"
         }
 
         var current = raw

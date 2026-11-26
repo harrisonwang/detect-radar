@@ -1,6 +1,7 @@
 import { getMessages, joinList, localePath, type Locale } from '../i18n';
-import { dnsProviderName } from './dnsPresentation';
+import { dnsProvider } from './dnsPresentation';
 import { canonicalIP, sameIP, sameIPv6Prefix64 } from './ip';
+import { maskIP, maskIPsInText } from './ipDisplay';
 import type { ReportModel, ReadoutRow } from './report';
 import type { DNSExit, DNSVerdict } from './types';
 import type { WebRTCVerdictReason, WebRTCVerdictState } from './webrtcCheck';
@@ -8,29 +9,12 @@ import type { IPv6VerdictReason, IPv6VerdictState, StackExit } from './ipv6Check
 
 const SITE_ORIGIN = 'https://detectradar.com';
 
-const IPV4_TEXT_RE = /\b(\d{1,3}\.\d{1,3})\.\d{1,3}\.\d{1,3}\b/g;
-const IPV6_COMPRESSED_RE = /\b([0-9a-fA-F]{1,4}(?::[0-9a-fA-F]{1,4})?)::[0-9a-fA-F:]*\b/g;
-const IPV6_FULL_RE = /\b([0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}):(?:[0-9a-fA-F]{1,4}:){2,}[0-9a-fA-F]{1,4}\b/g;
-
 export function maskIPText(ip: string): string {
-  const raw = ip.trim();
-  if (!raw) return '—';
-  const v4 = /^(\d{1,3}\.\d{1,3})\.\d{1,3}\.\d{1,3}$/.exec(raw);
-  if (v4) return `${v4[1]}.*.*`;
-  if (raw.includes(':')) {
-    const parts = raw.split(':').filter((p) => p.length > 0);
-    if (parts.length >= 2) return `${parts[0]}:${parts[1]}:*`;
-    if (parts.length === 1) return `${parts[0]}:*`;
-    return '*:*';
-  }
-  return '***';
+  return maskIP(ip, 'star');
 }
 
 export function maskIPsInPlainText(text: string): string {
-  return text
-    .replace(IPV4_TEXT_RE, '$1.*.*')
-    .replace(IPV6_FULL_RE, '$1:*')
-    .replace(IPV6_COMPRESSED_RE, '$1:*');
+  return maskIPsInText(text, 'star');
 }
 
 function cleanPeriod(text: string): string {
@@ -59,19 +43,25 @@ function formatExitLine(
   return `${masked}${wrapParen(meta.join(' · '), locale)}`;
 }
 
+function formatVerdictWithNote(title: string, note: string, locale: Locale): string {
+  if (!note) return title;
+  return locale === 'en' ? `${title} — ${note}` : `${title}${wrapParen(note, locale)}`;
+}
+
 function formatConsistencyRow(row: ReadoutRow, locale: Locale): string {
-  const s = getMessages(locale).home.shareText;
+  const m = getMessages(locale);
+  const s = m.home.shareText;
   if (row.state === 'coherent') return s.consistencyOk(row.label);
-  if (row.compare) {
+  if (row.compare && row.compare.ip !== m.common.unknown) {
     return s.consistencyMismatch(row.label, row.compare.browser, row.compare.ip);
   }
-  return `${row.label}${locale === 'en' ? ': ' : ''}${row.value}`;
+  return `${row.label}${locale === 'en' ? ': ' : '：'}${row.value}`;
 }
 
 function formatHomeDNSLeak(row: ReadoutRow, locale: Locale): string {
   const s = getMessages(locale).home.shareText;
   if (row.state === 'leak') {
-    const names = row.meta?.dnsVerdict?.networks?.map((n) => dnsProviderName(n, locale)).filter(Boolean);
+    const names = row.meta?.dnsVerdict?.networks?.map((n) => dnsProvider(n)).filter(Boolean);
     if (names && names.length > 0) {
       return s.dnsLeakWithNames(joinList(names, locale));
     }
@@ -90,6 +80,7 @@ function formatHomeWebRTCLeak(row: ReadoutRow, locale: Locale): string {
 function formatHomeIPv6Leak(row: ReadoutRow, locale: Locale): string {
   const s = getMessages(locale).home.shareText;
   if (row.state === 'leak' || row.meta?.ipv6Kind === 'leaked') return s.ipv6Leak;
+  if (row.meta?.ipv6Kind === 'unknown') return s.ipv6Unknown;
   if (row.meta?.ipv6Kind === 'dual-stack') return s.ipv6Dual;
   if (row.meta?.ipv6Kind === 'matches-exit') return s.ipv6Match;
   return s.ipv6None;
@@ -185,13 +176,13 @@ export function formatDNSShareText(data: DNSShareTextInput, locale: Locale = 'zh
 
   let reasonText = cleanPeriod(data.note);
   if (data.verdict?.reason === 'cross-region-isp' || data.verdict?.reason === 'mainland-carrier') {
-    const names = data.verdict.networks?.map((n) => dnsProviderName(n, locale)).filter(Boolean) ?? [];
+    const names = data.verdict.networks?.map((n) => dnsProvider(n)).filter(Boolean) ?? [];
     if (names.length) reasonText = s.crossRegionShort(joinList(names, locale));
   } else if (data.verdict?.reason === 'proxy-isp-bypass') {
-    const names = data.verdict.networks?.map((n) => dnsProviderName(n, locale)).filter(Boolean) ?? [];
+    const names = data.verdict.networks?.map((n) => dnsProvider(n)).filter(Boolean) ?? [];
     if (names.length) reasonText = s.proxyBypassShort(joinList(names, locale));
   }
-  lines.push(kv(s.verdictLabel, `${data.verdictTitle}${reasonText ? wrapParen(reasonText, locale) : ''}`, locale));
+  lines.push(kv(s.verdictLabel, formatVerdictWithNote(data.verdictTitle, reasonText, locale), locale));
 
   const exitParts = data.exit?.ip
     ? [
@@ -257,7 +248,7 @@ export function formatWebRTCShareText(data: WebRTCShareTextInput, locale: Locale
   const lines: string[] = [s.textTitle];
 
   const cleanNote = cleanPeriod(data.verdictNote);
-  lines.push(kv(s.verdictLabel, `${data.verdictTitle}${cleanNote ? wrapParen(cleanNote, locale) : ''}`, locale));
+  lines.push(kv(s.verdictLabel, formatVerdictWithNote(data.verdictTitle, cleanNote, locale), locale));
 
   const exitParts = data.exit?.ip
     ? [
@@ -337,7 +328,7 @@ export function formatIPv6ShareText(data: IPv6ShareTextInput, locale: Locale = '
   const lines: string[] = [s.textTitle];
 
   const cleanNote = cleanPeriod(data.verdictNote);
-  lines.push(kv(s.verdictLabel, `${data.verdictTitle}${cleanNote ? wrapParen(cleanNote, locale) : ''}`, locale));
+  lines.push(kv(s.verdictLabel, formatVerdictWithNote(data.verdictTitle, cleanNote, locale), locale));
 
   const v4Parts = data.v4?.ip
     ? [
@@ -358,7 +349,7 @@ export function formatIPv6ShareText(data: IPv6ShareTextInput, locale: Locale = '
     ];
     lines.push(kv(s.v6Label, formatExitLine(data.v6.ip, v6Parts, [], locale), locale));
   } else {
-    lines.push(kv(s.v6Label, p.v6Unreachable, locale));
+    lines.push(kv(s.v6Label, data.v4?.ip ? p.v6Unreachable : p.unreachableShort, locale));
   }
 
   if (data.comparisonSummary) {

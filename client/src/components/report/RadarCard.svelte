@@ -109,7 +109,7 @@
 
   <div class="mt-4 flex items-center gap-2">
     <span class="text-xs text-(--slate-500)">{m.home.overallRisk}</span>
-    <span class="text-sm font-semibold" style="color:{stateVar(verdictState)}">{isScanning ? m.common.scanning : riskLabel}</span>
+    <span class="text-sm font-semibold" style="color:{isScanning ? 'var(--slate-300)' : stateVar(verdictState)}">{isScanning ? m.common.scanning : riskLabel}</span>
   </div>
   {#if scanStageLabel && (isScanning || activeKey === 'leak')}
     <div class="mt-2 text-xs text-(--slate-400) font-mono animate-pulse text-center">{scanStageLabel}</div>

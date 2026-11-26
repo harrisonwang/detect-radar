@@ -1,19 +1,32 @@
 import { apiLang, detectClientLocale, getMessages, type Locale } from '../i18n';
-import { browserExit, dnsProviderName, dnsRegion } from './dnsPresentation';
+import { browserExit, dnsProvider, dnsRegion } from './dnsPresentation';
 import { recentHistory, type RecentHistory } from './recentHistory';
 import type { DNSExit, IPIntel } from './types';
 
 const ENV = (import.meta as unknown as { env?: Record<string, string | boolean> }).env ?? {};
 
+function defaultStackURL(prefix: '4' | '6'): string {
+  if (typeof window !== 'undefined') {
+    const host = window.location.hostname;
+    const isLocal = !host || host === 'localhost' || /^\d+\.\d+\.\d+\.\d+$/.test(host) || host.includes(':');
+    if (!isLocal) {
+      const bare = host.replace(/^(?:4|6)\./, '');
+      const port = window.location.port ? `:${window.location.port}` : '';
+      return `${window.location.protocol}//${prefix}.${bare}${port}/api/v1/ip`;
+    }
+  }
+  return `https://${prefix}.detectradar.com/api/v1/ip`;
+}
+
 export const V4_IP_URL =
   typeof ENV.PUBLIC_V4_API_URL === 'string' && ENV.PUBLIC_V4_API_URL
     ? ENV.PUBLIC_V4_API_URL
-    : 'https://4.detectradar.com/api/v1/ip';
+    : defaultStackURL('4');
 
 export const V6_IP_URL =
   typeof ENV.PUBLIC_V6_API_URL === 'string' && ENV.PUBLIC_V6_API_URL
     ? ENV.PUBLIC_V6_API_URL
-    : 'https://6.detectradar.com/api/v1/ip';
+    : defaultStackURL('6');
 
 export type IPv6VerdictState = 'leaked' | 'clear' | 'unknown';
 
@@ -26,6 +39,8 @@ export type IPv6VerdictReason =
   | 'domestic-dual'
   | 'matched-dual'
   | 'overseas-split'
+  | 'unclassified-dual'
+  | 'missing-geo'
   | 'both-failed';
 
 export type IPv6Phase = 'probing' | 'comparing';
@@ -56,6 +71,7 @@ export interface IPv6Verdict {
 
 export interface IPv6Check {
   time: number;
+  locale?: Locale;
   v4: StackExit | null;
   v6: StackExit | null;
   v4Error?: 'limited' | 'unreachable';
@@ -198,8 +214,7 @@ function isAccessStack(exit: StackExit): boolean {
   if (isProxyOrHostingStack(exit)) return false;
   return Boolean(
     exit.type === 'access' ||
-      exit.usageType === 'isp' ||
-      isMainlandChina(exit),
+      exit.usageType === 'isp',
   );
 }
 
@@ -220,17 +235,17 @@ export function ipv6VerdictNote(
     case 'isp-bypass':
     case 'mainland-bypass': {
       const carrier = verdict.leakedCarrier
-        ? dnsProviderName(verdict.leakedCarrier, locale)
+        ? dnsProvider(verdict.leakedCarrier)
         : v6?.network
-          ? dnsProviderName(v6.network, locale)
+          ? dnsProvider(v6.network)
           : '';
       return n.ispBypass(stackRegionLabel(v4, locale), stackRegionLabel(v6, locale), carrier || undefined);
     }
     case 'proxy-isp-bypass': {
       const carrier = verdict.leakedCarrier
-        ? dnsProviderName(verdict.leakedCarrier, locale)
+        ? dnsProvider(verdict.leakedCarrier)
         : v6?.network
-          ? dnsProviderName(v6.network, locale)
+          ? dnsProvider(v6.network)
           : '';
       return n.proxyBypass(carrier || undefined);
     }
@@ -240,6 +255,10 @@ export function ipv6VerdictNote(
       return n.matchedDual(stackRegionLabel(v4, locale));
     case 'overseas-split':
       return n.overseasSplit(stackRegionLabel(v4, locale), stackRegionLabel(v6, locale));
+    case 'unclassified-dual':
+      return n.unclassifiedDual(stackRegionLabel(v4, locale), stackRegionLabel(v6, locale));
+    case 'missing-geo':
+      return n.missingGeo;
     default:
       return '';
   }
@@ -283,20 +302,13 @@ export function evaluateIPv6(
   const v6ASN = (ipv6.asn ?? '').trim().toUpperCase();
   const sameASN = Boolean(v4ASN && v6ASN && v4ASN === v6ASN);
   const v6Access = isAccessStack(ipv6);
+  const v6ProxyOrHosting = isProxyOrHostingStack(ipv6);
   const v4ProxyOrHosting = isProxyOrHostingStack(ipv4);
 
-  if (v6Access && !sameASN && v4Geo && v6Geo) {
-    const carrierName = dnsProviderName(ipv6.network, 'en');
-    const leakedCarrier = carrierName ? carrierName : undefined;
-    if (v4Geo !== v6Geo) {
-      return {
-        state: 'leaked',
-        reason: 'isp-bypass',
-        note: ipv6VerdictNote({ reason: 'isp-bypass', leakedCarrier }, ipv4, ipv6, locale),
-        ...(leakedCarrier ? { leakedCarrier } : {}),
-      };
-    }
-    if (v4ProxyOrHosting) {
+  if (!v4Geo || !v6Geo) {
+    if (v4ProxyOrHosting && v6Access && !sameASN) {
+      const carrierName = dnsProvider(ipv6.network);
+      const leakedCarrier = carrierName ? carrierName : undefined;
       return {
         state: 'leaked',
         reason: 'proxy-isp-bypass',
@@ -304,6 +316,41 @@ export function evaluateIPv6(
         ...(leakedCarrier ? { leakedCarrier } : {}),
       };
     }
+    return {
+      state: 'unknown',
+      reason: 'missing-geo',
+      note: ipv6VerdictNote({ reason: 'missing-geo' }, ipv4, ipv6, locale),
+    };
+  }
+
+  const crossRegion = v4Geo !== v6Geo;
+  const sameRegionProxyBypass = v4Geo === v6Geo && v4ProxyOrHosting && !sameASN;
+
+  if (v6Access && (crossRegion || sameRegionProxyBypass)) {
+    const carrierName = dnsProvider(ipv6.network);
+    const leakedCarrier = carrierName ? carrierName : undefined;
+    if (crossRegion) {
+      return {
+        state: 'leaked',
+        reason: 'isp-bypass',
+        note: ipv6VerdictNote({ reason: 'isp-bypass', leakedCarrier }, ipv4, ipv6, locale),
+        ...(leakedCarrier ? { leakedCarrier } : {}),
+      };
+    }
+    return {
+      state: 'leaked',
+      reason: 'proxy-isp-bypass',
+      note: ipv6VerdictNote({ reason: 'proxy-isp-bypass', leakedCarrier }, ipv4, ipv6, locale),
+      ...(leakedCarrier ? { leakedCarrier } : {}),
+    };
+  }
+
+  if (!v6Access && !v6ProxyOrHosting && (crossRegion || sameRegionProxyBypass)) {
+    return {
+      state: 'unknown',
+      reason: 'unclassified-dual',
+      note: ipv6VerdictNote({ reason: 'unclassified-dual' }, ipv4, ipv6, locale),
+    };
   }
 
   if (v4Geo && v6Geo && v4Geo === v6Geo) {
@@ -375,6 +422,7 @@ export async function measureIPv6(
 
   return {
     time: Date.now(),
+    locale: effectiveLocale,
     v4,
     v6,
     ...(v4Error ? { v4Error } : {}),

@@ -147,7 +147,7 @@
       onStageComplete?.('consistency');
       return value;
     });
-    const leaksPromise = collectLeaks().then((value) => {
+    const leaksPromise = collectLeaks(locale).then((value) => {
       onStageComplete?.('leak');
       return value;
     });
@@ -222,7 +222,7 @@
       scanError = msg;
       report = null;
       dnsPending = false;
-      showToast(msg);
+      showToast(msg, 'error');
       isScanning = false;
       scanStage = 'complete';
     }
@@ -231,7 +231,7 @@
   async function enrichDNS() {
     try {
       const scanId = report?.meta.scanId;
-      const dns = await collectDNSLeak(scanId);
+      const dns = await collectDNSLeak(scanId, locale);
       if (!report || !scanId || dns.status !== 'success' || !dns.data || dns.data.resolvers.length === 0) return;
       const targetScenario = scenario;
       let updated = await api.getScan(scanId, targetScenario, locale);
@@ -276,7 +276,7 @@
       await navigator.clipboard.writeText(code);
       showToast(m.home.diagnosis.promoCopied(code));
     } catch {
-      showToast(m.common.copyFailedShort);
+      showToast(m.common.copyFailedShort, 'error');
     }
   }
 
@@ -313,8 +313,8 @@
   let captureProgress = $state(0);
   let captureTimer: number | null = null;
 
-  function showToast(message: string) {
-    toast?.show(message);
+  function showToast(message: string, tone: 'ok' | 'error' = 'ok') {
+    toast?.show(message, tone);
   }
 
   function startCaptureProgress() {
@@ -352,7 +352,7 @@
       trackEvent('share-save-image', { page: 'home' });
       showToast(clipboardOk ? m.common.imageCopiedAndSaved : m.common.imageSavedOnly);
     } catch (error) {
-      showToast(m.common.imageFailed((error as Error).message));
+      showToast(m.common.imageFailed((error as Error).message), 'error');
     } finally {
       isCapturing = false;
       stopCaptureProgress();

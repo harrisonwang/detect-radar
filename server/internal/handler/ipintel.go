@@ -27,6 +27,8 @@ func privateIPResponse(ip string) *model.IPIntel {
 		Country:      "LOCAL",
 		CountryName:  "Private Network",
 		City:         "Local",
+		GeoZH:        &model.LocalizedGeo{CountryName: "内网地址", City: "本地"},
+		GeoEN:        &model.LocalizedGeo{CountryName: "Private Network", City: "Local"},
 		UsageType:    "private",
 		UsageTypeRaw: "private",
 		Source:       "local",
@@ -69,7 +71,6 @@ func (h *IPIntelHandler) GetMyIPIntel(c *fiber.Ctx) error {
 	}
 
 	setNoStoreHeaders(c)
-	c.Set("Vary", "Accept-Language")
 
 	return c.JSON(service.ProjectIPIntel(intel, util.ResolveLang(c)))
 }
@@ -79,12 +80,12 @@ func (h *IPIntelHandler) GetMyIPText(c *fiber.Ctx) error {
 	c.Set("Content-Type", "text/plain; charset=utf-8")
 	setNoStoreHeaders(c)
 	c.Set("X-Robots-Tag", "noindex, nofollow")
-	c.Set("Vary", "User-Agent, Accept, Accept-Language")
+	c.Set("Vary", "User-Agent, Accept")
 
 	intel, err := h.resolveClientIPIntel(c)
 	if err != nil {
 		if lang == util.LangEN {
-			return c.Status(fiber.StatusInternalServerError).SendString("Lookup failed, please retry later\n")
+			return c.Status(fiber.StatusInternalServerError).SendString("Lookup failed. Please try again later.\n")
 		}
 		return c.Status(fiber.StatusInternalServerError).SendString("查询失败，请稍后重试\n")
 	}
@@ -108,9 +109,9 @@ func formatIPIntelText(intel *model.IPIntel, lang string) string {
 			operator = "Unknown"
 		}
 		if asn := normalizeASN(intel.ASN); asn != "" {
-			fmt.Fprintf(&b, "Operator:      %s (%s)\n", operator, asn)
+			fmt.Fprintf(&b, "ISP / Org:     %s (%s)\n", operator, asn)
 		} else {
-			fmt.Fprintf(&b, "Operator:      %s\n", operator)
+			fmt.Fprintf(&b, "ISP / Org:     %s\n", operator)
 		}
 		fmt.Fprintf(&b, "Type:          %s\n", formatIntelTypeLine(intel, lang))
 		if intel.HumanRatio != nil {
@@ -175,7 +176,7 @@ func formatIntelLocation(intel *model.IPIntel, lang string) string {
 		}
 		return "未知"
 	}
-	if cc := strings.TrimSpace(intel.Country); cc != "" && cc != "LOCAL" {
+	if cc := strings.TrimSpace(intel.Country); cc != "" && cc != "LOCAL" && !strings.EqualFold(loc, cc) {
 		return fmt.Sprintf("%s (%s)", loc, cc)
 	}
 	return loc
@@ -212,12 +213,12 @@ func formatIntelTypeLine(intel *model.IPIntel, lang string) string {
 			base = "Datacenter IP (hosting)"
 		case "isp":
 			if intel.IsMobile {
-				base = "Mobile Network (isp)"
+				base = "Mobile network (isp)"
 			} else {
-				base = "Residential / Broadband (isp)"
+				base = "Residential / ISP (isp)"
 			}
 		default:
-			base = "Unknown (unknown)"
+			base = "Unclassified (unknown)"
 		}
 	} else {
 		switch intel.UsageType {

@@ -45,7 +45,28 @@
   }
 
   function onKeydown(e: KeyboardEvent) {
-    if (isOpen && e.key === 'Escape') closeModal();
+    if (!isOpen) return;
+    if (e.key === 'Escape') {
+      closeModal();
+      return;
+    }
+    if (e.key === 'Tab' && dialogEl) {
+      const focusables = dialogEl.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
+      );
+      if (focusables.length === 0) return;
+      const first = focusables[0];
+      const last = focusables[focusables.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first || document.activeElement === dialogEl) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else if (document.activeElement === last) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
   }
 
   $effect(() => {
@@ -106,7 +127,7 @@
       {#if submitted}
         <div class="text-center py-4">
           <i class="fa-solid fa-circle-check text-2xl" style="color:var(--sig)"></i>
-          <p class="mt-3 text-sm text-(--slate-200) leading-relaxed">
+          <p id="feedback-modal-title" class="mt-3 text-sm text-(--slate-200) leading-relaxed">
             {fb.received}
           </p>
           <button
@@ -138,6 +159,7 @@
               {@const active = selected === opt.value}
               <button
                 type="button"
+                aria-pressed={active}
                 onclick={() => (selected = opt.value)}
                 class="px-3 py-2.5 rounded-lg border text-xs text-left transition cursor-pointer {active
                   ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300 font-medium'
@@ -153,6 +175,7 @@
               bind:value={note}
               maxlength="500"
               rows="3"
+              aria-label={fb.notePlaceholder}
               placeholder={fb.notePlaceholder}
               class="w-full bg-transparent px-3 py-2.5 text-xs leading-relaxed text-(--slate-200) placeholder:text-(--slate-500) focus:outline-none resize-none block"
             ></textarea>
@@ -163,6 +186,7 @@
                 autocomplete="email"
                 maxlength="254"
                 bind:value={replyEmail}
+                aria-label={fb.emailPlaceholder}
                 placeholder={fb.emailPlaceholder}
                 class="w-full bg-transparent text-xs text-(--slate-200) placeholder:text-(--slate-500) focus:outline-none"
               />

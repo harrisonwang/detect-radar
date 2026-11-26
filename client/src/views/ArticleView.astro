@@ -35,7 +35,7 @@ const faqHeading = data.locale === 'en' ? 'Frequently Asked Questions' : '常见
 >
   <div class="min-h-screen flex flex-col">
     <AppHeader page="static" locale={data.locale} currentPath={data.canonical} />
-    <main class="flex-1 mx-auto w-full max-w-3xl px-6 py-16 prose prose-invert prose-headings:font-semibold prose-headings:scroll-mt-28 prose-a:text-(--radar-400)">
+    <main class="flex-1 mx-auto w-full max-w-3xl px-6 py-16 prose prose-invert prose-headings:font-semibold prose-headings:scroll-mt-28 prose-a:text-(--radar-400) prose-a:break-words">
       <h1>{data.h1}</h1>
       <p class="not-prose -mt-3 mb-6 text-xs font-mono text-(--slate-500)">
         {m.common.lastUpdated}<time datetime={data.dateModified}>{data.dateModified}</time>

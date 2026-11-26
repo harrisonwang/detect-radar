@@ -1,4 +1,5 @@
 
+import type { Locale } from '../../../i18n';
 import type { CollectorResult, DNSLeakData } from '../types';
 import { createDNSLeakTest, getDNSLeakResult } from '../../api';
 
@@ -17,28 +18,28 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const OBSERVATION_WINDOW_MS = 6200;
 
-async function startDNSProbe(scanId?: string) {
-  const test = await createDNSLeakTest(scanId);
+async function startDNSProbe(scanId?: string, locale?: Locale) {
+  const test = await createDNSLeakTest(scanId, locale);
   triggerResolution(test.test_domain);
   await sleep(400);
   triggerResolution(test.test_domain);
   return test.id;
 }
 
-async function observeDNS(scanId?: string) {
-  const id = await startDNSProbe(scanId);
+async function observeDNS(scanId?: string, locale?: Locale) {
+  const id = await startDNSProbe(scanId, locale);
   await sleep(OBSERVATION_WINDOW_MS);
-  return getDNSLeakResult(id);
+  return getDNSLeakResult(id, locale);
 }
 
-export async function sampleDNSRound() {
-  return (await observeDNS()).dns_servers;
+export async function sampleDNSRound(locale?: Locale) {
+  return (await observeDNS(undefined, locale)).dns_servers;
 }
 
-export async function collectDNSLeak(scanId?: string): Promise<CollectorResult<DNSLeakData>> {
+export async function collectDNSLeak(scanId?: string, locale?: Locale): Promise<CollectorResult<DNSLeakData>> {
   const start = performance.now();
   try {
-    const result = await observeDNS(scanId);
+    const result = await observeDNS(scanId, locale);
     return {
       status: 'success',
       data: {

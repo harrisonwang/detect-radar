@@ -337,10 +337,14 @@ func ReputationRecommendation(r *model.ReputationResult, lang string) string {
 	var parts []string
 	if lang == "en" {
 		if r.OpenProxyPort {
-			parts = append(parts, "Open proxy port detected on exit IP; close the port or switch exit IP")
+			parts = append(parts, "Open proxy port detected on this exit IP; close the port or switch exit IPs")
 		}
 		if r.BlacklistHit {
-			parts = append(parts, fmt.Sprintf("Exit IP listed on public blocklists (%s); consider switching IP", strings.Join(r.BlacklistSources, ",")))
+			noun := "blocklist"
+			if len(r.BlacklistSources) > 1 {
+				noun = "blocklists"
+			}
+			parts = append(parts, fmt.Sprintf("Exit IP listed on public %s (%s); consider switching exit IPs", noun, strings.Join(r.BlacklistSources, ", ")))
 		}
 		if r.IsTorExit {
 			parts = append(parts, "Exit IP is a known Tor exit node")
@@ -348,6 +352,9 @@ func ReputationRecommendation(r *model.ReputationResult, lang string) string {
 		if len(parts) == 0 {
 			if len(r.OpenPorts) > 0 {
 				return "Open service ports detected (server-like profile); residential IPs rarely expose public ports"
+			}
+			if len(r.ExposureTags) > 0 {
+				return fmt.Sprintf("Public scan metadata flags this exit IP (%s)", strings.Join(r.ExposureTags, ", "))
 			}
 			return "No blocklist, open proxy port, or Tor exit exposure detected"
 		}
@@ -365,6 +372,9 @@ func ReputationRecommendation(r *model.ReputationResult, lang string) string {
 	if len(parts) == 0 {
 		if len(r.OpenPorts) > 0 {
 			return "出口 IP 有开放服务端口（更像服务器），住宅 IP 通常无开放端口，注意此差异"
+		}
+		if len(r.ExposureTags) > 0 {
+			return fmt.Sprintf("公开扫描库标记了该出口 IP 的暴露标签（%s）", strings.Join(r.ExposureTags, "、"))
 		}
 		return "出口 IP 信誉良好，未发现黑名单/代理端口/Tor 暴露"
 	}

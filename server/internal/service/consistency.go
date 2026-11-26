@@ -21,7 +21,7 @@ func NewConsistencyService() *ConsistencyService {
 func (s *ConsistencyService) Evaluate(browser model.BrowserInfo, intel *model.IPIntel) model.ConsistencyChecks {
 	return model.ConsistencyChecks{
 		Timezone: s.checkTimezone(browser.Timezone, intel.Timezone),
-		Language: s.checkLanguage(browser.Language, browser.Languages, intel.Country),
+		Language: s.checkLanguage(browser.Language, browser.Languages, geoBucket(intel)),
 	}
 }
 
@@ -86,9 +86,10 @@ func (s *ConsistencyService) checkLanguage(browserLang string, browserLangs []st
 
 	candidates := append([]string{browserLang}, browserLangs...)
 	for _, lang := range candidates {
-		ll := strings.ToLower(lang)
+		ll := strings.ToLower(strings.TrimSpace(lang))
 		for _, exp := range expected {
-			if strings.HasPrefix(ll, strings.ToLower(exp)) {
+			el := strings.ToLower(exp)
+			if ll == el || strings.HasPrefix(ll, el+"-") {
 				check.Passed = true
 				return check
 			}
@@ -101,18 +102,18 @@ func (s *ConsistencyService) checkLanguage(browserLang string, browserLangs []st
 func countryLanguages(country string) []string {
 	m := map[string][]string{
 		"US": {"en-US", "en", "es"}, "CN": {"zh-CN", "zh"}, "JP": {"ja"},
-		"GB": {"en-GB", "en"}, "DE": {"de"}, "FR": {"fr"}, "ES": {"es"},
+		"GB": {"en-GB", "en", "cy"}, "DE": {"de"}, "FR": {"fr"}, "ES": {"es", "ca", "eu", "gl"},
 		"IT": {"it"}, "RU": {"ru"}, "KR": {"ko"}, "BR": {"pt-BR", "pt"},
 		"IN": {"en", "hi"}, "CA": {"en", "fr"}, "AU": {"en-AU", "en"},
-		"SG": {"en", "zh", "ms"}, "HK": {"zh-HK", "zh", "en"}, "TW": {"zh-TW", "zh"},
+		"SG": {"en", "zh", "ms", "ta"}, "HK": {"zh-HK", "zh", "en"}, "MO": {"zh-MO", "zh", "pt"}, "TW": {"zh-TW", "zh"},
 		"NL": {"nl", "en"}, "VN": {"vi"}, "TH": {"th"}, "ID": {"id"},
 		"TR": {"tr"}, "PL": {"pl"}, "MX": {"es"}, "AR": {"es"}, "CL": {"es"},
 		"CO": {"es"}, "PE": {"es"}, "PT": {"pt"}, "GR": {"el"}, "CZ": {"cs"},
 		"SK": {"sk"}, "HU": {"hu"}, "RO": {"ro"}, "BG": {"bg"},
 		"UA": {"uk", "ru"}, "SE": {"sv", "en"}, "NO": {"no", "nb", "en"},
 		"DK": {"da", "en"}, "FI": {"fi", "sv", "en"}, "AT": {"de"},
-		"CH": {"de", "fr", "it", "en"}, "BE": {"nl", "fr", "en"}, "IE": {"en"},
-		"NZ": {"en"}, "ZA": {"en", "af"}, "MY": {"ms", "en", "zh"},
+		"CH": {"de", "fr", "it", "en"}, "BE": {"nl", "fr", "de", "en"}, "IE": {"en", "ga"},
+		"NZ": {"en", "mi"}, "ZA": {"en", "af"}, "MY": {"ms", "en", "zh"},
 		"PH": {"en", "tl", "fil"}, "PK": {"en", "ur"}, "BD": {"bn", "en"},
 		"SA": {"ar"}, "AE": {"ar", "en"}, "IL": {"he", "en"}, "EG": {"ar"},
 		"MA": {"ar", "fr"}, "NG": {"en"}, "KE": {"en", "sw"},

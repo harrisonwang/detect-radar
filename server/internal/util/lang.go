@@ -32,13 +32,6 @@ func ResolveLang(c *fiber.Ctx) string {
 	if q := NormalizeLang(c.Query("lang")); q != "" {
 		return q
 	}
-	accept := c.Get("Accept-Language")
-	for _, part := range strings.Split(accept, ",") {
-		tag := strings.TrimSpace(strings.SplitN(part, ";", 2)[0])
-		if l := NormalizeLang(tag); l != "" {
-			return l
-		}
-	}
 	return LangZH
 }
 

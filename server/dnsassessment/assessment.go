@@ -3,7 +3,10 @@ package dnsassessment
 import (
 	"net/netip"
 	"sort"
+	"strconv"
 	"strings"
+	"sync/atomic"
+	"unicode"
 )
 
 type Exit struct {
@@ -47,94 +50,37 @@ type Result struct {
 	Resolvers []Resolver `json:"resolvers"`
 }
 
-var accessNetworks = map[string]string{
-	"移动": "China Mobile", "中国移动": "China Mobile", "中国移动通信": "China Mobile",
-	"china mobile": "China Mobile", "china mobile communications group co ltd": "China Mobile", "cmnet": "China Mobile",
-	"电信": "China Telecom", "中国电信": "China Telecom", "china telecom": "China Telecom",
-	"chinanet": "China Telecom", "chinanet-backbone": "China Telecom", "chinanet backbone": "China Telecom",
-	"联通": "China Unicom", "中国联通": "China Unicom", "china unicom": "China Unicom", "china unicom backbone": "China Unicom",
-	"china unicom china169 backbone": "China Unicom", "china169-backbone": "China Unicom",
-	"广电": "China Broadnet", "中国广电": "China Broadnet", "china broadnet": "China Broadnet",
-	"comcast": "Comcast", "comcast cable communications llc": "Comcast", "xfinity": "Comcast",
-	"at&t": "AT&T", "at&t services inc": "AT&T", "att": "AT&T",
-	"verizon": "Verizon", "verizon business": "Verizon", "mci communications services": "Verizon",
-	"charter communications": "Charter Spectrum", "spectrum": "Charter Spectrum",
-	"t-mobile usa": "T-Mobile USA", "t-mobile usa inc": "T-Mobile USA",
-	"cox communications": "Cox Communications", "cox communications inc": "Cox Communications",
-	"deutsche telekom": "Deutsche Telekom", "deutsche telekom ag": "Deutsche Telekom",
-	"vodafone gmbh": "Vodafone Germany", "vodafone germany": "Vodafone Germany",
-	"british telecommunications": "BT", "bt": "BT",
-	"virgin media": "Virgin Media", "virgin media limited": "Virgin Media",
-	"sky uk": "Sky UK", "sky uk limited": "Sky UK",
-	"orange sa": "Orange France", "orange france": "Orange France",
-	"free sas": "Free SAS",
-	"ntt communications": "NTT", "ntt ocn": "NTT OCN",
-	"kddi": "KDDI", "kddi corporation": "KDDI",
-	"softbank": "SoftBank", "softbank bb": "SoftBank", "softbank corp": "SoftBank",
-	"kt": "KT", "korea telecom": "KT",
-	"sk broadband": "SK Broadband",
-	"lg uplus": "LG Uplus", "lg dacom": "LG Uplus",
-	"singtel": "Singtel", "singapore telecommunications": "Singtel",
-	"telstra": "Telstra", "telstra limited": "Telstra",
-	"bell canada": "Bell Canada", "rogers communications": "Rogers Communications", "telus": "TELUS",
-	"hkt": "HKT", "pccw": "HKT", "hkbn": "HKBN",
-	"chunghwa telecom": "Chunghwa Telecom", "hinet": "Chunghwa Telecom",
+type CatalogEntry struct {
+	Role   string
+	NameEN string
+	NameZH string
 }
 
-var accessASNs = map[string]string{
-	"AS4134": "China Telecom", "AS4809": "China Telecom", "AS4812": "China Telecom",
-	"AS4837": "China Unicom", "AS17621": "China Unicom", "AS17623": "China Unicom",
-	"AS9808": "China Mobile", "AS56040": "China Mobile", "AS56041": "China Mobile", "AS56046": "China Mobile", "AS56048": "China Mobile",
-	"AS7640": "China Broadnet",
-	"AS4760": "HKT", "AS9269": "HKBN", "AS4609": "CTM", "AS3462": "Chunghwa Telecom",
-	"AS7922": "Comcast", "AS7018": "AT&T", "AS20057": "AT&T Mobility", "AS701": "Verizon", "AS22394": "Verizon Wireless",
-	"AS20115": "Charter Spectrum", "AS21928": "T-Mobile USA", "AS22773": "Cox Communications",
-	"AS577": "Bell Canada", "AS812": "Rogers Communications", "AS852": "TELUS",
-	"AS2856": "BT", "AS5089": "Virgin Media", "AS5607": "Sky UK",
-	"AS3320": "Deutsche Telekom", "AS3209": "Vodafone Germany", "AS6805": "Telefonica Germany",
-	"AS3215": "Orange France", "AS12322": "Free SAS",
-	"AS4713": "NTT OCN", "AS2516": "KDDI", "AS17676": "SoftBank",
-	"AS4766": "KT", "AS9318": "SK Broadband", "AS3786": "LG Uplus",
-	"AS3758": "Singtel", "AS4657": "StarHub", "AS1221": "Telstra", "AS7474": "Optus",
+type Catalog interface {
+	LookupPublicDNSIP(ip string) (CatalogEntry, bool)
+	LookupASN(asn uint64) (CatalogEntry, bool)
+	MatchNetworkAlias(raw string) (CatalogEntry, bool)
 }
 
-var publicNetworks = map[string]string{
-	"cloudflare": "Cloudflare", "cloudflarenet": "Cloudflare", "cloudflare inc": "Cloudflare", "cloudflare warp": "Cloudflare",
-	"google": "Google", "google llc": "Google", "google public dns": "Google",
-	"quad9": "Quad9", "quad9 foundation": "Quad9", "woodynets": "Quad9",
-	"opendns": "OpenDNS", "cisco opendns": "OpenDNS", "cisco opendns llc": "OpenDNS", "cisco umbrella": "OpenDNS",
-	"nextdns": "NextDNS", "nextdns inc": "NextDNS",
-	"control d": "Control D", "controld": "Control D", "windscribe limited": "Control D",
-	"mullvad": "Mullvad DNS", "mullvad dns": "Mullvad DNS", "mullvad vpn": "Mullvad DNS",
-	"cleanbrowsing": "CleanBrowsing",
-	"alidns": "AliDNS", "阿里公共dns": "AliDNS", "alibaba public dns": "AliDNS",
-	"dnspod": "DNSPod", "dnspod public dns": "DNSPod", "腾讯云公共dns": "DNSPod",
-	"adguard": "AdGuard DNS", "adguard dns": "AdGuard DNS",
-	"114dns": "114DNS",
+type catalogHolder struct {
+	cat Catalog
 }
 
-var publicAddresses = map[string]string{
-	"1.1.1.1": "Cloudflare", "1.0.0.1": "Cloudflare",
-	"8.8.8.8": "Google", "8.8.4.4": "Google",
-	"9.9.9.9": "Quad9", "149.112.112.112": "Quad9",
-	"208.67.222.222": "OpenDNS", "208.67.220.220": "OpenDNS",
-	"45.90.28.0": "NextDNS", "45.90.30.0": "NextDNS",
-	"76.76.2.0": "Control D", "76.76.10.0": "Control D",
-	"194.242.2.2": "Mullvad DNS", "194.242.2.3": "Mullvad DNS",
-	"185.228.168.9": "CleanBrowsing", "185.228.169.9": "CleanBrowsing",
-	"223.5.5.5": "AliDNS", "223.6.6.6": "AliDNS",
-	"119.29.29.29": "DNSPod", "119.28.28.28": "DNSPod",
-	"114.114.114.114": "114DNS", "114.114.115.115": "114DNS",
-	"94.140.14.14": "AdGuard DNS", "94.140.15.15": "AdGuard DNS",
+var defaultCatalog atomic.Pointer[catalogHolder]
+
+func SetDefaultCatalog(cat Catalog) {
+	if cat == nil {
+		defaultCatalog.Store(nil)
+		return
+	}
+	defaultCatalog.Store(&catalogHolder{cat: cat})
 }
 
-var publicASNs = map[string]string{
-	"AS13335":  "Cloudflare",
-	"AS15169":  "Google",
-	"AS19281":  "Quad9",
-	"AS36692":  "OpenDNS",
-	"AS34939":  "NextDNS",
-	"AS398962": "Control D",
+func DefaultCatalog() Catalog {
+	if h := defaultCatalog.Load(); h != nil {
+		return h.cat
+	}
+	return nil
 }
 
 var labelPunctuation = strings.NewReplacer(",", "", ".", "")
@@ -176,51 +122,144 @@ func normalizeASN(asn string) string {
 	return "AS" + s
 }
 
-func network(name string) string {
+func parseASNNumber(asn string) uint64 {
+	s := strings.ToUpper(strings.TrimSpace(asn))
+	s = strings.TrimPrefix(s, "AS")
+	if s == "" {
+		return 0
+	}
+	n, err := strconv.ParseUint(s, 10, 64)
+	if err != nil {
+		return 0
+	}
+	return n
+}
+
+func cleanNetwork(name string) string {
 	normalized := key(name)
-	if normalized == "unknown" || normalized == "n/a" || normalized == "-" {
+	if normalized == "" || normalized == "unknown" || normalized == "n/a" || normalized == "-" {
 		return ""
-	}
-	if label := accessNetworks[normalized]; label != "" {
-		return label
-	}
-	if label := publicNetworks[normalized]; label != "" {
-		return label
 	}
 	return strings.TrimSpace(name)
 }
 
-func normalizeResolver(r Resolver) Resolver {
+func containsHan(s string) bool {
+	for _, r := range s {
+		if unicode.In(r, unicode.Han) {
+			return true
+		}
+	}
+	return false
+}
+
+func entryDisplayName(e CatalogEntry, lang string) string {
+	if lang == "zh" {
+		if e.NameZH != "" {
+			return e.NameZH
+		}
+		return e.NameEN
+	}
+	if e.NameEN != "" {
+		return e.NameEN
+	}
+	if !containsHan(e.NameZH) {
+		return e.NameZH
+	}
+	return ""
+}
+
+func normalizeResolver(r Resolver, cat Catalog, lang string) Resolver {
 	r.IP = address(r.IP)
 	r.Country = country(r.Country)
 	r.ASN = normalizeASN(r.ASN)
-	if label := publicAddresses[r.IP]; label != "" {
-		r.ISP, r.NetworkType = label, "public"
-		return r
-	}
-	if label := publicNetworks[key(r.ISP)]; label != "" {
-		r.ISP, r.NetworkType = label, "public"
-		return r
-	}
-	if label := publicASNs[r.ASN]; label != "" {
-		r.ISP, r.NetworkType = label, "public"
-		return r
-	}
-	if r.NetworkType == "hosting" {
-		r.ISP = network(r.ISP)
-		return r
-	}
-	if accessNetworks[key(r.ISP)] != "" {
-		r.NetworkType = "access"
-	} else if r.NetworkType == "" || r.NetworkType == "access" {
-		if carrier := accessASNs[r.ASN]; carrier != "" {
-			if network(r.ISP) == "" {
-				r.ISP = carrier
+
+	if cat != nil {
+		if entry, ok := cat.LookupPublicDNSIP(r.IP); ok {
+			r.ISP = entryDisplayName(entry, lang)
+			r.NetworkType = "public"
+			return r
+		}
+
+		alias, hasAlias := cat.MatchNetworkAlias(r.ISP)
+		if hasAlias && alias.Role == "public_dns" {
+			r.ISP = entryDisplayName(alias, lang)
+			r.NetworkType = "public"
+			return r
+		}
+
+		asnNum := parseASNNumber(r.ASN)
+		asnEntry, hasASN := CatalogEntry{}, false
+		if asnNum > 0 {
+			asnEntry, hasASN = cat.LookupASN(asnNum)
+		}
+		if hasASN && asnEntry.Role == "public_dns" {
+			r.ISP = entryDisplayName(asnEntry, lang)
+			r.NetworkType = "public"
+			return r
+		}
+
+		if r.NetworkType == "hosting" {
+			if hasAlias {
+				r.ISP = entryDisplayName(alias, lang)
+			} else {
+				cleaned := cleanNetwork(r.ISP)
+				if lang == "en" && containsHan(cleaned) {
+					if hasASN {
+						r.ISP = entryDisplayName(asnEntry, lang)
+					} else {
+						r.ISP = ""
+					}
+				} else {
+					r.ISP = cleaned
+				}
 			}
+			return r
+		}
+
+		if hasAlias && alias.Role == "access" {
 			r.NetworkType = "access"
+			r.ISP = entryDisplayName(alias, lang)
+			return r
+		}
+
+		if (r.NetworkType == "" || r.NetworkType == "access") && hasASN && asnEntry.Role == "access" {
+			r.NetworkType = "access"
+			cleaned := cleanNetwork(r.ISP)
+			if cleaned == "" {
+				r.ISP = entryDisplayName(asnEntry, lang)
+			} else if hasAlias {
+				r.ISP = entryDisplayName(alias, lang)
+			} else if lang == "en" && containsHan(cleaned) {
+				r.ISP = entryDisplayName(asnEntry, lang)
+			} else if lang == "zh" && asnEntry.NameZH != "" && containsHan(asnEntry.NameZH) {
+				r.ISP = asnEntry.NameZH
+			} else {
+				r.ISP = cleaned
+			}
+			return r
+		}
+
+		if hasAlias {
+			r.ISP = entryDisplayName(alias, lang)
+			return r
+		}
+
+		if lang == "en" && containsHan(cleanNetwork(r.ISP)) {
+			if hasASN {
+				r.ISP = entryDisplayName(asnEntry, lang)
+			} else {
+				r.ISP = ""
+			}
+			return r
 		}
 	}
-	r.ISP = network(r.ISP)
+
+	cleaned := cleanNetwork(r.ISP)
+	if lang == "en" && containsHan(cleaned) {
+		r.ISP = ""
+		return r
+	}
+	r.ISP = cleaned
 	return r
 }
 
@@ -313,6 +352,13 @@ func (input Input) Valid() bool {
 }
 
 func Evaluate(input Input) Result {
+	return EvaluateWithCatalog(input, DefaultCatalog(), "en")
+}
+
+func EvaluateWithCatalog(input Input, cat Catalog, lang string) Result {
+	if lang != "zh" {
+		lang = "en"
+	}
 	result := Result{Resolvers: make([]Resolver, 0, len(input.Resolvers))}
 	if input.Exit != nil {
 		exit := *input.Exit
@@ -321,16 +367,44 @@ func Evaluate(input Input) Result {
 			exit.Country = country(exit.Country)
 		}
 		exit.ASN = normalizeASN(exit.ASN)
+
+		cleaned := cleanNetwork(exit.Network)
+		var alias CatalogEntry
+		var hasAlias bool
+		var asnEntry CatalogEntry
+		var hasASN bool
+		if cat != nil {
+			if cleaned != "" {
+				alias, hasAlias = cat.MatchNetworkAlias(cleaned)
+			}
+			if asnNum := parseASNNumber(exit.ASN); asnNum > 0 {
+				asnEntry, hasASN = cat.LookupASN(asnNum)
+			}
+		}
+
 		if exit.Type == "" {
-			if accessNetworks[key(exit.Network)] != "" || accessASNs[exit.ASN] != "" {
+			if (hasAlias && alias.Role == "access") || (hasASN && asnEntry.Role == "access") {
 				exit.Type = "access"
 			}
 		}
-		exit.Network = network(exit.Network)
+
+		if hasAlias {
+			exit.Network = entryDisplayName(alias, lang)
+		} else if lang == "en" && containsHan(cleaned) && hasASN {
+			exit.Network = entryDisplayName(asnEntry, lang)
+		} else if lang == "zh" && hasASN && asnEntry.NameZH != "" && containsHan(asnEntry.NameZH) {
+			exit.Network = asnEntry.NameZH
+		} else if cleaned != "" && !(lang == "en" && containsHan(cleaned)) {
+			exit.Network = cleaned
+		} else if hasASN {
+			exit.Network = entryDisplayName(asnEntry, lang)
+		} else {
+			exit.Network = ""
+		}
 		result.Exit = &exit
 	}
 	for _, resolver := range input.Resolvers {
-		resolver = normalizeResolver(resolver)
+		resolver = normalizeResolver(resolver, cat, lang)
 		if resolver.IP != "" {
 			result.Resolvers = append(result.Resolvers, resolver)
 		}

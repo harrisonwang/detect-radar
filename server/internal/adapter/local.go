@@ -202,8 +202,12 @@ func (a *LocalAdapter) lookupASN(ip net.IP, intel *model.IPIntel) error {
 		return err
 	}
 
-	intel.ASN = fmt.Sprintf("AS%d", record.ASNumber)
-	intel.Org = record.ASOrg
+	if record.ASNumber > 0 {
+		intel.ASN = fmt.Sprintf("AS%d", record.ASNumber)
+	}
+	if record.ASOrg != "" {
+		intel.Org = record.ASOrg
+	}
 
 	return nil
 }

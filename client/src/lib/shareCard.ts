@@ -1,4 +1,5 @@
 import { getMessages, type Locale } from "../i18n";
+import { maskIPsInText } from "./ipDisplay";
 import type { ReportModel, SignalState, Severity } from "./report";
 
 const W = 1440;
@@ -59,12 +60,6 @@ const MONO = `"JetBrains Mono", ui-monospace, Menlo, monospace`;
 
 function font(size: number, weight = 400, family = SANS): string {
   return `${weight} ${size}px ${family}`;
-}
-
-const IPV4_RE = /\b(\d{1,3}\.\d{1,3})\.\d{1,3}\.\d{1,3}\b/g;
-const IPV6_RE = /\b([0-9a-fA-F]{1,4}:[0-9a-fA-F]{1,4}):[0-9a-fA-F]{1,4}[0-9a-fA-F:]*\b/g;
-function maskIPsInText(s: string): string {
-  return s.replace(IPV4_RE, "$1.···.···").replace(IPV6_RE, "$1:···");
 }
 
 function truncate(
@@ -555,7 +550,7 @@ export async function renderShareCard(
   ];
   const colsX = PAD + (locale === "en" ? 452 : 430);
   const colsTotal = W - PAD - 28 - colsX;
-  const weights = [1.35, 1.15, 0.72, 0.92, 0.62, 1.16];
+  const weights = locale === "en" ? [1.45, 1.12, 0.7, 1.0, 0.6, 1.05] : [1.35, 1.15, 0.72, 0.92, 0.62, 1.16];
   const weightSum = weights.reduce((a, b) => a + b, 0);
   let cx = colsX;
   cols.forEach((c, i) => {

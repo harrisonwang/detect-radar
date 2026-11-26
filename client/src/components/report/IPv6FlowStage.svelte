@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onDestroy } from 'svelte';
   import { getMessages, type Locale } from '../../i18n';
-  import { dnsProviderName } from '../../lib/dnsPresentation';
+  import { dnsProvider } from '../../lib/dnsPresentation';
   import { maskIP } from '../../lib/ipDisplay';
   import {
     stackRegionLabel,
@@ -66,26 +66,26 @@
 
   const DESKTOP_V6: readonly Pt[] = [
     [106, 148],
-    [186, 84],
+    [214, 84],
     [380, 84],
-    [574, 84],
+    [546, 84],
     [654, 148],
   ];
   const DESKTOP_V6_HALT: readonly Pt[] = [
     [106, 148],
-    [186, 84],
+    [214, 84],
     [318, 84],
   ];
   const DESKTOP_V4: readonly Pt[] = [
     [106, 148],
-    [186, 212],
+    [214, 212],
     [380, 212],
-    [574, 212],
+    [546, 212],
     [654, 148],
   ];
   const DESKTOP_V4_HALT: readonly Pt[] = [
     [106, 148],
-    [186, 212],
+    [214, 212],
     [318, 212],
   ];
 
@@ -405,7 +405,19 @@
   }
 
   function truncateText(str: string, max: number): string {
-    return str.length > max ? `${str.slice(0, max - 1)}…` : str;
+    let width = 0;
+    let cutIdx = str.length;
+    let overflow = false;
+    for (let i = 0; i < str.length; i++) {
+      const w = /[\u3000-\u9fff\uff00-\uffef]/.test(str[i]) ? 1 : 0.62;
+      if (width + w > max) {
+        overflow = true;
+        break;
+      }
+      width += w;
+      if (width <= max - 0.8) cutIdx = i + 1;
+    }
+    return overflow ? `${str.slice(0, Math.max(1, cutIdx)).trimEnd()}…` : str;
   }
 
   function formatDisplayIP(ip: string): string {
@@ -416,7 +428,7 @@
 
   let v4Name = $derived(
     activeV4?.ip
-      ? `${dnsProviderName(activeV4.network, locale) || fl.v4Idle} · ${stackRegionLabel(activeV4, locale)}`
+      ? `${dnsProvider(activeV4.network) || fl.v4Idle} · ${stackRegionLabel(activeV4, locale)}`
       : isIdle
         ? fl.v4Idle
         : busy && !v4Done
@@ -429,7 +441,7 @@
 
   let v6Name = $derived(
     activeV6?.ip
-      ? `${dnsProviderName(activeV6.network, locale) || fl.v6Idle} · ${stackRegionLabel(activeV6, locale)}`
+      ? `${dnsProvider(activeV6.network) || fl.v6Idle} · ${stackRegionLabel(activeV6, locale)}`
       : isIdle
         ? fl.v6Idle
         : busy && !v6Done
@@ -539,7 +551,9 @@
       case 'v6':
         return activeV6?.ip
           ? fl.inspectorV6(v6Name, v6DisplayIP, activeV6.asn)
-          : fl.inspectorV6Empty;
+          : activeV4?.ip
+            ? fl.inspectorV6Empty
+            : fl.inspectorV6BothOffline;
       case 'v4':
         return activeV4?.ip
           ? fl.inspectorV4(v4Name, v4DisplayIP, activeV4.asn)
@@ -562,7 +576,7 @@
   let wireV6LeftLabel = $derived(fl.wireV6);
   let wireV6RightLabel = $derived(isV6Halted ? fl.wireDisconnected : locale === 'en' ? 'AAAA' : 'AAAA 出口');
   let wireV4LeftLabel = $derived(fl.wireV4);
-  let wireV4RightLabel = $derived(isV4Halted ? fl.wireDisconnected : locale === 'en' ? 'A Record' : 'A 出口');
+  let wireV4RightLabel = $derived(isV4Halted ? fl.wireDisconnected : locale === 'en' ? 'A' : 'A 出口');
   let wireV6LeftW = $derived(pillWidth(wireV6LeftLabel, 44));
   let wireV6RightW = $derived(pillWidth(wireV6RightLabel, 48));
   let wireV4LeftW = $derived(pillWidth(wireV4LeftLabel, 44));
@@ -749,8 +763,8 @@
   >
     <ellipse cx="0" cy="20" rx="30" ry="11" fill="rgba(0,0,0,0.52)" />
     {#if showJudgeRipple}
-      {@const pulseRx = verdictPulsing ? 26 + 15 * verdictPulseT : 38}
-      {@const pulseRy = verdictPulsing ? 10 + 6.5 * verdictPulseT : 16}
+      {@const pulseRx = verdictPulsing ? (compact ? 22 + 12 * verdictPulseT : 26 + 15 * verdictPulseT) : compact ? 34 : 38}
+      {@const pulseRy = verdictPulsing ? (compact ? 8 + 4.5 * verdictPulseT : 10 + 6.5 * verdictPulseT) : compact ? 12 : 16}
       <ellipse
         cx="0"
         cy="14"
@@ -761,10 +775,10 @@
         stroke-width="1.5"
         opacity={verdictPulsing ? 0.85 - 0.35 * verdictPulseT : 0.65}
       />
-      <ellipse cx="0" cy="14" rx="28" ry="11.5" fill="none" stroke={judgeAccent} stroke-width="1.2" opacity="0.85" />
+      <ellipse cx="0" cy="14" rx={compact ? 24 : 28} ry={compact ? 9 : 11.5} fill="none" stroke={judgeAccent} stroke-width="1.2" opacity="0.85" />
     {/if}
     {#if selectedNode === 'judge'}
-      <ellipse cx="0" cy="14" rx="40" ry="17" fill="none" stroke="var(--radar-400)" stroke-width="1.4" stroke-dasharray="4 3" />
+      <ellipse cx="0" cy="14" rx={compact ? 36 : 40} ry={compact ? 13 : 17} fill="none" stroke="var(--radar-400)" stroke-width="1.4" stroke-dasharray="4 3" />
     {/if}
     <polygon points="0,-10 24,2 0,14 -24,2" fill={`url(#${prefix}-top)`} stroke={judgeAccent} stroke-width="0.9" stroke-opacity="0.7" />
     <polygon points="-24,2 0,14 0,20 -24,8" fill={`url(#${prefix}-left)`} stroke="#334155" stroke-width="0.8" />
@@ -773,8 +787,8 @@
     <circle cx="0" cy="-8" r="4.5" fill={judgeAccent} opacity="0.95" />
     <path d="M 0 -22 V -16 M 0 0 V 6 M -14 -8 H -8 M 8 -8 H 14" stroke={judgeAccent} stroke-width="1.5" stroke-linecap="round" />
     <circle cx="0" cy="0" r="32" fill="transparent" />
-    <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#f8fafc" font-size={compact ? 11.5 : 12} font-weight="600">{fl.judgeNode}</text>
-    <text x="0" y={compact ? 48 : 53} text-anchor="middle" fill={judgeAccent} font-size="10.5" font-weight="600">
+    <text x="0" y={compact ? 40 : 44} text-anchor="middle" fill="#f8fafc" font-size={compact ? 11.5 : 12} font-weight="600" paint-order="stroke" stroke="#030917" stroke-width="4" stroke-linejoin="round">{fl.judgeNode}</text>
+    <text x="0" y={compact ? 54 : 59} text-anchor="middle" fill={judgeAccent} font-size="10.5" font-weight="600" paint-order="stroke" stroke="#030917" stroke-width="3.5" stroke-linejoin="round">
       {verdictTitleText}
     </text>
   </g>

@@ -59,9 +59,20 @@ func lookupCNProvinceCoords(region string) (lat, lon float64, ok bool) {
 	if key == "" {
 		return 0, 0, false
 	}
-	c, found := cnProvinceCoords[key]
-	if !found {
-		return 0, 0, false
+	if c, found := cnProvinceCoords[key]; found {
+		return c.lat, c.lon, true
 	}
-	return c.lat, c.lon, true
+	lower := strings.ToLower(strings.TrimSpace(region))
+	switch {
+	case strings.Contains(lower, "hong kong") || strings.Contains(lower, "香港"):
+		c := cnProvinceCoords["香港"]
+		return c.lat, c.lon, true
+	case strings.Contains(lower, "macau") || strings.Contains(lower, "macao") || strings.Contains(lower, "澳门") || strings.Contains(lower, "澳門"):
+		c := cnProvinceCoords["澳门"]
+		return c.lat, c.lon, true
+	case strings.Contains(lower, "taiwan") || strings.Contains(lower, "台湾") || strings.Contains(lower, "臺灣"):
+		c := cnProvinceCoords["台湾"]
+		return c.lat, c.lon, true
+	}
+	return 0, 0, false
 }

@@ -5,11 +5,11 @@
   import DNSFlowStage from './report/DNSFlowStage.svelte';
   import ExitIPAddress from './report/ExitIPAddress.svelte';
   import ReportToast from './report/ReportToast.svelte';
-  import { compareDNS, DNSCheckError, dnsNetworks, dnsProviderGroups, measureDNS, type DNSProgress } from '../lib/dnsCheck';
+  import { compareDNS, DNSCheckError, dnsNetworks, dnsProviderGroups, measureDNS, withDNSAssessment, type DNSProgress } from '../lib/dnsCheck';
   import { trackEvent } from '../lib/analytics';
   import { isAutomatedCrawler } from '../lib/crawler';
   import { dnsHistory, emptyDNSHistory, type DNSHistory } from '../lib/dnsHistory';
-  import { dnsExitType, dnsProviderName, dnsRegion, dnsVerdictNote, exitTypeLabel, getDnsStatus } from '../lib/dnsPresentation';
+  import { dnsExitType, dnsProvider, dnsRegion, dnsVerdictNote, exitTypeLabel, getDnsStatus } from '../lib/dnsPresentation';
   import { renderDNSShareCard, saveShareImage } from '../lib/toolShareCard';
   import { copyShareText, formatDNSShareText } from '../lib/shareSummary';
   import type { DNSExit } from '../lib/types';
@@ -38,7 +38,7 @@
   let toast: ReturnType<typeof ReportToast> | undefined = $state();
 
   let current = $derived(history.current);
-  let networks = $derived(current ? dnsNetworks(current, locale) : null);
+  let networks = $derived(current ? dnsNetworks(current) : null);
   let providers = $derived(networks ? dnsProviderGroups(networks.values(), locale) : []);
   let comparison = $derived(
     current && history.previous && networks
@@ -77,7 +77,12 @@
     }
     async function restore() {
       try {
-        history = await dnsHistory();
+        const stored = await dnsHistory();
+        const [cur, prev] = await Promise.all([
+          stored.current ? withDNSAssessment(stored.current, locale) : null,
+          stored.previous ? withDNSAssessment(stored.previous, locale) : null,
+        ]);
+        history = { current: cur, previous: prev };
       } catch {  }
       ready = true;
       const navigation = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined;
@@ -98,6 +103,7 @@
       const result = await measureDNS(
         (exit) => { pendingExit = exit; },
         (progress) => { liveProgress = progress; },
+        locale,
       );
       try {
         history = await dnsHistory(result, history.current);
@@ -123,7 +129,7 @@
         note,
         exit: current.exit,
         exitNetworkName: current.exit?.ip
-          ? (dnsProviderName(current.exit.network, locale) || m.common.unknownNetwork)
+          ? (dnsProvider(current.exit.network) || m.common.unknownNetwork)
           : m.common.unavailable,
         exitRegion: current.exit?.ip ? dnsRegion(current.exit.country, locale) : '',
         exitTypeLabel: current.exit?.ip ? exitTypeLabel(dnsExitType(current.exit), locale) : '',
@@ -140,7 +146,7 @@
       trackEvent('share-save-image', { page: 'dns' });
       toast?.show(shareMsg);
     } catch (err) {
-      toast?.show(m.common.imageFailed((err as Error).message));
+      toast?.show(m.common.imageFailed((err as Error).message), 'error');
     } finally {
       capturing = false;
     }
@@ -157,7 +163,7 @@
         note,
         exit: current.exit,
         exitNetworkName: current.exit?.ip
-          ? (dnsProviderName(current.exit.network, locale) || m.common.unknownNetwork)
+          ? (dnsProvider(current.exit.network) || m.common.unknownNetwork)
           : m.common.unavailable,
         exitRegion: current.exit?.ip ? dnsRegion(current.exit.country, locale) : '',
         exitTypeLabel: current.exit?.ip ? exitTypeLabel(dnsExitType(current.exit), locale) : '',
@@ -181,7 +187,7 @@
     {#if exit?.ip}
       {@const networkType = exitTypeLabel(dnsExitType(exit), locale)}
       <div class="network-identity exit-identity">
-        <span class="network-name">{dnsProviderName(exit.network, locale) || m.common.unknownNetwork}</span>
+        <span class="network-name">{dnsProvider(exit.network) || m.common.unknownNetwork}</span>
         <span class="region">{dnsRegion(exit.country, locale)}</span>
       </div>
       <div class="mt-0.5 mb-1.5">
@@ -339,6 +345,12 @@
         <div class="failure-card">
           <p class="verdict-title">{error.title}</p>
           <p class="diagnosis-note">{error.note}</p>
+          <button
+            type="button"
+            onclick={() => run('retest')}
+            class="mt-3 text-sm px-3.5 py-1.5 rounded-lg transition-colors cursor-pointer"
+            style="color:var(--radar-400); background:var(--sig-soft)"
+          >{m.common.rescan}</button>
         </div>
       </section>
     {:else}
@@ -416,7 +428,7 @@
                   <p>
                     {prefix}{#each removed as { name, region }, index}
                       {index > 0 ? (locale === 'en' ? ', ' : '、') : ''}{#if region}
-                        {name}<s>{region}</s>
+                        {name}{locale === 'en' && region.startsWith(' ') ? ' ' : ''}<s>{locale === 'en' ? region.trim() : region}</s>
                       {:else}
                         <s>{name}</s>
                       {/if}
@@ -439,7 +451,7 @@
           <li>{m.dns.page.rules[0]}</li>
           <li>{m.dns.page.rules[1]}<strong>{statusMap.suspected.title}</strong></li>
           <li>
-            {m.dns.page.rules[2]}<strong>{statusMap.clear.title}</strong>{locale === 'en' ? ' — see ' : '，完整口径见 '}<a href={localePath('/about/#dns', locale)} class="text-(--radar-400) underline underline-offset-4">{m.common.fullCriteriaLink}</a>
+            {m.dns.page.rules[2]}<strong>{statusMap.clear.title}</strong>{locale === 'en' ? ' — see the ' : '，完整口径见 '}<a href={localePath('/about/#dns', locale)} class="text-(--radar-400) underline underline-offset-4">{m.common.fullCriteriaLink}</a>
           </li>
         </ul>
       </aside>

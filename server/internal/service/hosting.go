@@ -79,10 +79,10 @@ type HostingDetector struct {
 	mu     sync.RWMutex
 	dbPath string
 
-	cloudIPRepo   *repository.CloudIPRangeRepository
-	providerRepo  *repository.HostingProviderRepository
-	keywordRepo   *repository.HostingKeywordRepository
-	accessASNRepo *repository.AccessASNRepository
+	cloudIPRepo  *repository.CloudIPRangeRepository
+	providerRepo *repository.HostingProviderRepository
+	keywordRepo  *repository.HostingKeywordRepository
+	catalog      *NetworkCatalog
 
 	lookupASNRecord func(ip net.IP) (ASNRecord, error)
 	lookupCymru     func(ipStr string) ([]CymruASNInfo, error)
@@ -124,8 +124,8 @@ func NewHostingDetector(asnDBPath string, cloudIPRepo *repository.CloudIPRangeRe
 	return d, nil
 }
 
-func (d *HostingDetector) SetAccessASNRepo(repo *repository.AccessASNRepository) {
-	d.accessASNRepo = repo
+func (d *HostingDetector) SetCatalog(cat *NetworkCatalog) {
+	d.catalog = cat
 }
 
 func (d *HostingDetector) now() time.Time {
@@ -234,6 +234,7 @@ func (d *HostingDetector) Detect(ipStr string) (*HostingResult, error) {
 			result.IsHosting = true
 			result.Confidence = 100
 			result.Method = "cloud_ip_range"
+			applyCloudRangeMetadata(result, cloudRange)
 			return result, nil
 		}
 	}
@@ -244,7 +245,9 @@ func (d *HostingDetector) Detect(ipStr string) (*HostingResult, error) {
 	}
 
 	result.ASN = record.ASNumber
-	result.ASNStr = fmt.Sprintf("AS%d", record.ASNumber)
+	if record.ASNumber > 0 {
+		result.ASNStr = fmt.Sprintf("AS%d", record.ASNumber)
+	}
 	result.Org = record.ASOrg
 
 	cymruASNs, cymruErr := d.cachedLookupCymru(ipStr)
@@ -301,6 +304,11 @@ func (d *HostingDetector) Detect(ipStr string) (*HostingResult, error) {
 	if isResidential {
 		result.IsHosting = false
 		result.IsResidential = true
+		if d.catalog != nil && result.ASN > 0 {
+			if access, ok := d.catalog.LookupAccessASN(result.ASN); ok && access.NetworkKind == "mobile" {
+				result.IsMobile = true
+			}
+		}
 		result.Confidence = 90
 		result.Method = "rdns_residential"
 		return result, nil
@@ -324,8 +332,8 @@ func (d *HostingDetector) Detect(ipStr string) (*HostingResult, error) {
 		}
 	}
 
-	if d.accessASNRepo != nil && result.ASN > 0 {
-		if access, err := d.accessASNRepo.FindByASN(result.ASN); err == nil && access != nil {
+	if d.catalog != nil && result.ASN > 0 {
+		if access, ok := d.catalog.LookupAccessASN(result.ASN); ok {
 			result.IsHosting = false
 			result.IsResidential = true
 			result.IsMobile = access.NetworkKind == "mobile"
@@ -413,9 +421,8 @@ func (d *HostingDetector) GetStats() map[string]interface{} {
 		stats["cloud_ip_range_count"] = count
 	}
 
-	if d.accessASNRepo != nil {
-		count, _ := d.accessASNRepo.Count()
-		stats["access_asn_count"] = count
+	if d.catalog != nil {
+		stats["access_asn_count"] = d.catalog.Stats()["access_asn_count"]
 	}
 
 	return stats
@@ -500,4 +507,90 @@ func (d *HostingDetector) checkASNsInBlacklist(asns []CymruASNInfo) (*repository
 	}
 
 	return nil, nil
+}
+
+type cloudProviderMeta struct {
+	ASN  uint64
+	Name string
+}
+
+var cloudProviderDefaults = map[string]cloudProviderMeta{
+	"aws":          {Name: "Amazon Web Services"},
+	"gcp":          {ASN: 15169, Name: "Google Cloud"},
+	"azure":        {ASN: 8075, Name: "Microsoft Azure"},
+	"cloudflare":   {ASN: 13335, Name: "Cloudflare"},
+	"oracle":       {ASN: 31898, Name: "Oracle Cloud"},
+	"digitalocean": {ASN: 14061, Name: "DigitalOcean"},
+	"linode":       {ASN: 63949, Name: "Akamai / Linode"},
+	"vultr":        {ASN: 20473, Name: "Vultr"},
+	"fastly":       {ASN: 54113, Name: "Fastly"},
+	"bunny":        {Name: "Bunny CDN"},
+	"zscaler":      {Name: "Zscaler"},
+	"hetzner":      {Name: "Hetzner"},
+	"ovh":          {ASN: 16276, Name: "OVHcloud"},
+	"contabo":      {ASN: 51167, Name: "Contabo"},
+	"leaseweb":     {Name: "Leaseweb"},
+	"gcore":        {ASN: 199524, Name: "Gcore"},
+	"scaleway":     {ASN: 12876, Name: "Scaleway"},
+	"netcup":       {ASN: 197540, Name: "netcup"},
+	"softlayer":    {ASN: 36351, Name: "IBM Cloud"},
+	"buyvm":        {ASN: 53667, Name: "BuyVM"},
+	"hosthatch":    {ASN: 63473, Name: "HostHatch"},
+	"alibaba":      {Name: "Alibaba Cloud"},
+	"tencent":      {Name: "Tencent Cloud"},
+	"huawei":       {Name: "Huawei Cloud"},
+	"akamai":       {Name: "Akamai"},
+	"rackspace":    {Name: "Rackspace"},
+	"godaddy":      {ASN: 26496, Name: "GoDaddy"},
+	"namecheap":    {ASN: 22612, Name: "Namecheap"},
+	"m247":         {ASN: 9009, Name: "M247"},
+	"selectel":     {ASN: 49505, Name: "Selectel"},
+	"sakura":       {Name: "Sakura Internet"},
+	"flyio":        {ASN: 40509, Name: "Fly.io"},
+	"datacamp":     {ASN: 60068, Name: "DataCamp"},
+	"kamatera":     {ASN: 36007, Name: "Kamatera"},
+	"aeza":         {ASN: 210644, Name: "Aeza"},
+	"timeweb":      {ASN: 9123, Name: "Timeweb"},
+}
+
+func parseServiceASNAndOrg(service string) (uint64, string) {
+	s := strings.TrimSpace(service)
+	if len(s) < 3 || !strings.EqualFold(s[:2], "AS") {
+		return 0, s
+	}
+	rest := s[2:]
+	end := 0
+	for end < len(rest) && rest[end] >= '0' && rest[end] <= '9' {
+		end++
+	}
+	if end == 0 {
+		return 0, s
+	}
+	asn, err := strconv.ParseUint(rest[:end], 10, 64)
+	if err != nil || asn == 0 {
+		return 0, s
+	}
+	return asn, strings.TrimSpace(rest[end:])
+}
+
+func applyCloudRangeMetadata(result *HostingResult, cloudRange *repository.CloudIPRange) {
+	if result == nil || cloudRange == nil {
+		return
+	}
+	serviceASN, serviceOrg := parseServiceASNAndOrg(cloudRange.Service)
+	meta := cloudProviderDefaults[strings.ToLower(strings.TrimSpace(cloudRange.Provider))]
+
+	asn := serviceASN
+	if asn == 0 {
+		asn = meta.ASN
+	}
+	if asn > 0 {
+		result.ASN = asn
+		result.ASNStr = fmt.Sprintf("AS%d", asn)
+	}
+	if meta.Name != "" {
+		result.Org = meta.Name
+	} else if serviceOrg != "" {
+		result.Org = serviceOrg
+	}
 }

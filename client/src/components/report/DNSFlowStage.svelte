@@ -2,7 +2,7 @@
   import { onDestroy } from 'svelte';
   import { getMessages, joinList, type Locale } from '../../i18n';
   import type { DNSProgress } from '../../lib/dnsCheck';
-  import { dnsProviderName, dnsRegion, isLiveResolverSuspect } from '../../lib/dnsPresentation';
+  import { dnsProvider, dnsRegion, isLiveResolverSuspect } from '../../lib/dnsPresentation';
   import { maskIP } from '../../lib/ipDisplay';
   import type { DNSExit } from '../../lib/types';
 
@@ -71,21 +71,21 @@
 
   const DESKTOP_DNS: readonly Pt[] = [
     [106, 148],
-    [186, 84],
+    [214, 84],
     [380, 84],
-    [574, 84],
+    [546, 84],
     [654, 148],
   ];
   const DESKTOP_DNS_HALT: readonly Pt[] = [
     [106, 148],
-    [186, 84],
+    [214, 84],
     [318, 84],
   ];
   const DESKTOP_HTTPS: readonly Pt[] = [
     [106, 148],
-    [186, 212],
+    [214, 212],
     [380, 212],
-    [574, 212],
+    [546, 212],
     [654, 148],
   ];
 
@@ -302,7 +302,7 @@
   let activeProviders = $derived.by<DNSFlowProviderSummary[]>(() => {
     if (busy && liveProgress) {
       return liveProgress.resolvers.map((r) => ({
-        name: dnsProviderName(r.isp, locale) || r.isp || fl.resolverDefault,
+        name: dnsProvider(r.isp) || r.isp || fl.resolverDefault,
         country: r.country,
         type: r.network_type,
         suspect: isLiveResolverSuspect(activeExit, r),
@@ -458,14 +458,26 @@
   }
 
   function truncateText(str: string, max: number): string {
-    return str.length > max ? `${str.slice(0, max - 1)}…` : str;
+    let width = 0;
+    let cutIdx = str.length;
+    let overflow = false;
+    for (let i = 0; i < str.length; i++) {
+      const w = /[\u3000-\u9fff\uff00-\uffef]/.test(str[i]) ? 1 : 0.62;
+      if (width + w > max) {
+        overflow = true;
+        break;
+      }
+      width += w;
+      if (width <= max - 0.8) cutIdx = i + 1;
+    }
+    return overflow ? `${str.slice(0, Math.max(1, cutIdx)).trimEnd()}…` : str;
   }
 
   let isIdle = $derived(!busy && !hasResult);
 
   let exitName = $derived(
     activeExit?.ip
-      ? `${dnsProviderName(activeExit.network, locale) || fl.exitDefault} · ${dnsRegion(activeExit.country, locale)}`
+      ? `${dnsProvider(activeExit.network) || fl.exitDefault} · ${dnsRegion(activeExit.country, locale)}`
       : isIdle
         ? fl.exitIdle
         : fl.exitFetching,
@@ -776,10 +788,10 @@
     <circle cx="0" cy="0" r="30" fill="transparent" />
     {#if compact}
       <text x="0" y="36" text-anchor="middle" fill="#f8fafc" font-size="11.5" font-weight="600">{truncateText(exitName, 16)}</text>
-      <text x="0" y="51" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeExit?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{activeExit?.ip ? exitDisplayIP : isIdle ? m.common.idle : fl.exitWaitingCompact}</text>
+      <text x="0" y="51" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeExit?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{activeExit?.ip ? truncateText(exitDisplayIP, 16) : isIdle ? m.common.idle : fl.exitWaitingCompact}</text>
     {:else}
       <text x="0" y="38" text-anchor="middle" fill="#f8fafc" font-size="12" font-weight="600">{truncateText(exitName, 26)}</text>
-      <text x="0" y="53" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeExit?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{activeExit?.ip ? `${exitDisplayIP} · ${fl.exitSuffix}` : isIdle ? m.common.idle : fl.exitSuffix}</text>
+      <text x="0" y="53" text-anchor="middle" fill="#94a3b8" font-size="10.5" font-family={activeExit?.ip ? "'JetBrains Mono', ui-monospace, monospace" : undefined}>{activeExit?.ip ? `${truncateText(exitDisplayIP, 28)} · ${fl.exitSuffix}` : isIdle ? m.common.idle : fl.exitSuffix}</text>
     {/if}
   </g>
 
@@ -795,8 +807,8 @@
   >
     <ellipse cx="0" cy="20" rx="30" ry="11" fill="rgba(0,0,0,0.52)" />
     {#if showAuthorityRipple}
-      {@const pulseRx = verdictPulsing ? 26 + 15 * verdictPulseT : 38}
-      {@const pulseRy = verdictPulsing ? 10 + 6.5 * verdictPulseT : 16}
+      {@const pulseRx = verdictPulsing ? (compact ? 22 + 12 * verdictPulseT : 26 + 15 * verdictPulseT) : compact ? 34 : 38}
+      {@const pulseRy = verdictPulsing ? (compact ? 8 + 4.5 * verdictPulseT : 10 + 6.5 * verdictPulseT) : compact ? 12 : 16}
       <ellipse
         cx="0"
         cy="14"
@@ -807,10 +819,10 @@
         stroke-width="1.5"
         opacity={verdictPulsing ? 0.85 - 0.35 * verdictPulseT : 0.65}
       />
-      <ellipse cx="0" cy="14" rx="28" ry="11.5" fill="none" stroke={dnsAccent} stroke-width="1.2" opacity="0.85" />
+      <ellipse cx="0" cy="14" rx={compact ? 24 : 28} ry={compact ? 9 : 11.5} fill="none" stroke={dnsAccent} stroke-width="1.2" opacity="0.85" />
     {/if}
     {#if selectedNode === 'authority'}
-      <ellipse cx="0" cy="14" rx="40" ry="17" fill="none" stroke="var(--radar-400)" stroke-width="1.4" stroke-dasharray="4 3" />
+      <ellipse cx="0" cy="14" rx={compact ? 36 : 40} ry={compact ? 13 : 17} fill="none" stroke="var(--radar-400)" stroke-width="1.4" stroke-dasharray="4 3" />
     {/if}
     <polygon points="0,-10 24,2 0,14 -24,2" fill={`url(#${prefix}-top)`} stroke={dnsAccent} stroke-width="0.9" stroke-opacity="0.7" />
     <polygon points="-24,2 0,14 0,20 -24,8" fill={`url(#${prefix}-left)`} stroke="#334155" stroke-width="0.8" />
@@ -819,8 +831,8 @@
     <circle cx="0" cy="-8" r="4.5" fill={dnsAccent} opacity="0.95" />
     <path d="M 0 -22 V -16 M 0 0 V 6 M -14 -8 H -8 M 8 -8 H 14" stroke={dnsAccent} stroke-width="1.5" stroke-linecap="round" />
     <circle cx="0" cy="0" r="32" fill="transparent" />
-    <text x="0" y={compact ? 34 : 38} text-anchor="middle" fill="#f8fafc" font-size={compact ? 11.5 : 12} font-weight="600">{fl.authorityNode}</text>
-    <text x="0" y={compact ? 48 : 53} text-anchor="middle" fill={dnsAccent} font-size="10.5" font-weight="600">
+    <text x="0" y={compact ? 40 : 44} text-anchor="middle" fill="#f8fafc" font-size={compact ? 11.5 : 12} font-weight="600" paint-order="stroke" stroke="#030917" stroke-width="4" stroke-linejoin="round">{fl.authorityNode}</text>
+    <text x="0" y={compact ? 54 : 59} text-anchor="middle" fill={dnsAccent} font-size="10.5" font-weight="600" paint-order="stroke" stroke="#030917" stroke-width="3.5" stroke-linejoin="round">
       {verdictTitleText}
     </text>
   </g>

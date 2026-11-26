@@ -59,14 +59,18 @@
         <div class="flex items-center gap-2.5">
           <span class="dot" style="background:{stateVar(r.state)}; --_soft:{stateSoft(r.state)}"></span>
           <span class="text-sm text-(--slate-400) shrink-0">{r.label}</span>
-          <div class="text-right flex-1 min-w-0">
+          <div class="text-right flex-1 min-w-0 wrap-anywhere">
             {#if r.compare}
               <span class="text-sm text-(--slate-200)">
-                <span class="text-[10px] text-(--slate-500) font-mono">{m.home.readout.browserTag}</span>
-                {r.compare.browser}
-                <span class="text-(--slate-600) mx-0.5">↔</span>
-                <span class="text-[10px] text-(--slate-500) font-mono">{m.home.readout.ipTag}</span>
-                {r.compare.ip}
+                <span class="inline-flex items-baseline gap-1">
+                  <span class="text-[10px] text-(--slate-500) font-mono shrink-0">{m.home.readout.browserTag}</span>
+                  <span>{r.compare.browser}</span>
+                </span>
+                <span class="text-(--slate-600) mx-1">↔</span>
+                <span class="inline-flex items-baseline gap-1">
+                  <span class="text-[10px] text-(--slate-500) font-mono shrink-0">{m.home.readout.ipTag}</span>
+                  <span>{r.compare.ip}</span>
+                </span>
               </span>
             {:else if r.href}
               <a

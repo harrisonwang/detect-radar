@@ -274,6 +274,7 @@ async function main() {
         '--headless=new',
         '--disable-gpu',
         '--hide-scrollbars',
+        '--force-device-scale-factor=1',
         '--window-size=1200,630',
         `--screenshot=${outPath}`,
         `file://${htmlPath}`,

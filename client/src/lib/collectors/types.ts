@@ -65,6 +65,7 @@ export interface DNSLeakData {
 export interface IPv6LeakData {
   leaked: boolean;
   ipv6_address: string | null;
+  ipv4_address?: string | null;
 }
 
 export interface LeaksResults {

@@ -17,7 +17,7 @@ export async function recentHistory<T extends { time: number }>(
     open.onupgradeneeded = () => open.result.createObjectStore('checks');
     open.onsuccess = () => resolve(open.result);
     open.onerror = () => reject(open.error);
-    open.onblocked = () => reject(new Error('历史记录暂不可用'));
+    open.onblocked = () => reject(new Error('IndexedDB history unavailable'));
   });
 
   try {

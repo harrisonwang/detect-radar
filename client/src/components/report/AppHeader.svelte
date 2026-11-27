@@ -123,7 +123,6 @@
       <a href={localePath('/', locale)} class="brand flex items-center gap-1.5 sm:gap-3 group">
         <span class="relative size-6 sm:size-8 flex items-center justify-center">
           <i class="fa-solid fa-crosshairs text-(--radar-400) text-xl group-hover:rotate-180 transition-transform duration-700"></i>
-          <span class="absolute inset-0 bg-(--radar-400)/2 rounded-full animate-ping-slow"></span>
         </span>
         <span class="text-lg sm:text-xl font-bold tracking-tight text-white font-mono">Detect<span class="text-(--radar-400)">Radar</span></span>
       </a>

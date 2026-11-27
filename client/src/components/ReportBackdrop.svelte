@@ -1,4 +1,5 @@
-<div class="fixed inset-0 overflow-hidden pointer-events-none" aria-hidden="true">
-  <div class="absolute top-[-10%] left-[-10%] w-125 h-125 bg-(--radar-500)/10 rounded-full blur-[120px]"></div>
-  <div class="absolute bottom-[-10%] right-[-10%] w-150 h-150 bg-blue-600/10 rounded-full blur-[120px]"></div>
-</div>
+<div
+  class="absolute inset-0 pointer-events-none"
+  style="background: radial-gradient(38rem 38rem at 6% 6rem, rgba(34, 197, 94, 0.08), transparent 70%), radial-gradient(44rem 44rem at 94% calc(100% - 6rem), rgba(37, 99, 235, 0.09), transparent 70%)"
+  aria-hidden="true"
+></div>

@@ -69,10 +69,7 @@ body {
 }
 
 .glass-card {
-  background: rgba(30, 41, 59, 0.55);
-  -webkit-backdrop-filter: blur(12px);
-  backdrop-filter: blur(12px);
-  isolation: isolate;
+  background: rgba(21, 31, 48, 0.78);
   border: 1px solid var(--line);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 }
@@ -117,19 +114,12 @@ body {
   animation: radar-spin 3.6s linear infinite;
 }
 
-@keyframes ping-slow {
-  75%, 100% { transform: scale(2); opacity: 0; }
-}
-.animate-ping-slow {
-  animation: ping-slow 3s cubic-bezier(0, 0, 0.2, 1) infinite;
-}
-
 @keyframes reveal-up {
   from { opacity: 0; transform: translateY(12px); }
   to { opacity: 1; transform: none; }
 }
 .reveal {
-  animation: reveal-up 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: reveal-up 0.5s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
 }
 
 @keyframes scan-settle {
@@ -137,12 +127,12 @@ body {
   to { opacity: 1; transform: none; }
 }
 .scan-settle {
-  animation: scan-settle 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation: scan-settle 0.42s cubic-bezier(0.2, 0.7, 0.2, 1) backwards;
 }
 .radar-node {
   transform-box: fill-box;
   transform-origin: center;
-  animation: radar-node-pop 0.42s cubic-bezier(0.2, 0.85, 0.3, 1.15) both;
+  animation: radar-node-pop 0.42s cubic-bezier(0.2, 0.85, 0.3, 1.15) backwards;
 }
 @keyframes radar-node-pop {
   from { opacity: 0; transform: scale(0.45); }
@@ -153,7 +143,7 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .reveal, .scan-settle, .radar-node, .animate-radar-spin, .animate-ping-slow { animation: none; }
+  .reveal, .scan-settle, .radar-node, .animate-radar-spin { animation: none; }
   .reveal { opacity: 1; transform: none; }
 }
 

@@ -74,20 +74,11 @@ const PREVIEW_LANG_SUFFIX = locale === 'en' ? '-en' : '';
 const PREVIEWS = [
   {
     id: 'clean-dark',
-    label: m.macos.previews.darkLabel,
+    label: m.macos.previews.cleanLabel,
     src: `/images/macos-bar-preview-dark${PREVIEW_LANG_SUFFIX}-v3.png`,
     width: 672,
     height: 502,
-    alt: m.macos.previews.darkAlt,
-    alertDot: false,
-  },
-  {
-    id: 'clean-light',
-    label: m.macos.previews.lightLabel,
-    src: `/images/macos-bar-preview-light${PREVIEW_LANG_SUFFIX}-v3.png`,
-    width: 672,
-    height: 502,
-    alt: m.macos.previews.lightAlt,
+    alt: m.macos.previews.cleanAlt,
     alertDot: false,
   },
   {
@@ -419,13 +410,6 @@ const copiedFallback = m.macos.copiedFallback;
         background-color 180ms ease,
         border-color 180ms ease,
         box-shadow 180ms ease;
-    }
-    .preview-stage[data-state='clean-light'] {
-      background: #d9e2ef;
-      border-color: rgba(255, 255, 255, 0.22);
-      box-shadow:
-        0 24px 60px -16px rgba(2, 6, 23, 0.85),
-        0 0 44px -18px rgba(148, 163, 184, 0.18);
     }
     .preview-stage[data-state='alert-dark'] {
       background: #0e1420;

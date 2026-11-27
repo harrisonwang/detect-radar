@@ -1,0 +1,8 @@
+#!name = DetectRadar Exit Check
+#!desc = Long-press a node to inspect exit IP, geolocation, ASN, ISP/Datacenter type, Cloudflare Radar 30-day ASN human traffic ratio, and IPv6 bypass leak
+#!author = DetectRadar
+#!homepage = https://detectradar.com/en/
+#!icon = https://detectradar.com/icon-192.png
+
+[Script]
+generic script-path=https://raw.githubusercontent.com/harrisonwang/detect-radar/main/modules/scripts/detectradar-panel.js, tag=DetectRadar Exit Check, timeout=10, img-url=https://detectradar.com/icon-192.png, argument=lang=en&ipv6=true&hide_ip=false

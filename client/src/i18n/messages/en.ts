@@ -193,20 +193,29 @@ export const en = {
         `Minimum round-trip time to DetectRadar${jitter ? `, jitter ${jitter} ms` : ''}`,
       rttTcpTooltip: 'Server-side TCP RTT measured on the probe connection',
       rttDeltaTooltip: 'Difference between application RTT and server TCP RTT in the same window',
-      rttMtuTooltip: (mss: number | null, ipVersion: number | null) =>
-        mss
-          ? `Estimated from peer TCP MSS ${mss} B (${ipVersion === 6 ? 'IPv6 +60' : 'IPv4 +40'}); standard Ethernet is typically 1500`
-          : 'Estimated path MTU from the current TCP connection',
+      rttMtuTooltip: (mss: number | null, ipVersion: number | null, clamped?: boolean, serverMTU?: number | null) => {
+        if (!mss) return 'Estimated path MTU from the current TCP connection';
+        const base = `Estimated from peer TCP MSS ${mss} B (${ipVersion === 6 ? 'IPv6 +60' : 'IPv4 +40'}); standard Ethernet is typically 1500`;
+        return clamped && serverMTU
+          ? `${base}. Clamped by probe server link MTU (${serverMTU}), so 1492 PPPoE and 1500 Ethernet cannot be distinguished`
+          : base;
+      },
+      connCharHelpLabel: 'View connection characteristics details',
       connChar: {
         no_obvious_anomalies: 'No Obvious Anomalies',
         pppoe: 'PPPoE Characteristics',
+        low_mtu: 'Low MTU Link',
         suspected_tunneling: 'Suspected Tunneling',
         suspected_proxy_relay: 'Suspected Proxy Relay',
         inconclusive: 'Inconclusive',
       },
       connCharNote: {
+        no_obvious_anomalies: 'No anomalies observed in RTT delta or estimated MTU; this alone does not prove a direct connection',
+        no_obvious_anomalies_clamped: (serverMTU: number) =>
+          `No anomaly in RTT delta; estimated MTU reached probe server limit (${serverMTU}), so 1492 PPPoE vs. 1500 cannot be observed`,
         pppoe: 'Matches typical PPPoE encapsulation (MTU 1492), though not exclusive to PPPoE',
-        suspected_tunneling: 'Estimated MTU is below standard Ethernet (1500), common with WireGuard/IPsec tunnels, cellular, or low-MTU links',
+        low_mtu: 'Estimated MTU is below standard Ethernet (1500), common on cellular networks, low-MTU broadband, or WireGuard/IPsec tunnels',
+        suspected_tunneling: 'Exit link estimated MTU is well below standard Ethernet (1500), typical of Layer-3 tunnels such as WireGuard, WARP, or IPsec',
         suspected_proxy_relay: 'Application RTT significantly exceeds server TCP RTT; connection may be relayed through a proxy',
         pppoe_proxy: 'Exit link shows PPPoE-like MTU (1492) alongside elevated application-vs-TCP RTT delta',
         tunnel_proxy: 'Connection may be relayed via proxy while the exit link also shows low-MTU tunneling (e.g. WireGuard / WARP)',
@@ -832,7 +841,7 @@ export const en = {
   },
   macos: {
     heroAria: 'DetectRadar for macOS overview and download',
-    subtitle: 'See your exit IP, ISP/datacenter status, and IPv6 leak alerts in the macOS menu bar (app UI is currently in Chinese; IPv6 alerts focus on Mainland China).',
+    subtitle: 'See your exit IP, ISP/Datacenter status, and IPv6 leak alerts right in the macOS menu bar.',
     downloadLabel: 'Download for macOS',
     downloadGithubAria: 'Open GitHub Releases to download DetectRadar for macOS',
     downloadDirectAria: 'Download DetectRadar for macOS disk image (.dmg)',
@@ -847,11 +856,11 @@ export const en = {
     previewGroupAria: 'Switch preview state',
     previews: {
       darkLabel: 'Dark',
-      darkAlt: 'DetectRadar for macOS dark mode preview (Chinese UI) showing exit IP, ISP, and quick actions',
+      darkAlt: 'DetectRadar for macOS dark mode preview showing exit IP, Datacenter badge, provider, and quick actions',
       lightLabel: 'Light',
-      lightAlt: 'DetectRadar for macOS light mode preview (Chinese UI) showing exit region, IP, and datacenter badge',
+      lightAlt: 'DetectRadar for macOS light mode preview showing exit region, IP, and Datacenter badge',
       alertLabel: 'IPv6 Leak',
-      alertAlt: 'DetectRadar for macOS IPv6 leak alert preview (Chinese UI) showing a warning badge in the menu bar',
+      alertAlt: 'DetectRadar for macOS IPv6 leak alert preview showing a warning badge in the menu bar and inline leak notice',
     },
     agentTag: 'Terminal Self-Check',
     agentHeading: 'Let your AI coding agent inspect terminal routing',
@@ -862,7 +871,7 @@ export const en = {
     agentCopied: 'Agent prompt copied',
     modulesTag: 'Proxy Panel Modules',
     modulesHeading: 'Surge / Stash / Loon Panel Modules',
-    modulesDesc: 'Inspect exit IP type, 30-day ASN human traffic, and IPv6 bypass inside your proxy client (fast local lookup; module UI is currently in Chinese).',
+    modulesDesc: 'Inspect exit IP type, 30-day ASN human traffic, and IPv6 bypass inside your proxy client (fast local lookup).',
     moduleCopyTitle: (name: string) => `Copy ${name} module URL`,
     moduleCopied: (name: string) => `${name} module URL copied`,
     copiedFallback: 'Copied',
@@ -932,7 +941,7 @@ export const en = {
     },
     macos: {
       title: 'macOS Menu Bar App: Exit IP & IPv6 Leak Monitor',
-      description: 'DetectRadarBar for macOS: view exit IP, ISP/datacenter status, and IPv6 alerts in the menu bar (Chinese UI), plus English SKILL.md CLI checks and proxy modules.',
+      description: 'DetectRadarBar for macOS: view exit IP, ISP/Datacenter status, and IPv6 leak alerts in the menu bar, plus AI agent SKILL.md CLI checks and Surge/Stash/Loon modules.',
     },
   },
 } satisfies Messages;

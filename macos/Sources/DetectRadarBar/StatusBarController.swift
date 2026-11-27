@@ -18,12 +18,18 @@ final class StatusBarController: NSObject, NSWindowDelegate {
     private var isRefreshing = false
     private var lastRefreshAt: Date = .distantPast
     private let isBundledApp = Bundle.main.bundleURL.pathExtension == "app"
+    private let language: AppLanguage
+
+    init(language: AppLanguage = AppLanguage.resolve()) {
+        self.language = language
+        super.init()
+    }
 
     func start() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = item.button {
             button.font = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .medium)
-            button.title = IPMasker.menuBarTitle(snapshot: nil, isLoading: true)
+            button.title = IPMasker.menuBarTitle(snapshot: nil, isLoading: true, language: language)
             button.toolTip = "DetectRadar"
             button.target = self
             button.action = #selector(togglePanel(_:))
@@ -79,11 +85,11 @@ final class StatusBarController: NSObject, NSWindowDelegate {
             syncPanelContent(forceRebuild: snapshot != previousSnapshot || previousSnapshot == nil)
         }
 
-        snapshot = await probeClient.runProbe()
+        snapshot = await probeClient.runProbe(language: language)
     }
 
     private func updateTitle() {
-        statusItem?.button?.title = IPMasker.menuBarTitle(snapshot: snapshot, isLoading: isRefreshing)
+        statusItem?.button?.title = IPMasker.menuBarTitle(snapshot: snapshot, isLoading: isRefreshing, language: language)
     }
 
     private func syncPanelContent(forceRebuild: Bool) {
@@ -91,6 +97,7 @@ final class StatusBarController: NSObject, NSWindowDelegate {
         contentView.configure(
             snapshot: snapshot,
             isRefreshing: isRefreshing,
+            language: language,
             launchAtLoginEnabled: loginEnabled,
             launchAtLoginAvailable: isBundledApp,
             forceRebuild: forceRebuild,
@@ -215,12 +222,12 @@ final class StatusBarController: NSObject, NSWindowDelegate {
     }
 
     private func openIPv6Check() {
-        let url = ProbeEndpoints().mainBaseURL.appendingPathComponent("ipv6-leak-test/")
+        let url = ProbeEndpoints(language: language).ipv6CheckURL
         NSWorkspace.shared.open(url)
     }
 
     private func openWebHome() {
-        NSWorkspace.shared.open(ProbeEndpoints().mainBaseURL)
+        NSWorkspace.shared.open(ProbeEndpoints(language: language).webHomeURL)
     }
 
     private func toggleLaunchAtLogin() {
@@ -357,6 +364,7 @@ final class PopoverContentView: NSView {
     private struct RenderSignature: Equatable {
         let snapshot: EgressSnapshot?
         let isRefreshingWhileNil: Bool
+        let language: AppLanguage
         let launchAtLoginEnabled: Bool
         let launchAtLoginAvailable: Bool
     }
@@ -388,6 +396,7 @@ final class PopoverContentView: NSView {
     static func make(
         snapshot: EgressSnapshot?,
         isRefreshing: Bool,
+        language: AppLanguage = .zh,
         launchAtLoginEnabled: Bool,
         launchAtLoginAvailable: Bool,
         previewBackgroundColor: NSColor? = nil,
@@ -404,6 +413,7 @@ final class PopoverContentView: NSView {
         view.configure(
             snapshot: snapshot,
             isRefreshing: isRefreshing,
+            language: language,
             launchAtLoginEnabled: launchAtLoginEnabled,
             launchAtLoginAvailable: launchAtLoginAvailable,
             forceRebuild: true,
@@ -489,6 +499,7 @@ final class PopoverContentView: NSView {
     func configure(
         snapshot: EgressSnapshot?,
         isRefreshing: Bool,
+        language: AppLanguage,
         launchAtLoginEnabled: Bool,
         launchAtLoginAvailable: Bool,
         forceRebuild: Bool,
@@ -508,6 +519,7 @@ final class PopoverContentView: NSView {
         let sig = RenderSignature(
             snapshot: snapshot,
             isRefreshingWhileNil: snapshot == nil && isRefreshing,
+            language: language,
             launchAtLoginEnabled: launchAtLoginEnabled,
             launchAtLoginAvailable: launchAtLoginAvailable
         )
@@ -517,11 +529,13 @@ final class PopoverContentView: NSView {
         rebuildDisplayZone(
             snapshot: snapshot,
             isRefreshing: isRefreshing,
+            language: language,
             onCopyIP: onCopyIP,
             onOpenIPv6Check: onOpenIPv6Check,
             onRetry: onRetry
         )
         rebuildActionZone(
+            language: language,
             launchAtLoginEnabled: launchAtLoginEnabled,
             launchAtLoginAvailable: launchAtLoginAvailable,
             onOpenWebHome: onOpenWebHome,
@@ -533,6 +547,7 @@ final class PopoverContentView: NSView {
     private func rebuildDisplayZone(
         snapshot: EgressSnapshot?,
         isRefreshing: Bool,
+        language: AppLanguage,
         onCopyIP: @escaping (String) -> Void,
         onOpenIPv6Check: @escaping () -> Void,
         onRetry: @escaping () -> Void
@@ -545,13 +560,16 @@ final class PopoverContentView: NSView {
         let primary = snapshot?.activeV4 ?? snapshot?.directV6
 
         guard let primary else {
+            let loadingTitle = language == .en ? "Checking exit IP…" : "正在检测当前出口…"
+            let offlineTitle = language == .en ? "Unable to reach DetectRadar" : "无法连接到 DetectRadar"
+            let offlineFallback = language == .en ? "Check your network connection" : "请检查网络连接"
             let titleField = makeLabel(
-                snapshot == nil && isRefreshing ? "正在检测当前出口…" : "无法连接到 DetectRadar",
+                snapshot == nil && isRefreshing ? loadingTitle : offlineTitle,
                 font: .systemFont(ofSize: 13, weight: .semibold),
                 color: snapshot == nil && isRefreshing ? .secondaryLabelColor : .labelColor
             )
             let subtitleField = makeLabel(
-                snapshot == nil && isRefreshing ? "DetectRadar" : (snapshot?.errorMessage ?? "请检查网络连接"),
+                snapshot == nil && isRefreshing ? "DetectRadar" : (snapshot?.errorMessage ?? offlineFallback),
                 font: .systemFont(ofSize: 11.5, weight: .regular),
                 color: snapshot == nil && isRefreshing ? .tertiaryLabelColor : .secondaryLabelColor
             )
@@ -568,7 +586,7 @@ final class PopoverContentView: NSView {
             ]
 
             if !(snapshot == nil && isRefreshing) {
-                let retryButton = RetryPillButton(title: "重试", onAction: onRetry)
+                let retryButton = RetryPillButton(title: language == .en ? "Retry" : "重试", onAction: onRetry)
                 displayZone.addSubview(retryButton)
                 constraints.append(contentsOf: [
                     retryButton.trailingAnchor.constraint(equalTo: displayZone.trailingAnchor, constant: -14),
@@ -585,29 +603,32 @@ final class PopoverContentView: NSView {
         }
 
         let countryField = makeLabel(
-            IPMasker.countryBadgeLine(for: primary),
+            IPMasker.countryBadgeLine(for: primary, language: language),
             font: .systemFont(ofSize: 13.5, weight: .semibold),
             color: .labelColor
         )
+        if language == .en {
+            countryField.toolTip = IPMasker.regionDisplayName(for: primary, language: language)
+        }
         countryField.setContentHuggingPriority(.required, for: .horizontal)
         countryField.setContentCompressionResistancePriority(.defaultHigh, for: .horizontal)
 
-        let usageBadge = UsageBadgeView(intel: primary)
+        let usageBadge = UsageBadgeView(intel: primary, language: language)
         let isIPv6Primary = primary.ip.contains(":")
-        let ipButton = IPCopyButton(ip: primary.ip, truncatesMiddle: isIPv6Primary) { [weak self] in
+        let ipButton = IPCopyButton(ip: primary.ip, truncatesMiddle: isIPv6Primary, language: language) { [weak self] in
             onCopyIP(primary.ip)
             self?.flashCopiedToast()
         }
 
         let providerField = makeLabel(
-            IPMasker.providerDetailLine(for: primary),
+            IPMasker.providerDetailLine(for: primary, language: language),
             font: .systemFont(ofSize: 11.5, weight: .regular),
             color: .secondaryLabelColor
         )
         providerField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
 
         let toastField = makeLabel(
-            "✓ 已复制",
+            language == .en ? "✓ Copied" : "✓ 已复制",
             font: .systemFont(ofSize: 11, weight: .medium),
             color: .systemGreen
         )
@@ -658,7 +679,7 @@ final class PopoverContentView: NSView {
         ])
 
         if let snap = snapshot, case .leaked(let carrier, _) = snap.ipv6Leak {
-            let leakRow = IPv6LeakRowView(carrier: carrier, onAction: onOpenIPv6Check)
+            let leakRow = IPv6LeakRowView(carrier: carrier, language: language, onAction: onOpenIPv6Check)
             displayZone.addSubview(leakRow)
             constraints.append(contentsOf: [
                 leakRow.topAnchor.constraint(equalTo: providerField.bottomAnchor, constant: 6),
@@ -676,6 +697,7 @@ final class PopoverContentView: NSView {
     }
 
     private func rebuildActionZone(
+        language: AppLanguage,
         launchAtLoginEnabled: Bool,
         launchAtLoginAvailable: Bool,
         onOpenWebHome: @escaping () -> Void,
@@ -685,24 +707,24 @@ final class PopoverContentView: NSView {
         actionZone.subviews.forEach { $0.removeFromSuperview() }
 
         let webRow = PopoverActionRow(
-            title: "网页完整检测",
+            title: language == .en ? "Full Web Check" : "网页完整检测",
             shortcut: nil,
             isEnabled: true,
             onAction: onOpenWebHome
         )
 
         let loginRow = PopoverToggleRow(
-            title: "开机自启",
+            title: language == .en ? "Launch at Login" : "开机自启",
             isOn: launchAtLoginEnabled,
             isEnabled: launchAtLoginAvailable,
             onToggle: onToggleLaunchAtLogin
         )
         if !launchAtLoginAvailable {
-            loginRow.toolTip = "需以 DetectRadarBar.app 运行后支持开机自启"
+            loginRow.toolTip = language == .en ? "Run from DetectRadarBar.app to enable Launch at Login" : "需以 DetectRadarBar.app 运行后支持开机自启"
         }
 
         let quitRow = PopoverActionRow(
-            title: "退出",
+            title: language == .en ? "Quit" : "退出",
             shortcut: "⌘Q",
             isEnabled: true,
             onAction: onQuit
@@ -764,11 +786,12 @@ private final class UsageBadgeView: NSView {
     private let textField = NSTextField(labelWithString: "")
     private let fillColor: NSColor
 
-    init(intel: IPIntel) {
-        let kind = IPMasker.usageShortLabel(for: intel)
+    init(intel: IPIntel, language: AppLanguage) {
+        let kind = IPMasker.usageKind(for: intel)
+        let label = IPMasker.usageBadgeLabel(for: intel, language: language)
         let textColor: NSColor
         switch kind {
-        case "宽带":
+        case .isp:
             self.fillColor = NSColor.systemGreen.withAlphaComponent(0.14)
             textColor = NSColor(name: nil) { appearance in
                 let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
@@ -776,7 +799,7 @@ private final class UsageBadgeView: NSView {
                     ? NSColor(srgbRed: 0.45, green: 0.88, blue: 0.56, alpha: 1.0)
                     : NSColor(srgbRed: 0.11, green: 0.52, blue: 0.24, alpha: 1.0)
             }
-        case "机房":
+        case .hosting:
             self.fillColor = NSColor(name: nil) { appearance in
                 let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
                 return isDark
@@ -784,7 +807,7 @@ private final class UsageBadgeView: NSView {
                     : NSColor.black.withAlphaComponent(0.07)
             }
             textColor = .secondaryLabelColor
-        default:
+        case .unknown:
             self.fillColor = NSColor.labelColor.withAlphaComponent(0.06)
             textColor = .tertiaryLabelColor
         }
@@ -794,7 +817,7 @@ private final class UsageBadgeView: NSView {
         setContentHuggingPriority(.required, for: .horizontal)
         setContentCompressionResistancePriority(.required, for: .horizontal)
 
-        textField.stringValue = kind
+        textField.stringValue = label
         textField.font = .systemFont(ofSize: 11, weight: .medium)
         textField.textColor = textColor
         textField.alignment = .center
@@ -884,12 +907,12 @@ private final class IPCopyButton: NSView {
     private var resetIconWorkItem: DispatchWorkItem?
     private let onCopy: () -> Void
 
-    init(ip: String, truncatesMiddle: Bool, onCopy: @escaping () -> Void) {
+    init(ip: String, truncatesMiddle: Bool, language: AppLanguage, onCopy: @escaping () -> Void) {
         self.onCopy = onCopy
         self.iconView = SymbolIconView(symbolName: "doc.on.doc", pointSize: 10.5, weight: .medium, tintColor: .tertiaryLabelColor)
         super.init(frame: .zero)
         translatesAutoresizingMaskIntoConstraints = false
-        toolTip = "点击复制 IP"
+        toolTip = language == .en ? "Click to copy IP" : "点击复制 IP"
 
         ipField.stringValue = ip
         ipField.font = .monospacedSystemFont(ofSize: 12, weight: .medium)
@@ -1047,10 +1070,10 @@ private class HoverableRowView: NSView {
 private final class IPv6LeakRowView: HoverableRowView {
     private let onAction: () -> Void
 
-    init(carrier: String, onAction: @escaping () -> Void) {
+    init(carrier: String, language: AppLanguage, onAction: @escaping () -> Void) {
         self.onAction = onAction
         super.init(isEnabled: true)
-        toolTip = "前往 DetectRadar IPv6 泄露专项页面排查"
+        toolTip = language == .en ? "Open DetectRadar IPv6 leak test" : "前往 DetectRadar IPv6 泄露专项页面排查"
 
         let warnIcon = SymbolIconView(
             symbolName: "exclamationmark.triangle.fill",
@@ -1059,13 +1082,15 @@ private final class IPv6LeakRowView: HoverableRowView {
             tintColor: .systemOrange
         )
 
-        let textField = NSTextField(labelWithString: "IPv6 泄露 · \(carrier)直连")
+        let textField = NSTextField(
+            labelWithString: language == .en ? "IPv6 Leak · \(carrier) direct" : "IPv6 泄露 · \(carrier)直连"
+        )
         textField.font = .systemFont(ofSize: 12, weight: .medium)
         textField.textColor = .labelColor
         textField.lineBreakMode = .byTruncatingTail
         textField.translatesAutoresizingMaskIntoConstraints = false
 
-        let inspectLabel = NSTextField(labelWithString: "排查")
+        let inspectLabel = NSTextField(labelWithString: language == .en ? "Inspect" : "排查")
         inspectLabel.font = .systemFont(ofSize: 11.5, weight: .regular)
         inspectLabel.textColor = .secondaryLabelColor
         inspectLabel.setContentHuggingPriority(.required, for: .horizontal)

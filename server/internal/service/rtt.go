@@ -19,6 +19,7 @@ const (
 
 	ConnCharNoObviousAnomalies  = "no_obvious_anomalies"
 	ConnCharPPPoE               = "pppoe"
+	ConnCharLowMTU              = "low_mtu"
 	ConnCharSuspectedTunneling  = "suspected_tunneling"
 	ConnCharSuspectedProxyRelay = "suspected_proxy_relay"
 	ConnCharInconclusive        = "inconclusive"
@@ -64,6 +65,8 @@ func deriveRTTWithMeta(client *model.RTTData, tcpRTT, tcpRTTVar string, serverTC
 	if connMeta != nil && connMeta.PeerMSS > 0 && connMeta.EstMTU > 0 {
 		out.PeerMSS = connMeta.PeerMSS
 		out.EstMTU = connMeta.EstMTU
+		out.ServerMTU = connMeta.ServerMTU
+		out.MTUClamped = connMeta.MTUClamped
 		out.IPVersion = connMeta.IPVersion
 		ts := connMeta.Timestamps
 		out.TCPTimestamps = &ts
@@ -166,26 +169,36 @@ func deriveRTTWithMeta(client *model.RTTData, tcpRTT, tcpRTTVar string, serverTC
 	default:
 		out.Status = "unavailable"
 	}
-	out.Characteristics = deriveConnectionCharacteristics(out)
+	out.Characteristics = deriveConnectionCharacteristics(out, intel)
 	return out
 }
 
-func deriveConnectionCharacteristics(out model.RTTAnalysis) []string {
+func deriveConnectionCharacteristics(out model.RTTAnalysis, intel *model.IPIntel) []string {
 	haveDelta := out.DeltaMinMS != nil
 	haveMTU := out.EstMTU > 0
-	var tags []string
-	if haveMTU {
-		if out.EstMTU == pppoeEstMTU {
-			tags = append(tags, ConnCharPPPoE)
-		} else if out.EstMTU < pppoeEstMTU {
-			tags = append(tags, ConnCharSuspectedTunneling)
-		}
-	}
+	hasProxyRelay := false
 	if haveDelta {
 		threshold := math.Max(proxyRelayDeltaMinMS, out.ServerTCPMinMS*proxyRelayDeltaRatio)
-		if *out.DeltaMinMS >= threshold {
-			tags = append(tags, ConnCharSuspectedProxyRelay)
+		hasProxyRelay = *out.DeltaMinMS >= threshold
+	}
+
+	isMobile := intel != nil && (intel.IsMobile || intel.UsageTypeRaw == "mobile")
+	isHosting := intel != nil && (intel.IsHosting || intel.InferUsageType() == "hosting")
+
+	var tags []string
+	if haveMTU && !out.MTUClamped {
+		if out.EstMTU == pppoeEstMTU {
+			tags = append(tags, ConnCharPPPoE)
+		} else if out.EstMTU < pppoeEstMTU && !isMobile {
+			if isHosting || hasProxyRelay {
+				tags = append(tags, ConnCharSuspectedTunneling)
+			} else {
+				tags = append(tags, ConnCharLowMTU)
+			}
 		}
+	}
+	if hasProxyRelay {
+		tags = append(tags, ConnCharSuspectedProxyRelay)
 	}
 	if len(tags) > 0 {
 		return tags

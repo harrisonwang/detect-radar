@@ -149,6 +149,7 @@ export interface ScanAnalysis {
 export type ConnectionCharacteristic =
   | 'no_obvious_anomalies'
   | 'pppoe'
+  | 'low_mtu'
   | 'suspected_tunneling'
   | 'suspected_proxy_relay'
   | 'inconclusive';
@@ -170,6 +171,8 @@ export interface RTTAnalysis {
   conn_reused?: boolean;
   peer_mss?: number;
   est_mtu?: number;
+  server_mtu?: number;
+  mtu_clamped?: boolean;
   ip_version?: number;
   tcp_timestamps?: boolean;
   peer_wscale?: number;

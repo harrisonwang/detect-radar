@@ -157,6 +157,8 @@ type RTTAnalysis struct {
 	ConnReused      *bool    `json:"conn_reused,omitempty"`
 	PeerMSS         int      `json:"peer_mss,omitempty"`
 	EstMTU          int      `json:"est_mtu,omitempty"`
+	ServerMTU       int      `json:"server_mtu,omitempty"`
+	MTUClamped      bool     `json:"mtu_clamped,omitempty"`
 	IPVersion       int      `json:"ip_version,omitempty"`
 	TCPTimestamps   *bool    `json:"tcp_timestamps,omitempty"`
 	PeerWScale      *int     `json:"peer_wscale,omitempty"`

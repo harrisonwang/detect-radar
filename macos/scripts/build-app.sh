@@ -3,8 +3,8 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "$0")/.." && pwd)"
 APP_NAME="DetectRadarBar"
-VERSION="${VERSION:-0.1.1}"
-BUILD_NUMBER="${BUILD_NUMBER:-2}"
+VERSION="${VERSION:-0.1.2}"
+BUILD_NUMBER="${BUILD_NUMBER:-3}"
 BUNDLE_ID="com.detectradar.bar"
 ARCH="${ARCH:-$(uname -m)}"
 
@@ -179,6 +179,11 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
 <dict>
   <key>CFBundleDevelopmentRegion</key>
   <string>zh_CN</string>
+  <key>CFBundleLocalizations</key>
+  <array>
+    <string>zh_CN</string>
+    <string>en</string>
+  </array>
   <key>CFBundleExecutable</key>
   <string>$APP_NAME</string>
   <key>CFBundleIconFile</key>

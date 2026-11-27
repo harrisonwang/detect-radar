@@ -185,20 +185,29 @@ export const zh = {
         `请求本站的耗时，多次采样取最小值${jitter ? `，抖动 ${jitter} ms` : ''}`,
       rttTcpTooltip: '本站从探测窗口内 TCP 连接读取的往返时间',
       rttDeltaTooltip: '同窗口内应用延迟与服务器 TCP 延迟之差，可辅助参考代理中转额外耗时',
-      rttMtuTooltip: (mss: number | null, ipVersion: number | null) =>
-        mss
-          ? `由对端实测 TCP MSS ${mss} B 换算（${ipVersion === 6 ? 'IPv6 +60' : 'IPv4 +40'}）；标准以太网常见为 1500`
-          : '由当前 TCP 连接估算的路径最大传输单元',
+      rttMtuTooltip: (mss: number | null, ipVersion: number | null, clamped?: boolean, serverMTU?: number | null) => {
+        if (!mss) return '由当前 TCP 连接估算的路径最大传输单元';
+        const base = `由对端实测 TCP MSS ${mss} B 换算（${ipVersion === 6 ? 'IPv6 +60' : 'IPv4 +40'}）；标准以太网常见为 1500`;
+        return clamped && serverMTU
+          ? `${base}。受探测节点网卡 MTU（${serverMTU}）封顶截断，暂无法区分 1492 PPPoE 与 1500`
+          : base;
+      },
+      connCharHelpLabel: '查看连接特征说明',
       connChar: {
         no_obvious_anomalies: '未见明显异常',
         pppoe: 'PPPoE 特征',
+        low_mtu: '低 MTU 链路',
         suspected_tunneling: '疑似隧道封装',
         suspected_proxy_relay: '疑似代理中转',
         inconclusive: '无法判断',
       },
       connCharNote: {
+        no_obvious_anomalies: '当前连接在延迟差与估算 MTU 上均未见明显异常，但不代表一定是直连或未使用代理',
+        no_obvious_anomalies_clamped: (serverMTU: number) =>
+          `延迟差未见异常；估算 MTU 已触及当前节点上限 ${serverMTU}，无法观测 1492 PPPoE 与 1500 的细微差异`,
         pppoe: '符合 PPPoE 拨号常见封装（MTU 1492），但并非 PPPoE 独有',
-        suspected_tunneling: '估算 MTU 低于标准以太网 1500，常见于 WireGuard/IPsec 隧道、移动网络或低 MTU 宽带',
+        low_mtu: '估算 MTU 低于标准以太网 1500，常见于移动网络、低 MTU 宽带或 WireGuard/IPsec 隧道',
+        suspected_tunneling: '出口估算 MTU 明显低于标准以太网 1500，常见于 WireGuard、WARP、IPsec 等三层隧道封装',
         suspected_proxy_relay: '应用层往返显著高于服务端 TCP 往返，连接疑似在代理节点中转重建',
         pppoe_proxy: '出口链路具 PPPoE 常见封装（MTU 1492），同时应用延迟显著高于服务端 TCP 延迟',
         tunnel_proxy: '连接疑似在代理节点重建，且出口链路存在低 MTU 封装（如 WireGuard / WARP）',

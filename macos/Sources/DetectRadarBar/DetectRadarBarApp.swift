@@ -7,12 +7,19 @@ import Foundation
 struct DetectRadarBarMain {
     static func main() async {
         if CommandLine.arguments.contains("--smoke-probe") {
-            let snap = await ProbeClient().runProbe()
-            print("MenuBarTitle: \(IPMasker.menuBarTitle(snapshot: snap, isLoading: false))")
+            let language: AppLanguage = {
+                if let idx = CommandLine.arguments.firstIndex(of: "--lang"),
+                   idx + 1 < CommandLine.arguments.count {
+                    return AppLanguage.resolve(override: CommandLine.arguments[idx + 1])
+                }
+                return AppLanguage.resolve()
+            }()
+            let snap = await ProbeClient().runProbe(language: language)
+            print("MenuBarTitle: \(IPMasker.menuBarTitle(snapshot: snap, isLoading: false, language: language))")
             if let primary = snap.activeV4 ?? snap.directV6 {
-                print("Country: \(IPMasker.countryBadgeLine(for: primary))")
-                print("Provider: \(IPMasker.providerDetailLine(for: primary))")
-                print("Usage: \(IPMasker.usageShortLabel(for: primary))")
+                print("Country: \(IPMasker.countryBadgeLine(for: primary, language: language))")
+                print("Provider: \(IPMasker.providerDetailLine(for: primary, language: language))")
+                print("Usage: \(IPMasker.usageShortLabel(for: primary, language: language))")
                 print("IP: \(IPMasker.maskIP(primary.ip))")
                 print("IPv6Leak: \(snap.ipv6Leak.isLeaked)")
             } else {
@@ -62,44 +69,89 @@ private enum PopoverPreviewRenderer {
         )
         let sampleCNv6 = IPIntel(
             ip: "2001:db8:390::1", country: "CN", region: "上海市",
-            isp: "China Telecom", usageType: "isp", isHosting: false
+            asn: "AS4134", isp: "中国电信", usageType: "isp", isHosting: false
+        )
+        let sampleUSv6 = IPIntel(
+            ip: "2001:db8:7922::1", country: "US", countryName: "United States",
+            region: "California", city: "Los Angeles", asn: "AS7922",
+            isp: "Comcast", usageType: "isp", isHosting: false
         )
         let proxy = ProxyEndpoint(scheme: .http, host: "127.0.0.1", port: 7890)
 
-        let cleanSnap = EgressSnapshot(
+        let cleanSnapZH = EgressSnapshot(
             timestamp: Date(),
             activeV4: sampleUS,
             directV6: nil,
             systemProxy: proxy,
-            ipv6Leak: DualStackEvaluator.evaluateIPv6Leak(activeV4: sampleUS, directV6: nil)
+            ipv6Leak: DualStackEvaluator.evaluateIPv6Leak(activeV4: sampleUS, directV6: nil, language: .zh)
         )
-        let alertSnap = EgressSnapshot(
+        let alertSnapZH = EgressSnapshot(
             timestamp: Date(),
             activeV4: sampleUS,
             directV6: sampleCNv6,
             systemProxy: proxy,
-            ipv6Leak: DualStackEvaluator.evaluateIPv6Leak(activeV4: sampleUS, directV6: sampleCNv6)
+            ipv6Leak: DualStackEvaluator.evaluateIPv6Leak(activeV4: sampleUS, directV6: sampleCNv6, language: .zh)
+        )
+
+        let cleanSnapEN = EgressSnapshot(
+            timestamp: Date(),
+            activeV4: sampleUS,
+            directV6: nil,
+            systemProxy: proxy,
+            ipv6Leak: DualStackEvaluator.evaluateIPv6Leak(activeV4: sampleUS, directV6: nil, language: .en)
+        )
+        let alertSnapEN = EgressSnapshot(
+            timestamp: Date(),
+            activeV4: sampleUS,
+            directV6: sampleUSv6,
+            systemProxy: proxy,
+            ipv6Leak: DualStackEvaluator.evaluateIPv6Leak(activeV4: sampleUS, directV6: sampleUSv6, language: .en)
         )
 
         let unifiedCanvasH: CGFloat = 251
 
         renderPopoverShot(
-            snapshot: cleanSnap,
+            snapshot: cleanSnapZH,
             dark: true,
+            language: .zh,
             minCanvasHeight: unifiedCanvasH,
             url: outDir.appendingPathComponent("macos-bar-preview-dark-v3.png")
         )
         renderPopoverShot(
-            snapshot: alertSnap,
+            snapshot: alertSnapZH,
             dark: true,
+            language: .zh,
             minCanvasHeight: unifiedCanvasH,
             url: outDir.appendingPathComponent("macos-bar-preview-alert-v3.png")
         )
         renderPopoverShot(
-            snapshot: cleanSnap,
+            snapshot: cleanSnapZH,
             dark: false,
+            language: .zh,
             minCanvasHeight: unifiedCanvasH,
             url: outDir.appendingPathComponent("macos-bar-preview-light-v3.png")
+        )
+
+        renderPopoverShot(
+            snapshot: cleanSnapEN,
+            dark: true,
+            language: .en,
+            minCanvasHeight: unifiedCanvasH,
+            url: outDir.appendingPathComponent("macos-bar-preview-dark-en-v3.png")
+        )
+        renderPopoverShot(
+            snapshot: alertSnapEN,
+            dark: true,
+            language: .en,
+            minCanvasHeight: unifiedCanvasH,
+            url: outDir.appendingPathComponent("macos-bar-preview-alert-en-v3.png")
+        )
+        renderPopoverShot(
+            snapshot: cleanSnapEN,
+            dark: false,
+            language: .en,
+            minCanvasHeight: unifiedCanvasH,
+            url: outDir.appendingPathComponent("macos-bar-preview-light-en-v3.png")
         )
     }
 
@@ -156,7 +208,13 @@ private enum PopoverPreviewRenderer {
         return rep
     }
 
-    private static func renderPopoverShot(snapshot: EgressSnapshot, dark: Bool, minCanvasHeight: CGFloat, url: URL) {
+    private static func renderPopoverShot(
+        snapshot: EgressSnapshot,
+        dark: Bool,
+        language: AppLanguage,
+        minCanvasHeight: CGFloat,
+        url: URL
+    ) {
         let appearance = NSAppearance(named: dark ? .darkAqua : .aqua)!
         let panelFill = dark
             ? NSColor(srgbRed: 0.145, green: 0.155, blue: 0.175, alpha: 0.94)
@@ -165,6 +223,7 @@ private enum PopoverPreviewRenderer {
         let popoverView = PopoverContentView.make(
             snapshot: snapshot,
             isRefreshing: false,
+            language: language,
             launchAtLoginEnabled: true,
             launchAtLoginAvailable: true,
             previewBackgroundColor: panelFill
@@ -221,7 +280,7 @@ private enum PopoverPreviewRenderer {
             NSRect(x: 0, y: canvasH - menuBarH, width: canvasW, height: 0.5).fill()
 
             let clockStr = NSAttributedString(
-                string: "周二 14:18",
+                string: language == .en ? "Tue 14:18" : "周二 14:18",
                 attributes: [
                     .font: NSFont.systemFont(ofSize: 12.5, weight: .medium),
                     .foregroundColor: dark ? NSColor(white: 0.78, alpha: 1) : NSColor(white: 0.25, alpha: 1),
@@ -232,7 +291,7 @@ private enum PopoverPreviewRenderer {
             clockStr.draw(at: NSPoint(x: clockX, y: canvasH - menuBarH + (menuBarH - clockSize.height) / 2))
 
             let titleStr = NSAttributedString(
-                string: IPMasker.menuBarTitle(snapshot: snapshot, isLoading: false),
+                string: IPMasker.menuBarTitle(snapshot: snapshot, isLoading: false, language: language),
                 attributes: [
                     .font: NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium),
                     .foregroundColor: dark ? NSColor.white : NSColor.black,

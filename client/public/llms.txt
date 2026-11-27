@@ -11,7 +11,7 @@
 - [IPv6 Leak Test (EN)](https://detectradar.com/en/ipv6-leak-test/): Concurrent IPv4-only (`4.detectradar.com`) and IPv6-only (`6.detectradar.com`) dual-stack test catching ISP bypass leaks independently of WebRTC.
 - [How It Works (EN)](https://detectradar.com/en/about/): Full methodology for DNS/WebRTC/IPv6 leaks, connection characteristics (RTT delta & estimated MTU), data sources, CLI usage, privacy boundaries, and FAQs.
 - [CLI & Agent Guide (EN)](https://detectradar.com/en/about/#cli): Zero-install `curl` / `dig` terminal egress, IPv6, and DNS probe usage and boundaries.
-- [DetectRadar for macOS (EN)](https://detectradar.com/en/macos/): Menu bar app (`DetectRadarBar`, macOS 13+, Apple Silicon / Intel; UI currently in Chinese, IPv6 alerts Mainland China-focused) + English AI agent `SKILL.md` + Surge/Stash/Loon modules (Chinese UI).
+- [DetectRadar for macOS (EN)](https://detectradar.com/en/macos/): Menu bar app (`DetectRadarBar`, macOS 13+, Apple Silicon / Intel; English & Chinese UI, global IPv6 bypass alerts) + English AI agent `SKILL.md` + Surge/Stash/Loon modules (English & Chinese).
 - [AI Agent Skill (EN)](https://detectradar.com/en/SKILL.md): Concise Markdown instructions for Antigravity, Claude Code, and Codex to run terminal exit IP, IPv6, and DNS checks (`?lang=en`).
 - [Full Documentation (EN)](https://detectradar.com/en/llms-full.txt): Complete English technical specification, API contracts, leak policies, and boundaries.
 
@@ -25,7 +25,7 @@
 ## 中文检测说明、终端查询与文档
 
 - [检测说明](https://detectradar.com/about/): 说明检测内容、连接特征（延迟差与估算 MTU）、DNS / WebRTC / IPv6 泄露判断标准、局限性与隐私保护、终端与 AI 助手用法及常见问题。
-- [DetectRadar for macOS](https://detectradar.com/macos/): Mac 菜单栏客户端（DetectRadarBar，macOS 13+，Apple Silicon / Intel），随时查看出口 IP 和机房/宽带，发现 IPv6 泄露时提醒；支持安装包与 Homebrew 安装，同页附面向 AI 助手的 `SKILL.md` 终端自检用法。
+- [DetectRadar for macOS](https://detectradar.com/macos/): Mac 菜单栏客户端（DetectRadarBar，macOS 13+，Apple Silicon / Intel，支持中英文界面与全球 IPv6 旁路提醒），随时查看出口 IP 和机房/宽带；支持安装包与 Homebrew 安装，同页附面向 AI 助手的 `SKILL.md` 终端自检用法及 Surge/Stash/Loon 中英文模块。
 - [终端查询与 Agent 说明](https://detectradar.com/about/#cli): 免安装使用 `curl` / `dig` 核对终端 IPv4/IPv6 出口与 DNS 解析器的方法与能力边界。
 - [AI Agent 技能文件（SKILL.md）](https://detectradar.com/SKILL.md): 供 Antigravity、Claude Code、Codex 等 Agent 直接读取的中文终端网络自检指令与字段解读红线。
 - [完整说明文档（中文）](https://detectradar.com/llms-full.txt): 包含各项检测原理、DNS/IPv6 泄露判断标准、终端接口口径、能力边界与结果含义。

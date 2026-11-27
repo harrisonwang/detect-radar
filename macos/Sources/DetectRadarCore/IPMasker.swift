@@ -100,8 +100,19 @@ public enum IPMasker {
         return String(scalars)
     }
 
-    public static func regionDisplayName(for intel: IPIntel?) -> String {
+    public static func regionDisplayName(for intel: IPIntel?, language: AppLanguage = .zh) -> String {
         let code = effectiveCountryCode(intel)
+        if language == .en {
+            switch code {
+            case "HK": return "Hong Kong"
+            case "MO": return "Macao"
+            case "TW": return "Taiwan"
+            case "CN": return "Mainland China"
+            case "": return "Unknown"
+            default:
+                return Locale(identifier: "en_US").localizedString(forRegionCode: code) ?? code
+            }
+        }
         switch code {
         case "HK": return "中国香港"
         case "MO": return "中国澳门"
@@ -113,8 +124,8 @@ public enum IPMasker {
         }
     }
 
-    public static func shortProviderName(for intel: IPIntel?) -> String {
-        guard let intel else { return "未知" }
+    public static func shortProviderName(for intel: IPIntel?, language: AppLanguage = .zh) -> String {
+        guard let intel else { return language == .en ? "Unknown" : "未知" }
         var raw = ""
         for candidate in [intel.isp, intel.org] {
             let trimmed = (candidate ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -124,7 +135,7 @@ public enum IPMasker {
             }
         }
         if raw.isEmpty {
-            return formatASN(intel.asn) ?? "未知网络"
+            return formatASN(intel.asn) ?? (language == .en ? "Unknown network" : "未知网络")
         }
 
         var current = raw
@@ -165,19 +176,61 @@ public enum IPMasker {
         return usage == "hosting" || raw == "hosting" || raw == "datacenter"
     }
 
-    public static func usageShortLabel(for intel: IPIntel) -> String {
-        if isHosting(intel) { return "机房" }
-        let usage = (intel.usageType ?? "").lowercased()
-        let raw = (intel.usageTypeRaw ?? "").lowercased()
-        if intel.isMobile == true || usage == "isp" || ["residential", "mobile", "business", "education", "government"].contains(raw) {
-            return "宽带"
-        }
-        return "未知"
+    public static func isProxyOrHosting(_ intel: IPIntel) -> Bool {
+        isHosting(intel)
+            || intel.isVPN == true
+            || intel.isProxy == true
+            || intel.isTor == true
+            || intel.isRelay == true
+            || intel.isAnonymous == true
     }
 
-    private static func nonRedundantCity(for intel: IPIntel?) -> String? {
+    public static func isAccessNetwork(_ intel: IPIntel) -> Bool {
+        if isProxyOrHosting(intel) { return false }
+        let usage = (intel.usageType ?? "").lowercased()
+        let raw = (intel.usageTypeRaw ?? "").lowercased()
+        return intel.isMobile == true
+            || usage == "isp"
+            || ["residential", "mobile", "isp", "business", "education", "government", "satellite"].contains(raw)
+    }
+
+    public static func usageKind(for intel: IPIntel) -> UsageKind {
+        if isHosting(intel) { return .hosting }
+        let usage = (intel.usageType ?? "").lowercased()
+        let raw = (intel.usageTypeRaw ?? "").lowercased()
+        if intel.isMobile == true
+            || usage == "isp"
+            || ["residential", "mobile", "isp", "business", "education", "government", "satellite"].contains(raw) {
+            return .isp
+        }
+        return .unknown
+    }
+
+    public static func usageShortLabel(for intel: IPIntel, language: AppLanguage = .zh) -> String {
+        switch usageKind(for: intel) {
+        case .hosting:
+            return language == .en ? "DC" : "机房"
+        case .isp:
+            return language == .en ? "ISP" : "宽带"
+        case .unknown:
+            return language == .en ? "Unknown" : "未知"
+        }
+    }
+
+    public static func usageBadgeLabel(for intel: IPIntel, language: AppLanguage = .zh) -> String {
+        if language == .en {
+            switch usageKind(for: intel) {
+            case .hosting: return "Datacenter"
+            case .isp: return "ISP"
+            case .unknown: return "Unknown"
+            }
+        }
+        return usageShortLabel(for: intel, language: .zh)
+    }
+
+    private static func nonRedundantCity(for intel: IPIntel?, language: AppLanguage = .zh) -> String? {
         let code = effectiveCountryCode(intel)
-        let region = regionDisplayName(for: intel)
+        let region = regionDisplayName(for: intel, language: language)
         let city = (intel?.city ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         if city.isEmpty {
             return nil
@@ -190,27 +243,31 @@ public enum IPMasker {
         return city
     }
 
-    public static func countryBadgeLine(for intel: IPIntel?) -> String {
-        "\(flagEmoji(for: effectiveCountryCode(intel))) \(regionDisplayName(for: intel))"
+    public static func countryBadgeLine(for intel: IPIntel?, language: AppLanguage = .zh) -> String {
+        let code = effectiveCountryCode(intel)
+        if language == .en {
+            return code.isEmpty ? "🌐 Unknown" : "\(flagEmoji(for: code)) \(code)"
+        }
+        return "\(flagEmoji(for: code)) \(regionDisplayName(for: intel, language: .zh))"
     }
 
-    public static func providerDetailLine(for intel: IPIntel?) -> String {
-        let provider = shortProviderName(for: intel)
-        if let city = nonRedundantCity(for: intel) {
+    public static func providerDetailLine(for intel: IPIntel?, language: AppLanguage = .zh) -> String {
+        let provider = shortProviderName(for: intel, language: language)
+        if let city = nonRedundantCity(for: intel, language: language) {
             return "\(provider) · \(city)"
         }
         return provider
     }
 
-    public static func menuBarTitle(snapshot: EgressSnapshot?, isLoading: Bool) -> String {
+    public static func menuBarTitle(snapshot: EgressSnapshot?, isLoading: Bool, language: AppLanguage = .zh) -> String {
         guard let snapshot else {
-            return isLoading ? "◎ 检测中" : "DetectRadar"
+            return isLoading ? (language == .en ? "◎ Checking" : "◎ 检测中") : "DetectRadar"
         }
         guard let primary = snapshot.activeV4 ?? snapshot.directV6 else {
-            return isLoading ? "◎ 检测中" : "⚠️ 离线"
+            return isLoading ? (language == .en ? "◎ Checking" : "◎ 检测中") : (language == .en ? "⚠️ Offline" : "⚠️ 离线")
         }
         let flag = flagEmoji(for: effectiveCountryCode(primary))
-        let kind = usageShortLabel(for: primary)
+        let kind = usageShortLabel(for: primary, language: language)
         let base = "\(flag) \(kind)"
         return snapshot.ipv6Leak.isLeaked ? "\(base) ⚠️" : base
     }

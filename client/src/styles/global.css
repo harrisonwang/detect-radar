@@ -255,6 +255,45 @@ body {
   flex-shrink: 0;
 }
 
+.conn-help-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 9999px;
+  color: var(--slate-500);
+  cursor: pointer;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+.conn-help-btn:hover,
+.conn-help-btn:focus-visible,
+.conn-help-btn[aria-expanded="true"] {
+  color: var(--slate-200);
+  background: rgba(148, 163, 184, 0.14);
+}
+.conn-help-btn:focus-visible {
+  outline: 2px solid var(--radar-400);
+  outline-offset: 2px;
+}
+.conn-help-tip {
+  position: absolute;
+  left: 0;
+  bottom: calc(100% + 0.45rem);
+  z-index: 30;
+  width: max-content;
+  max-width: min(26rem, 100%);
+  padding: 0.5rem 0.7rem;
+  border-radius: 0.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  background: rgba(15, 23, 42, 0.96);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  font-size: 0.75rem;
+  line-height: 1.5;
+  color: var(--slate-300);
+  overflow-wrap: break-word;
+}
+
 @media (min-width: 40rem) {
   .dfs-status {
     position: absolute;

@@ -89,6 +89,8 @@ export interface RTTReadout {
   jitterMS?: number;
   peerMSS?: number;
   estMTU?: number;
+  serverMTU?: number;
+  mtuClamped?: boolean;
   ipVersion?: number;
   characteristics: ConnectionCharacteristic[];
 }
@@ -630,6 +632,8 @@ function buildRTT(a: ScanAnalysis): RTTReadout | undefined {
     jitterMS: pos(r.client_jitter_ms),
     peerMSS,
     estMTU,
+    serverMTU: pos(r.server_mtu),
+    mtuClamped: r.mtu_clamped === true ? true : undefined,
     ipVersion,
     characteristics,
   };

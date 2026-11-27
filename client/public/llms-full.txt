@@ -11,7 +11,7 @@
 - **DNS 泄露检测（https://detectradar.com/dns-leak-test/）**：每次使用独立的随机子域名，通过自建权威 DNS 服务识别实际使用的 DNS 服务器及归属地，并在当前浏览器保留最近两次结果，方便换节点或改完 DNS 后对比差别。
 - **WebRTC 泄露检测（https://detectradar.com/webrtc-leak-test/）**：通过自建同域 RFC 5389 UDP STUN（`stun:detectradar.com:3478`）在浏览器本地收集公网与内网 ICE 候选地址（不依赖第三方 Google STUN），并与当前出口 IP 比对（区分普通泄露与反向分流）；展示 mDNS（`*.local`）隐藏状态与 ICE 捕获到的全局 IPv6，支持在同一浏览器保留最近两次检测并对比变化。
 - **IPv6 泄露检测（https://detectradar.com/ipv6-leak-test/）**：独立并发请求纯 IPv4 节点（`4.detectradar.com`）与纯 IPv6 节点（`6.detectradar.com`）实测真实双栈出口，不依赖浏览器 WebRTC，支持在同一浏览器保留最近两次检测并对比变化。
-- **DetectRadar for macOS（https://detectradar.com/macos/）**：Mac 菜单栏客户端（DetectRadarBar，macOS 13+，Apple Silicon / Intel），在菜单栏随时查看出口 IP 和机房/宽带，发现 IPv6 旁路泄露时提醒（事件驱动刷新，无后台轮询）；支持安装包与 Homebrew（`harrisonwang/tap/detectradar-bar`）安装，同页附面向 Antigravity / Claude Code / Codex 的 `SKILL.md` 终端自检用法及 Surge / Stash / Loon 面板模块。
+- **DetectRadar for macOS（https://detectradar.com/macos/）**：Mac 菜单栏客户端（DetectRadarBar，macOS 13+，Apple Silicon / Intel），支持中英文界面自动切换，在菜单栏随时查看出口 IP 和机房/宽带，发现 IPv6 旁路泄露时提醒（事件驱动刷新，无后台轮询）；支持安装包与 Homebrew（`harrisonwang/tap/detectradar-bar`）安装，同页附面向 Antigravity / Claude Code / Codex 的 `SKILL.md` 终端自检用法及中英文 Surge / Stash / Loon 面板模块。
 - **检测说明（https://detectradar.com/about/）**：说明检测内容、DNS / WebRTC / IPv6 泄露判断标准、局限性与隐私保护、终端查询与 AI 助手用法及常见问题。
 - **隐私政策（https://detectradar.com/privacy/）**、**服务条款（https://detectradar.com/terms/）**、**联系我们（https://detectradar.com/contact/）**。
 
@@ -25,7 +25,7 @@
 - 综合 IP2Location / DB-IP 离线库、ip2region（中国大陆）、云厂商网段、托管 ASN 与全球接入网 ASN 数据库、Team Cymru 实时 BGP 与 rDNS 反向解析识别机房与接入网属性。
 - 展示 Cloudflare Radar 近 30 天所属 ASN 维度的人类流量占比（经 Redis 缓存 24 小时，仅反映所属网段整体构成，非单个 IP 评分）。
 - 检查公开黑名单（Spamhaus / SpamCop / Barracuda / DroneBL）、Shodan InternetDB 开放代理端口、Tor 出口列表和第三方信誉信息。
-- **连接特征（试运行）**：在 `POST /api/v1/scans` 的 `analysis.rtt` 中返回同窗口实测的浏览器延迟 `client_min_ms`、服务端 TCP 延迟 `server_tcp_min_ms`、延迟差 `delta_min_ms`，以及经服务端只读 `NETLINK_SOCK_DIAG` 观测到的对端 `peer_mss`、换算后的 `est_mtu`（IPv4 按 `MSS+40`、IPv6 按 `MSS+60`）、`ip_version` 与非互斥标签数组 `characteristics`（可选值：`no_obvious_anomalies`「未见明显异常」、`pppoe`「PPPoE 特征」、`suspected_tunneling`「疑似隧道封装」、`suspected_proxy_relay`「疑似代理中转」、`inconclusive`「无法判断」；可并存如 `pppoe` + `suspected_proxy_relay` 或 `suspected_tunneling` + `suspected_proxy_relay`）。仅作信息参考展示，不计入扣分；低 MTU 亦可能来自移动网络/特定宽带，「未见明显异常」不证明一定是直连。
+- **连接特征（试运行）**：在 `POST /api/v1/scans` 的 `analysis.rtt` 中返回同窗口实测的浏览器延迟 `client_min_ms`、服务端 TCP 延迟 `server_tcp_min_ms`、延迟差 `delta_min_ms`，以及经服务端只读 `NETLINK_SOCK_DIAG` 观测到的对端 `peer_mss`、换算后的 `est_mtu`（IPv4 按 `MSS+40`、IPv6 按 `MSS+60`）、探测端网卡上限 `server_mtu`、是否触及探测端封顶 `mtu_clamped`、`ip_version` 与非互斥标签数组 `characteristics`（可选值：`no_obvious_anomalies`「未见明显异常」、`pppoe`「PPPoE 特征」、`low_mtu`「低 MTU 链路」、`suspected_tunneling`「疑似隧道封装」、`suspected_proxy_relay`「疑似代理中转」、`inconclusive`「无法判断」；可并存如 `pppoe` + `suspected_proxy_relay` 或 `suspected_tunneling` + `suspected_proxy_relay`）。当 `mtu_clamped` 为 `true` 或出口已被识别为移动蜂窝网络时不会误报低 MTU 隧道异常；仅机房出口低 MTU 或低 MTU 叠加代理延迟差才标 `suspected_tunneling`，普通非移动 ISP 单独低 MTU 降级标为中性 `low_mtu`。仅作信息参考展示，不计入扣分；「未见明显异常」不证明一定是直连。
 
 ### 2. 环境一致性
 

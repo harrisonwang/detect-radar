@@ -3,7 +3,6 @@
   var V4_TIMEOUT_MS = 6000;
   var V6_HARD_TIMEOUT_MS = 2500;
   var V6_AFTER_V4_MS = 1200;
-  var HK_MO_TW_RE = /香港|澳门|澳門|台湾|臺灣|hong\s*kong|macau|macao|taiwan/i;
 
   var isLoon = typeof $loon !== 'undefined';
   var isStash =
@@ -14,6 +13,14 @@
 
   function parseArgument(raw) {
     var out = {};
+    if (raw && typeof raw === 'object') {
+      for (var key in raw) {
+        if (Object.prototype.hasOwnProperty.call(raw, key) && key) {
+          out[String(key).trim()] = String(raw[key] == null ? '' : raw[key]).trim();
+        }
+      }
+      return out;
+    }
     if (typeof raw !== 'string' || !raw.trim()) return out;
     var parts = raw.split('&');
     for (var i = 0; i < parts.length; i++) {
@@ -37,6 +44,21 @@
     if (s === '1' || s === 'true' || s === 'yes') return true;
     if (s === '0' || s === 'false' || s === 'no') return false;
     return fallback;
+  }
+
+  function resolveLang(args) {
+    var raw = String(args.lang || '').trim().toLowerCase();
+    if (raw.indexOf('en') === 0) return 'en';
+    if (raw.indexOf('zh') === 0) return 'zh';
+    if (
+      typeof $script !== 'undefined' &&
+      $script &&
+      typeof $script.name === 'string' &&
+      /-en$/i.test($script.name.trim())
+    ) {
+      return 'en';
+    }
+    return 'zh';
   }
 
   function resolveLoonContext() {
@@ -63,17 +85,25 @@
   }
 
   var args = parseArgument(typeof $argument !== 'undefined' ? $argument : '');
+  var lang = resolveLang(args);
+  var isEN = lang === 'en';
+  var webHomeURL = isEN ? 'https://detectradar.com/en/' : 'https://detectradar.com/';
+  var webHomeLabel = isEN ? 'detectradar.com/en/' : 'detectradar.com';
   var loonCtx = resolveLoonContext();
   var customTitle = (args.title || '').trim();
   var panelTitle =
     customTitle ||
-    (isLoon && loonCtx.displayName ? 'DetectRadar · ' + loonCtx.displayName : 'DetectRadar 出口');
+    (isLoon && loonCtx.displayName
+      ? 'DetectRadar · ' + loonCtx.displayName
+      : isEN
+        ? 'DetectRadar Exit'
+        : 'DetectRadar 出口');
   var enableIPv6 = parseBool(args.ipv6, true);
   var hideIP = parseBool(args.hide_ip, false);
 
   function maskIP(ip) {
     var s = String(ip || '').trim();
-    if (!s) return '未知';
+    if (!s) return isEN ? 'Unknown' : '未知';
     if (s.indexOf(':') !== -1) {
       var v6Parts = s.split(':').filter(Boolean);
       return (v6Parts.slice(0, 2).join(':') || '::') + ':*';
@@ -86,7 +116,7 @@
   }
 
   function displayAddress(ip) {
-    return hideIP ? maskIP(ip) : String(ip || '').trim() || '未知';
+    return hideIP ? maskIP(ip) : String(ip || '').trim() || (isEN ? 'Unknown' : '未知');
   }
 
   function isHosting(info) {
@@ -98,18 +128,39 @@
     );
   }
 
-  function isMainlandChina(info) {
+  function isProxyOrHosting(info) {
     if (!info) return false;
-    var cc = String(info.country || '').trim().toUpperCase();
-    if (cc !== 'CN') return false;
-    var haystack = [info.region, info.country_name, info.city].filter(Boolean).join(' ');
-    return !HK_MO_TW_RE.test(haystack);
+    return Boolean(
+      isHosting(info) ||
+        info.is_vpn ||
+        info.is_proxy ||
+        info.is_tor ||
+        info.is_relay ||
+        info.is_anonymous
+    );
+  }
+
+  function isAccessNetwork(info) {
+    if (!info || isProxyOrHosting(info)) return false;
+    var usage = String(info.usage_type || '').trim().toLowerCase();
+    var raw = String(info.usage_type_raw || '').trim().toLowerCase();
+    return Boolean(
+      info.is_mobile ||
+        usage === 'isp' ||
+        raw === 'residential' ||
+        raw === 'mobile' ||
+        raw === 'isp' ||
+        raw === 'business' ||
+        raw === 'education' ||
+        raw === 'government' ||
+        raw === 'satellite'
+    );
   }
 
   function effectiveCountryCode(info) {
     if (!info) return '';
     var cc = String(info.country || '').trim().toUpperCase();
-    if (!cc || cc === 'LOCAL') return '';
+    if (!cc || cc === 'LOCAL' || cc === 'XX' || cc === 'ZZ') return '';
     if (cc === 'CN') {
       var haystack = [info.region, info.country_name, info.city].filter(Boolean).join(' ');
       if (/香港|hong\s*kong/i.test(haystack)) return 'HK';
@@ -117,6 +168,22 @@
       if (/台湾|臺灣|taiwan/i.test(haystack)) return 'TW';
     }
     return /^[A-Z]{2}$/.test(cc) ? cc : '';
+  }
+
+  function evaluateIPv6Leak(v4, v6) {
+    if (!v4 || !v6 || !isAccessNetwork(v6)) return false;
+    var v4Geo = effectiveCountryCode(v4);
+    var v6Geo = effectiveCountryCode(v6);
+    var v4ASN = normalizeASN(v4.asn);
+    var v6ASN = normalizeASN(v6.asn);
+    var sameASN = Boolean(v4ASN && v6ASN && v4ASN === v6ASN);
+    var v4ProxyOrHosting = isProxyOrHosting(v4);
+    if (!v4Geo || !v6Geo) {
+      return Boolean(v4ProxyOrHosting && !sameASN);
+    }
+    var crossRegion = v4Geo !== v6Geo;
+    var sameRegionProxyBypass = v4Geo === v6Geo && v4ProxyOrHosting && !sameASN;
+    return crossRegion || sameRegionProxyBypass;
   }
 
   function countryFlag(code) {
@@ -128,9 +195,9 @@
   }
 
   function formatLocation(info) {
-    if (!info) return '未知位置';
+    if (!info) return isEN ? 'Unknown' : '未知位置';
     if (info.usage_type === 'private' || info.country === 'LOCAL') {
-      return '内网地址 (LOCAL)';
+      return isEN ? 'Private Network (LOCAL)' : '内网地址 (LOCAL)';
     }
     var rawParts = [info.country_name || info.country, info.region, info.city];
     var seen = {};
@@ -143,7 +210,7 @@
       seen[k] = true;
       parts.push(p);
     }
-    var loc = parts.join(' · ') || '未知位置';
+    var loc = parts.join(' · ') || (isEN ? 'Unknown' : '未知位置');
     var flag = countryFlag(effectiveCountryCode(info));
     return flag ? flag + ' ' + loc : loc;
   }
@@ -157,8 +224,8 @@
   }
 
   function formatOperator(info) {
-    if (!info) return '未知';
-    var op = String(info.isp || info.org || '').trim() || '未知';
+    if (!info) return isEN ? 'Unknown' : '未知';
+    var op = String(info.isp || info.org || '').trim() || (isEN ? 'Unknown' : '未知');
     var asn = normalizeASN(info.asn);
     return asn ? op + ' (' + asn + ')' : op;
   }
@@ -166,20 +233,26 @@
   function formatTypeLine(info) {
     var base;
     if (!info) {
-      base = '类型未定';
+      base = isEN ? 'Unknown' : '类型未定';
     } else if (info.usage_type === 'private' || info.country === 'LOCAL') {
-      base = '内网地址';
+      base = isEN ? 'Private Network' : '内网地址';
     } else if (isHosting(info)) {
-      base = '机房 IP';
+      base = isEN ? 'Datacenter' : '机房 IP';
     } else if (info.usage_type === 'isp') {
-      base = info.is_mobile ? '移动网络' : '普通宽带';
+      base = info.is_mobile
+        ? isEN
+          ? 'Mobile'
+          : '移动网络'
+        : isEN
+          ? 'ISP'
+          : '普通宽带';
     } else {
-      base = '类型未定';
+      base = isEN ? 'Unknown' : '类型未定';
     }
 
     var tags = [];
     if (info && info.is_vpn) tags.push('VPN');
-    if (info && info.is_proxy) tags.push('代理');
+    if (info && info.is_proxy) tags.push(isEN ? 'Proxy' : '代理');
     if (info && info.is_tor) tags.push('Tor');
     if (info && info.is_relay) tags.push('Relay');
     if (!tags.length) return base;
@@ -205,20 +278,24 @@
           primary.is_anonymous)
     );
     if (ipv6Leaked || hasProxyFlag) {
-      return { color: '#EF4444', icon: 'exclamationmark.triangle.fill', label: '需留意' };
+      return { color: '#EF4444', icon: 'exclamationmark.triangle.fill', label: isEN ? 'Attention' : '需留意' };
     }
     if (isHosting(primary)) {
-      return { color: '#F59E0B', icon: 'server.rack', label: '机房 IP' };
+      return { color: '#F59E0B', icon: 'server.rack', label: isEN ? 'Datacenter' : '机房 IP' };
     }
     if (primary && primary.usage_type === 'isp') {
-      return { color: '#22C55E', icon: 'checkmark.shield.fill', label: primary.is_mobile ? '移动网络' : '普通宽带' };
+      return {
+        color: '#22C55E',
+        icon: 'checkmark.shield.fill',
+        label: primary.is_mobile ? (isEN ? 'Mobile' : '移动网络') : isEN ? 'ISP' : '普通宽带',
+      };
     }
-    return { color: '#64748B', icon: 'network', label: '类型未定' };
+    return { color: '#64748B', icon: 'network', label: isEN ? 'Unknown' : '类型未定' };
   }
 
   function renderResult(v4, v6) {
     if (!v4 && !v6) {
-      var errMsg = '检测失败：请检查当前节点连通性';
+      var errMsg = isEN ? 'Check failed: verify node connectivity' : '检测失败：请检查当前节点连通性';
       if (isLoon) {
         return {
           title: panelTitle,
@@ -227,7 +304,9 @@
             '<div style="color:#EF4444;font-weight:600;">' +
             escapeHTML(errMsg) +
             '</div>' +
-            '<div style="margin-top:8px;font-size:12px;opacity:.65;">detectradar.com</div>' +
+            '<div style="margin-top:8px;font-size:12px;opacity:.65;">' +
+            escapeHTML(webHomeLabel) +
+            '</div>' +
             '</div>',
         };
       }
@@ -237,7 +316,7 @@
           content: errMsg,
           icon: 'exclamationmark.triangle.fill',
           backgroundColor: '#EF4444',
-          url: 'https://detectradar.com/',
+          url: webHomeURL,
         };
       }
       return {
@@ -249,35 +328,45 @@
     }
 
     var primary = v4 || v6;
-    var ipv6Leaked = Boolean(
-      v4 && v6 && !isMainlandChina(v4) && isMainlandChina(v6) && !isHosting(v6)
-    );
+    var ipv6Leaked = evaluateIPv6Leak(v4, v6);
     var style = buildStatusStyle(primary, ipv6Leaked);
 
     var lines = [
-      '出口 IP: ' + displayAddress(primary.ip),
-      '地区: ' + formatLocation(primary),
-      '运营商: ' + formatOperator(primary),
-      '类型: ' + formatTypeLine(primary),
+      (isEN ? 'Exit IP: ' : '出口 IP: ') + displayAddress(primary.ip),
+      (isEN ? 'Location: ' : '地区: ') + formatLocation(primary),
+      (isEN ? 'ISP / Org: ' : '运营商: ') + formatOperator(primary),
+      (isEN ? 'Type: ' : '类型: ') + formatTypeLine(primary),
     ];
 
     if (typeof primary.human_ratio === 'number' && isFinite(primary.human_ratio)) {
       var pct = Math.max(0, Math.min(100, primary.human_ratio)).toFixed(1);
-      lines.push('人类流量: ' + pct + '%（网段近30天）');
+      lines.push(
+        isEN
+          ? 'Human Traffic: ' + pct + '% (30d ASN)'
+          : '人类流量: ' + pct + '%（网段近30天）'
+      );
     }
 
     if (enableIPv6) {
       if (v4 && v6) {
         var v6Addr = displayAddress(v6.ip);
         if (ipv6Leaked) {
-          lines.push('IPv6: 泄露（经国内宽带直连 ' + v6Addr + '）');
+          lines.push(
+            isEN
+              ? 'IPv6: Leak (ISP bypass ' + v6Addr + ')'
+              : 'IPv6: 泄露（经接入网直连 ' + v6Addr + '）'
+          );
         } else {
-          lines.push('IPv6: ' + v6Addr + '（未泄露）');
+          lines.push(
+            isEN
+              ? 'IPv6: ' + v6Addr + ' (No leak)'
+              : 'IPv6: ' + v6Addr + '（未泄露）'
+          );
         }
       } else if (v4) {
-        lines.push('IPv6: 未连通');
+        lines.push(isEN ? 'IPv6: Unreachable' : 'IPv6: 未连通');
       } else {
-        lines.push('IPv4: 未连通（仅 IPv6 出口）');
+        lines.push(isEN ? 'IPv4: Unreachable (IPv6-only)' : 'IPv4: 未连通（仅 IPv6 出口）');
       }
     }
 
@@ -286,6 +375,9 @@
       for (var i = 0; i < lines.length; i++) {
         htmlLines += '<div style="margin:4px 0;">' + escapeHTML(lines[i]) + '</div>';
       }
+      var footerText = isEN
+        ? 'Full check (DNS / WebRTC / Fingerprint): detectradar.com/en/'
+        : '完整诊断（DNS / WebRTC / 指纹）：detectradar.com';
       return {
         title: panelTitle,
         htmlMessage:
@@ -294,10 +386,18 @@
           style.color +
           ';">' +
           '<span>●</span><span>' +
-          escapeHTML(ipv6Leaked ? '发现 IPv6 泄露' : style.label) +
+          escapeHTML(
+            ipv6Leaked
+              ? isEN
+                ? 'IPv6 Leak Detected'
+                : '发现 IPv6 泄露'
+              : style.label
+          ) +
           '</span></div>' +
           htmlLines +
-          '<div style="margin-top:10px;font-size:12px;opacity:.6;">完整诊断（DNS / WebRTC / 指纹）：detectradar.com</div>' +
+          '<div style="margin-top:10px;font-size:12px;opacity:.6;">' +
+          escapeHTML(footerText) +
+          '</div>' +
           '</div>',
       };
     }
@@ -309,7 +409,7 @@
         content: textContent,
         icon: style.icon,
         backgroundColor: style.color,
-        url: 'https://detectradar.com/',
+        url: webHomeURL,
       };
     }
 
@@ -394,7 +494,7 @@
     $done(renderResult(v4Result, v6Result));
   }
 
-  fetchIP('https://4.detectradar.com/api/v1/ip?from=' + clientTag, V4_TIMEOUT_MS, function (res) {
+  fetchIP('https://4.detectradar.com/api/v1/ip?from=' + clientTag + '&lang=' + lang, V4_TIMEOUT_MS, function (res) {
     v4Done = true;
     v4Result = res;
     if (!v6Done) {
@@ -407,7 +507,7 @@
   });
 
   if (enableIPv6) {
-    fetchIP('https://6.detectradar.com/api/v1/ip?from=' + clientTag, V6_HARD_TIMEOUT_MS, function (res) {
+    fetchIP('https://6.detectradar.com/api/v1/ip?from=' + clientTag + '&lang=' + lang, V6_HARD_TIMEOUT_MS, function (res) {
       v6Done = true;
       v6Result = res;
       maybeFinish();

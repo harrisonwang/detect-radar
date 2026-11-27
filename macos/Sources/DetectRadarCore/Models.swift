@@ -13,6 +13,11 @@ public struct IPIntel: Codable, Equatable, Sendable {
     public let usageTypeRaw: String?
     public let isHosting: Bool?
     public let isMobile: Bool?
+    public let isVPN: Bool?
+    public let isProxy: Bool?
+    public let isTor: Bool?
+    public let isRelay: Bool?
+    public let isAnonymous: Bool?
 
     enum CodingKeys: String, CodingKey {
         case ip
@@ -27,6 +32,11 @@ public struct IPIntel: Codable, Equatable, Sendable {
         case usageTypeRaw = "usage_type_raw"
         case isHosting = "is_hosting"
         case isMobile = "is_mobile"
+        case isVPN = "is_vpn"
+        case isProxy = "is_proxy"
+        case isTor = "is_tor"
+        case isRelay = "is_relay"
+        case isAnonymous = "is_anonymous"
     }
 
     public init(
@@ -41,7 +51,12 @@ public struct IPIntel: Codable, Equatable, Sendable {
         usageType: String? = nil,
         usageTypeRaw: String? = nil,
         isHosting: Bool? = nil,
-        isMobile: Bool? = nil
+        isMobile: Bool? = nil,
+        isVPN: Bool? = nil,
+        isProxy: Bool? = nil,
+        isTor: Bool? = nil,
+        isRelay: Bool? = nil,
+        isAnonymous: Bool? = nil
     ) {
         self.ip = ip
         self.country = country
@@ -55,6 +70,11 @@ public struct IPIntel: Codable, Equatable, Sendable {
         self.usageTypeRaw = usageTypeRaw
         self.isHosting = isHosting
         self.isMobile = isMobile
+        self.isVPN = isVPN
+        self.isProxy = isProxy
+        self.isTor = isTor
+        self.isRelay = isRelay
+        self.isAnonymous = isAnonymous
     }
 }
 
@@ -120,5 +140,11 @@ public enum AppConfig {
         let raw = UserDefaults.standard.string(forKey: "baseDomain")?
             .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
         return raw.isEmpty ? "detectradar.com" : raw
+    }
+
+    public static var languageOverride: String? {
+        let raw = UserDefaults.standard.string(forKey: "language")?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        return raw.isEmpty ? nil : raw
     }
 }

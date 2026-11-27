@@ -34,5 +34,6 @@ func querySockDiag(t TCPTuple) (TCPConnMeta, bool) {
 	if err != nil {
 		return TCPConnMeta{}, false
 	}
+	ApplyServerMTU(&meta, lookupServerInterfaceMTU(t.ServerIP))
 	return meta, true
 }

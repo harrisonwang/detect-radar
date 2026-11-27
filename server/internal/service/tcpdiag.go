@@ -7,6 +7,8 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 )
 
 const (
@@ -19,10 +21,12 @@ const (
 	inetDiagInfoExt  = 1 << 1
 	inetDiagInfoAttr = 2
 
-	minPlausibleSndMSS = 500
-	maxPlausibleSndMSS = 9000
-	minPlausibleEstMTU = 576
-	maxPlausibleEstMTU = 9000
+	minPlausibleSndMSS  = 500
+	maxPlausibleSndMSS  = 9000
+	minPlausibleEstMTU  = 576
+	maxPlausibleEstMTU  = 9000
+	standardEthernetMTU = 1500
+	ifaceMTUCacheTTL    = 60 * time.Second
 )
 
 type TCPTuple struct {
@@ -37,9 +41,21 @@ type TCPConnMeta struct {
 	EstMTU     int
 	IPVersion  int
 	SndMSS     int
+	PMTU       int
+	Advmss     int
+	ServerMTU  int
+	MTUClamped bool
 	Timestamps bool
 	PeerWScale int
 }
+
+type ifaceMTUCacheState struct {
+	mu        sync.Mutex
+	updatedAt time.Time
+	byIP      map[string]int
+}
+
+var ifaceMTUCache ifaceMTUCacheState
 
 var lookupTCPConnMeta = querySockDiag
 
@@ -147,6 +163,14 @@ func DecodeTCPInfo(info []byte, ipVersion int) (TCPConnMeta, bool) {
 	if sndMSS < minPlausibleSndMSS || sndMSS > maxPlausibleSndMSS {
 		return TCPConnMeta{}, false
 	}
+	pmtu := int(binary.LittleEndian.Uint32(info[60:64]))
+	if pmtu < minPlausibleEstMTU || pmtu > maxPlausibleEstMTU {
+		pmtu = 0
+	}
+	advmss := int(binary.LittleEndian.Uint32(info[84:88]))
+	if advmss < minPlausibleSndMSS || advmss > maxPlausibleSndMSS {
+		advmss = 0
+	}
 	peerMSS := sndMSS
 	if ts {
 		peerMSS += 12
@@ -164,9 +188,89 @@ func DecodeTCPInfo(info []byte, ipVersion int) (TCPConnMeta, bool) {
 		EstMTU:     estMTU,
 		IPVersion:  ipVersion,
 		SndMSS:     sndMSS,
+		PMTU:       pmtu,
+		Advmss:     advmss,
 		Timestamps: ts,
 		PeerWScale: peerWScale,
 	}, true
+}
+
+func ApplyServerMTU(meta *TCPConnMeta, ifaceMTU int) {
+	if meta == nil {
+		return
+	}
+	ceiling := ifaceMTU
+	if ceiling < minPlausibleEstMTU || ceiling > maxPlausibleEstMTU {
+		ceiling = meta.PMTU
+	}
+	if ceiling < minPlausibleEstMTU || ceiling > maxPlausibleEstMTU {
+		return
+	}
+	meta.ServerMTU = ceiling
+	if ceiling < standardEthernetMTU && meta.EstMTU >= ceiling-4 {
+		meta.MTUClamped = true
+	}
+}
+
+func canonicalIPKey(ip net.IP) string {
+	if ip == nil {
+		return ""
+	}
+	if v4 := ip.To4(); v4 != nil {
+		return v4.String()
+	}
+	return ip.To16().String()
+}
+
+func lookupServerInterfaceMTU(serverIP string) int {
+	parsed := net.ParseIP(strings.TrimSpace(serverIP))
+	key := canonicalIPKey(parsed)
+	if key == "" {
+		return 0
+	}
+
+	now := time.Now()
+	ifaceMTUCache.mu.Lock()
+	defer ifaceMTUCache.mu.Unlock()
+
+	if ifaceMTUCache.byIP == nil || now.Sub(ifaceMTUCache.updatedAt) >= ifaceMTUCacheTTL {
+		ifaceMTUCache.byIP = collectInterfaceMTUMap()
+		ifaceMTUCache.updatedAt = now
+	}
+	return ifaceMTUCache.byIP[key]
+}
+
+func collectInterfaceMTUMap() map[string]int {
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		return map[string]int{}
+	}
+	byIP := make(map[string]int)
+	for _, iface := range ifaces {
+		if iface.Flags&net.FlagLoopback != 0 {
+			continue
+		}
+		if iface.MTU < minPlausibleEstMTU || iface.MTU > maxPlausibleEstMTU {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			var ip net.IP
+			switch v := addr.(type) {
+			case *net.IPNet:
+				ip = v.IP
+			case *net.IPAddr:
+				ip = v.IP
+			}
+			if key := canonicalIPKey(ip); key != "" {
+				byIP[key] = iface.MTU
+			}
+		}
+	}
+	return byIP
 }
 
 func ParseSockDiagReply(buf []byte, ipVersion int) (TCPConnMeta, error) {

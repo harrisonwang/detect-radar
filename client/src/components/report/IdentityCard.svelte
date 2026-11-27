@@ -88,9 +88,16 @@
 
   let chars = $derived(rtt?.characteristics ?? []);
   let hasPPPoE = $derived(chars.includes('pppoe'));
+  let hasLowMTU = $derived(chars.includes('low_mtu'));
   let hasTunneling = $derived(chars.includes('suspected_tunneling'));
   let hasProxyRelay = $derived(chars.includes('suspected_proxy_relay'));
+  let hasNoAnomalies = $derived(chars.includes('no_obvious_anomalies'));
   let hasInconclusive = $derived(chars.includes('inconclusive'));
+
+  let connTipPinned = $state(false);
+  let connTipHovered = $state(false);
+  let connTipOpen = $derived(connTipPinned || connTipHovered);
+  let connHelpEl = $state<HTMLDivElement | null>(null);
 
   let connNote = $derived.by(() => {
     if (!rtt) return '';
@@ -98,9 +105,22 @@
     if (hasTunneling && hasProxyRelay) return idCopy.connCharNote.tunnel_proxy;
     if (hasPPPoE) return idCopy.connCharNote.pppoe;
     if (hasTunneling) return idCopy.connCharNote.suspected_tunneling;
+    if (hasLowMTU) return idCopy.connCharNote.low_mtu;
     if (hasProxyRelay) return idCopy.connCharNote.suspected_proxy_relay;
+    if (hasNoAnomalies) {
+      return rtt.mtuClamped && rtt.serverMTU
+        ? idCopy.connCharNote.no_obvious_anomalies_clamped(rtt.serverMTU)
+        : idCopy.connCharNote.no_obvious_anomalies;
+    }
     if (hasInconclusive) return idCopy.connCharNote.inconclusive;
     return '';
+  });
+
+  $effect(() => {
+    void rtt;
+    void connNote;
+    connTipPinned = false;
+    connTipHovered = false;
   });
 
   function charStyle(c: ConnectionCharacteristic): { color: string; bg: string; icon: string } {
@@ -109,6 +129,8 @@
         return { color: 'var(--sig)', bg: 'var(--sig-soft)', icon: 'fa-circle-check' };
       case 'pppoe':
         return { color: 'var(--info)', bg: 'var(--info-soft)', icon: 'fa-plug' };
+      case 'low_mtu':
+        return { color: 'var(--info)', bg: 'var(--info-soft)', icon: 'fa-compress' };
       case 'suspected_tunneling':
         return { color: 'var(--warn)', bg: 'var(--warn-soft)', icon: 'fa-layer-group' };
       case 'suspected_proxy_relay':
@@ -118,6 +140,20 @@
     }
   }
 </script>
+
+<svelte:window
+  onclick={(e) => {
+    if (connTipPinned && connHelpEl && !connHelpEl.contains(e.target as Node)) {
+      connTipPinned = false;
+    }
+  }}
+  onkeydown={(e) => {
+    if (e.key === 'Escape' && (connTipPinned || connTipHovered)) {
+      connTipPinned = false;
+      connTipHovered = false;
+    }
+  }}
+/>
 
 <div class="glass-card rounded-xl p-6" class:scan-focus={active}>
   <header class="flex items-center justify-between mb-5">
@@ -267,17 +303,17 @@
               </div>
             {/if}
             {#if rtt.estMTU != null}
-              <div title={idCopy.rttMtuTooltip(rtt.peerMSS ?? null, rtt.ipVersion ?? null)}>
+              <div title={idCopy.rttMtuTooltip(rtt.peerMSS ?? null, rtt.ipVersion ?? null, rtt.mtuClamped, rtt.serverMTU ?? null)}>
                 <span class="text-xs text-(--slate-500)">{idCopy.rttMtu}</span>
                 <span
-                  class={hasTunneling || hasPPPoE ? 'text-sm tnum ml-1.5' : 'text-sm text-(--slate-200) tnum ml-1.5'}
-                  style={hasTunneling ? 'color:var(--warn)' : hasPPPoE ? 'color:var(--info)' : undefined}
+                  class={hasTunneling || hasPPPoE || hasLowMTU ? 'text-sm tnum ml-1.5' : 'text-sm text-(--slate-200) tnum ml-1.5'}
+                  style={hasTunneling ? 'color:var(--warn)' : hasPPPoE || hasLowMTU ? 'color:var(--info)' : undefined}
                 >{rtt.estMTU}</span>
               </div>
             {/if}
           </div>
           {#if chars.length}
-            <div class="mt-3 flex flex-wrap items-center gap-1.5">
+            <div class="relative mt-3 flex flex-wrap items-center gap-1.5" bind:this={connHelpEl}>
               {#each chars as c}
                 {@const st = charStyle(c)}
                 <span
@@ -287,10 +323,41 @@
                   <i class="fa-solid {st.icon} text-[10px]"></i>{idCopy.connChar[c]}
                 </span>
               {/each}
+              {#if connNote}
+                <button
+                  type="button"
+                  class="conn-help-btn"
+                  aria-label={idCopy.connCharHelpLabel}
+                  aria-expanded={connTipOpen}
+                  aria-describedby={connTipOpen ? 'conn-char-tip' : undefined}
+                  onpointerenter={(e) => {
+                    if (e.pointerType !== 'touch') connTipHovered = true;
+                  }}
+                  onpointerleave={(e) => {
+                    if (e.pointerType !== 'touch') connTipHovered = false;
+                  }}
+                  onfocus={(e) => {
+                    if (e.currentTarget.matches(':focus-visible')) connTipHovered = true;
+                  }}
+                  onblur={() => {
+                    connTipHovered = false;
+                  }}
+                  onclick={(e) => {
+                    e.stopPropagation();
+                    const next = !connTipPinned;
+                    connTipPinned = next;
+                    if (!next) connTipHovered = false;
+                  }}
+                >
+                  <i class="fa-solid fa-circle-question text-[12px]" aria-hidden="true"></i>
+                </button>
+                {#if connTipOpen}
+                  <div id="conn-char-tip" role="tooltip" class="conn-help-tip">
+                    {connNote}
+                  </div>
+                {/if}
+              {/if}
             </div>
-          {/if}
-          {#if connNote}
-            <p class="mt-2 text-xs text-(--slate-400) leading-relaxed">{connNote}</p>
           {/if}
         </div>
       {/if}

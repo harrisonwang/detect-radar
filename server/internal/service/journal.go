@@ -141,6 +141,12 @@ func distillRTT(r model.RTTAnalysis) map[string]any {
 	if r.EstMTU > 0 {
 		m["est_mtu"] = r.EstMTU
 	}
+	if r.ServerMTU > 0 {
+		m["server_mtu"] = r.ServerMTU
+	}
+	if r.MTUClamped {
+		m["mtu_clamped"] = true
+	}
 	if r.IPVersion > 0 {
 		m["ip_version"] = r.IPVersion
 	}

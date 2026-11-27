@@ -1,0 +1,9 @@
+#!name=DetectRadar Exit Check
+#!desc=Inspect exit IP, geolocation, ASN, ISP/Datacenter classification, Cloudflare Radar 30-day ASN human traffic ratio, and IPv6 bypass leak (fast local lookup)
+#!homepage=https://detectradar.com/en/
+
+[Panel]
+DetectRadar = title="DetectRadar Exit", content="Tap to refresh", style=info, script-name=detectradar-panel-en, update-interval=-1
+
+[Script]
+detectradar-panel-en = type=generic, script-path=https://raw.githubusercontent.com/harrisonwang/detect-radar/main/modules/scripts/detectradar-panel.js, script-update-interval=86400, timeout=10, argument=lang=en&ipv6=true&hide_ip=false

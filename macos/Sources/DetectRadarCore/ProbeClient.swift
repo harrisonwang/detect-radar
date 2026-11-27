@@ -2,10 +2,15 @@ import Foundation
 
 public struct ProbeEndpoints: Equatable, Sendable {
     public let mainBaseURL: URL
+    public let webHomeURL: URL
+    public let ipv6CheckURL: URL
     public let v4IPURL: URL
     public let v6IPURL: URL
 
-    public init(baseDomain: String = AppConfig.baseDomain) {
+    public init(
+        baseDomain: String = AppConfig.baseDomain,
+        language: AppLanguage = AppLanguage.resolve()
+    ) {
         let cleaned = baseDomain
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "https://", with: "")
@@ -14,8 +19,10 @@ public struct ProbeEndpoints: Equatable, Sendable {
         let host = cleaned.isEmpty ? "detectradar.com" : cleaned
 
         self.mainBaseURL = URL(string: "https://\(host)")!
-        self.v4IPURL = URL(string: "https://4.\(host)/api/v1/ip")!
-        self.v6IPURL = URL(string: "https://6.\(host)/api/v1/ip")!
+        self.webHomeURL = URL(string: "https://\(host)\(language.webPathPrefix)/")!
+        self.ipv6CheckURL = URL(string: "https://\(host)\(language.webPathPrefix)/ipv6-leak-test/")!
+        self.v4IPURL = URL(string: "https://4.\(host)/api/v1/ip?lang=\(language.apiLangParam)")!
+        self.v6IPURL = URL(string: "https://6.\(host)/api/v1/ip?lang=\(language.apiLangParam)")!
     }
 }
 
@@ -25,13 +32,17 @@ public enum ProbeError: LocalizedError, Sendable {
     case wrongIPFamily
     case unreachable(String)
 
-    public var errorDescription: String? {
+    public func message(for language: AppLanguage) -> String {
         switch self {
-        case .rateLimited: "请求过于频繁"
-        case .invalidResponse: "响应格式异常"
-        case .wrongIPFamily: "协议簇不匹配"
+        case .rateLimited: language == .en ? "Too many requests" : "请求过于频繁"
+        case .invalidResponse: language == .en ? "Invalid response" : "响应格式异常"
+        case .wrongIPFamily: language == .en ? "IP family mismatch" : "协议簇不匹配"
         case .unreachable(let msg): msg
         }
+    }
+
+    public var errorDescription: String? {
+        message(for: AppLanguage.resolve())
     }
 }
 
@@ -102,8 +113,11 @@ public final class ProbeClient: Sendable {
         return intel
     }
 
-    public func runProbe(baseDomain: String = AppConfig.baseDomain) async -> EgressSnapshot {
-        let endpoints = ProbeEndpoints(baseDomain: baseDomain)
+    public func runProbe(
+        baseDomain: String = AppConfig.baseDomain,
+        language: AppLanguage = AppLanguage.resolve()
+    ) async -> EgressSnapshot {
+        let endpoints = ProbeEndpoints(baseDomain: baseDomain, language: language)
         let systemProxy = SystemProxyReader.readSystemProxy()
         let hasLocalV6 = LocalIPv6Detector.hasGlobalIPv6()
 
@@ -135,11 +149,16 @@ public final class ProbeClient: Sendable {
             v4Err = nil
         case .failure(let err):
             activeV4 = nil
-            v4Err = err.localizedDescription
+            if let probeErr = err as? ProbeError {
+                v4Err = probeErr.message(for: language)
+            } else {
+                v4Err = err.localizedDescription
+            }
         }
 
-        let ipv6Leak = DualStackEvaluator.evaluateIPv6Leak(activeV4: activeV4, directV6: directV6)
-        let errMessage: String? = (activeV4 == nil && directV6 == nil) ? (v4Err ?? "无法连接到 DetectRadar") : nil
+        let ipv6Leak = DualStackEvaluator.evaluateIPv6Leak(activeV4: activeV4, directV6: directV6, language: language)
+        let fallbackError = language == .en ? "Unable to reach DetectRadar" : "无法连接到 DetectRadar"
+        let errMessage: String? = (activeV4 == nil && directV6 == nil) ? (v4Err ?? fallbackError) : nil
 
         return EgressSnapshot(
             timestamp: Date(),

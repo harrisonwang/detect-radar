@@ -1,0 +1,18 @@
+name: DetectRadar Exit Check
+desc: Inspect exit IP, geolocation, ASN, ISP/Datacenter classification, Cloudflare Radar 30-day ASN human traffic ratio, and IPv6 bypass leak in Stash tiles
+icon: https://detectradar.com/icon-192.png
+
+tiles:
+  - name: detectradar-panel-en
+    interval: 3600
+    title: DetectRadar Exit
+    content: Tap to refresh
+    icon: network
+    backgroundColor: "#16A34A"
+    url: https://detectradar.com/en/
+    argument: "lang=en&ipv6=true&hide_ip=false"
+
+script-providers:
+  detectradar-panel-en:
+    url: https://raw.githubusercontent.com/harrisonwang/detect-radar/main/modules/scripts/detectradar-panel.js
+    interval: 86400

@@ -98,3 +98,126 @@ func systemProxyParsingAndLocalIPv6() {
     #expect(LocalIPv6Detector.isGlobalUnicastIPv6([0xfe, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]) == false)
     #expect(LocalIPv6Detector.isGlobalUnicastIPv6([0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]) == false)
 }
+
+@Test
+func appLanguageResolutionAndEnglishFormatting() {
+    #expect(AppLanguage.resolve(override: "en", preferredLanguages: ["zh-Hans-CN"]) == .en)
+    #expect(AppLanguage.resolve(override: "zh-CN", preferredLanguages: ["en-US"]) == .zh)
+    #expect(AppLanguage.resolve(override: nil, preferredLanguages: ["en-US"]) == .en)
+    #expect(AppLanguage.resolve(override: nil, preferredLanguages: ["ja-JP"]) == .en)
+    #expect(AppLanguage.resolve(override: nil, preferredLanguages: ["zh-Hans-CN"]) == .zh)
+    #expect(AppLanguage.resolve(override: nil, preferredLanguages: ["zh-Hant-TW"]) == .zh)
+    #expect(AppLanguage.resolve(override: nil, preferredLanguages: []) == .zh)
+
+    let hosting = IPIntel(
+        ip: "203.0.113.42", country: "US", countryName: "United States",
+        city: "Los Angeles", asn: "AS14061", isp: "DigitalOcean",
+        usageType: "hosting", isHosting: true
+    )
+    let isp = IPIntel(
+        ip: "198.51.100.10", country: "US", countryName: "United States",
+        asn: "AS7922", isp: "Comcast", usageType: "isp"
+    )
+    let mobile = IPIntel(
+        ip: "198.51.100.20", country: "JP", countryName: "Japan",
+        asn: "AS2516", isp: "KDDI", usageType: "isp", isMobile: true
+    )
+    let hk = IPIntel(
+        ip: "2001:db8:852::1", country: "CN", countryName: "香港",
+        region: "香港特别行政区", city: "香港", usageType: "isp"
+    )
+    let cn = IPIntel(
+        ip: "192.0.2.10", country: "CN", region: "北京市",
+        isp: "China Mobile", usageType: "isp"
+    )
+    let unknown = IPIntel(ip: "192.0.2.99")
+
+    #expect(IPMasker.countryBadgeLine(for: hosting, language: .en) == "🇺🇸 US")
+    #expect(IPMasker.regionDisplayName(for: hosting, language: .en) == "United States")
+    #expect(IPMasker.regionDisplayName(for: hk, language: .en) == "Hong Kong")
+    #expect(IPMasker.regionDisplayName(for: cn, language: .en) == "Mainland China")
+    #expect(IPMasker.usageShortLabel(for: hosting, language: .en) == "DC")
+    #expect(IPMasker.usageShortLabel(for: isp, language: .en) == "ISP")
+    #expect(IPMasker.usageShortLabel(for: mobile, language: .en) == "ISP")
+    #expect(IPMasker.usageShortLabel(for: mobile, language: .zh) == "宽带")
+    #expect(IPMasker.usageShortLabel(for: unknown, language: .en) == "Unknown")
+    #expect(IPMasker.usageBadgeLabel(for: hosting, language: .en) == "Datacenter")
+    #expect(IPMasker.usageBadgeLabel(for: isp, language: .en) == "ISP")
+    #expect(IPMasker.usageBadgeLabel(for: mobile, language: .en) == "ISP")
+    #expect(IPMasker.usageBadgeLabel(for: mobile, language: .zh) == "宽带")
+    #expect(IPMasker.usageBadgeLabel(for: unknown, language: .en) == "Unknown")
+
+    let cleanSnap = EgressSnapshot(
+        timestamp: Date(), activeV4: hosting, directV6: nil, systemProxy: nil, ipv6Leak: .none
+    )
+    let leakSnap = EgressSnapshot(
+        timestamp: Date(), activeV4: hosting, directV6: isp, systemProxy: nil,
+        ipv6Leak: .leaked(carrier: "Comcast", ip: isp.ip)
+    )
+    let ispSnap = EgressSnapshot(
+        timestamp: Date(), activeV4: isp, directV6: nil, systemProxy: nil, ipv6Leak: .none
+    )
+    let offlineSnap = EgressSnapshot(
+        timestamp: Date(), activeV4: nil, directV6: nil, systemProxy: nil, ipv6Leak: .none
+    )
+    #expect(IPMasker.menuBarTitle(snapshot: cleanSnap, isLoading: false, language: .en) == "🇺🇸 DC")
+    #expect(IPMasker.menuBarTitle(snapshot: leakSnap, isLoading: false, language: .en) == "🇺🇸 DC ⚠️")
+    #expect(IPMasker.menuBarTitle(snapshot: ispSnap, isLoading: false, language: .en) == "🇺🇸 ISP")
+    #expect(IPMasker.menuBarTitle(snapshot: nil, isLoading: true, language: .en) == "◎ Checking")
+    #expect(IPMasker.menuBarTitle(snapshot: offlineSnap, isLoading: false, language: .en) == "⚠️ Offline")
+}
+
+@Test
+func globalIPv6LeakRulesAndEndpoints() {
+    let usHosting = IPIntel(
+        ip: "203.0.113.42", country: "US", asn: "AS14061",
+        isp: "DigitalOcean", usageType: "hosting", isHosting: true
+    )
+    let deISP = IPIntel(
+        ip: "2001:db8:49::1", country: "DE", asn: "AS3320",
+        isp: "Deutsche Telekom AG", usageType: "isp", isHosting: false
+    )
+    let usISP = IPIntel(
+        ip: "2001:db8:7922::1", country: "US", asn: "AS7922",
+        isp: "Comcast", usageType: "isp", isHosting: false
+    )
+    let usISP2 = IPIntel(
+        ip: "198.51.100.10", country: "US", asn: "AS7922",
+        isp: "Comcast", usageType: "isp", isHosting: false
+    )
+    let deHosting = IPIntel(
+        ip: "2001:db8:49::2", country: "DE", asn: "AS24940",
+        isp: "Hetzner", usageType: "hosting", isHosting: true
+    )
+    let unknownGeoISP = IPIntel(
+        ip: "2001:db8:99::1", country: "", asn: "AS7922",
+        isp: "Comcast", usageType: "isp", isHosting: false
+    )
+
+    #expect(
+        DualStackEvaluator.evaluateIPv6Leak(activeV4: usHosting, directV6: deISP, language: .en)
+            == .leaked(carrier: "Deutsche Telekom AG", ip: "2001:db8:49::1")
+    )
+    #expect(
+        DualStackEvaluator.evaluateIPv6Leak(activeV4: usHosting, directV6: usISP, language: .en)
+            == .leaked(carrier: "Comcast", ip: "2001:db8:7922::1")
+    )
+    #expect(DualStackEvaluator.evaluateIPv6Leak(activeV4: usISP2, directV6: usISP, language: .en) == .none)
+    #expect(DualStackEvaluator.evaluateIPv6Leak(activeV4: usHosting, directV6: deHosting, language: .en) == .none)
+    #expect(
+        DualStackEvaluator.evaluateIPv6Leak(activeV4: usHosting, directV6: unknownGeoISP, language: .en)
+            == .leaked(carrier: "Comcast", ip: "2001:db8:99::1")
+    )
+
+    let zhEp = ProbeEndpoints(baseDomain: "detectradar.com", language: .zh)
+    #expect(zhEp.v4IPURL.absoluteString == "https://4.detectradar.com/api/v1/ip?lang=zh")
+    #expect(zhEp.v6IPURL.absoluteString == "https://6.detectradar.com/api/v1/ip?lang=zh")
+    #expect(zhEp.webHomeURL.absoluteString == "https://detectradar.com/")
+    #expect(zhEp.ipv6CheckURL.absoluteString == "https://detectradar.com/ipv6-leak-test/")
+
+    let enEp = ProbeEndpoints(baseDomain: "detectradar.com", language: .en)
+    #expect(enEp.v4IPURL.absoluteString == "https://4.detectradar.com/api/v1/ip?lang=en")
+    #expect(enEp.v6IPURL.absoluteString == "https://6.detectradar.com/api/v1/ip?lang=en")
+    #expect(enEp.webHomeURL.absoluteString == "https://detectradar.com/en/")
+    #expect(enEp.ipv6CheckURL.absoluteString == "https://detectradar.com/en/ipv6-leak-test/")
+}

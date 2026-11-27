@@ -13,7 +13,7 @@ const { locale } = Astro.props;
 const m = getMessages(locale);
 const canonical = localePath('/macos/', locale);
 
-const MACOS_VERSION = '0.1.1';
+const MACOS_VERSION = '0.1.2';
 const MACOS_RELEASE_TAG = `macos-v${MACOS_VERSION}`;
 const MACOS_DMG_FILENAME = `DetectRadarBar-v${MACOS_VERSION}-macos-universal.dmg`;
 
@@ -51,29 +51,31 @@ const SKILL_PATH = locale === 'en' ? '/en/SKILL.md' : '/SKILL.md';
 const SKILL_URL = `https://detectradar.com${SKILL_PATH}`;
 const AGENT_PROMPT = `${m.macos.agentPromptBefore}${SKILL_URL}${m.macos.agentPromptAfter}`;
 const MODULES_REPO_URL = 'https://github.com/harrisonwang/detect-radar/tree/main/modules';
+const MODULE_SUFFIX = locale === 'en' ? '-en' : '';
 const PROXY_MODULES = [
   {
     name: 'Surge',
     ext: '.sgmodule',
-    url: 'https://raw.githubusercontent.com/harrisonwang/detect-radar/main/modules/surge/detectradar.sgmodule',
+    url: `https://raw.githubusercontent.com/harrisonwang/detect-radar/main/modules/surge/detectradar${MODULE_SUFFIX}.sgmodule`,
   },
   {
     name: 'Stash',
     ext: '.stoverride',
-    url: 'https://raw.githubusercontent.com/harrisonwang/detect-radar/main/modules/stash/detectradar.stoverride',
+    url: `https://raw.githubusercontent.com/harrisonwang/detect-radar/main/modules/stash/detectradar${MODULE_SUFFIX}.stoverride`,
   },
   {
     name: 'Loon',
     ext: '.plugin',
-    url: 'https://raw.githubusercontent.com/harrisonwang/detect-radar/main/modules/loon/detectradar.plugin',
+    url: `https://raw.githubusercontent.com/harrisonwang/detect-radar/main/modules/loon/detectradar${MODULE_SUFFIX}.plugin`,
   },
 ] as const;
 
+const PREVIEW_LANG_SUFFIX = locale === 'en' ? '-en' : '';
 const PREVIEWS = [
   {
     id: 'clean-dark',
     label: m.macos.previews.darkLabel,
-    src: '/images/macos-bar-preview-dark-v3.png',
+    src: `/images/macos-bar-preview-dark${PREVIEW_LANG_SUFFIX}-v3.png`,
     width: 672,
     height: 502,
     alt: m.macos.previews.darkAlt,
@@ -82,7 +84,7 @@ const PREVIEWS = [
   {
     id: 'clean-light',
     label: m.macos.previews.lightLabel,
-    src: '/images/macos-bar-preview-light-v3.png',
+    src: `/images/macos-bar-preview-light${PREVIEW_LANG_SUFFIX}-v3.png`,
     width: 672,
     height: 502,
     alt: m.macos.previews.lightAlt,
@@ -91,7 +93,7 @@ const PREVIEWS = [
   {
     id: 'alert-dark',
     label: m.macos.previews.alertLabel,
-    src: '/images/macos-bar-preview-alert-v3.png',
+    src: `/images/macos-bar-preview-alert${PREVIEW_LANG_SUFFIX}-v3.png`,
     width: 672,
     height: 502,
     alt: m.macos.previews.alertAlt,
@@ -108,14 +110,14 @@ const copiedFallback = m.macos.copiedFallback;
   locale={locale}
   description={m.seo.macos.description}
   pageType="software"
-  dateModified="2026-11-26"
+  dateModified="2026-11-27"
   software={{
     name: 'DetectRadar for macOS',
     alternateName: 'DetectRadarBar',
     operatingSystem: 'macOS 13.0 or later',
     applicationCategory: 'UtilitiesApplication',
     softwareVersion: MACOS_VERSION,
-    inLanguage: 'zh-CN',
+    inLanguage: ['zh-CN', 'en'],
     ...(primaryDownload.isDirectFile
       ? { downloadUrl: primaryDownload.href }
       : { installUrl: primaryDownload.href }),

@@ -25,7 +25,7 @@
 - 综合 IP2Location / DB-IP 离线库、ip2region（中国大陆）、云厂商网段、托管 ASN 与全球接入网 ASN 数据库、Team Cymru 实时 BGP 与 rDNS 反向解析识别机房与接入网属性。
 - 展示 Cloudflare Radar 近 30 天所属 ASN 维度的人类流量占比（经 Redis 缓存 24 小时，仅反映所属网段整体构成，非单个 IP 评分）。
 - 检查公开黑名单（Spamhaus / SpamCop / Barracuda / DroneBL）、Shodan InternetDB 开放代理端口、Tor 出口列表和第三方信誉信息。
-- 物理延迟仅呈现浏览器到服务器与出口到服务器的实测毫秒数，不设人为阈值也不计入扣分。
+- **连接特征（试运行）**：在 `POST /api/v1/scans` 的 `analysis.rtt` 中返回同窗口实测的浏览器延迟 `client_min_ms`、服务端 TCP 延迟 `server_tcp_min_ms`、延迟差 `delta_min_ms`，以及经服务端只读 `NETLINK_SOCK_DIAG` 观测到的对端 `peer_mss`、换算后的 `est_mtu`（IPv4 按 `MSS+40`、IPv6 按 `MSS+60`）、`ip_version` 与非互斥标签数组 `characteristics`（可选值：`no_obvious_anomalies`「未见明显异常」、`pppoe`「PPPoE 特征」、`suspected_tunneling`「疑似隧道封装」、`suspected_proxy_relay`「疑似代理中转」、`inconclusive`「无法判断」；可并存如 `pppoe` + `suspected_proxy_relay` 或 `suspected_tunneling` + `suspected_proxy_relay`）。仅作信息参考展示，不计入扣分；低 MTU 亦可能来自移动网络/特定宽带，「未见明显异常」不证明一定是直连。
 
 ### 2. 环境一致性
 
@@ -62,7 +62,7 @@
 ## 4. 能力边界与隐私保护
 
 - 只分析发起检测的当前连接，不提供任意 IP 查询，也不根据单个 IP 猜测连接用途。
-- 终端命令仅能观测终端进程的出口 IP 与 DNS，无法检测浏览器 WebRTC、时区/语言一致性及浏览器指纹。
+- 终端命令仅能观测终端进程的出口 IP 与 DNS，无法检测网页端的连接特征（延迟差与估算 MTU）、浏览器 WebRTC、时区/语言一致性及浏览器指纹。
 - “未见明显异常”只代表本次检测没有命中已知矛盾或暴露项，不代表在任何第三方平台上一定安全或不会被风控拦截。
 - Canvas 绘图结果在浏览器本地计算为不可逆哈希值后再提交（不上传原始画面）；Audio 仅检查原生接口是否被改写；WebGL 仅提交显卡渲染器型号原文用于与操作系统比对。
 - 右上角「分享」支持「复制文字」与「保存图片」，均在浏览器本地完成且自动隐藏完整 IP。

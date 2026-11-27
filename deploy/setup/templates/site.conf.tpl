@@ -93,6 +93,9 @@ ${ROBOTS_NOINDEX_HEADER}
         # proxy_set_header 会覆写客户端自带的同名头，杜绝伪造。见 docs/rtt-phase1.md。
         proxy_set_header X-TCP-RTT    $tcpinfo_rtt;
         proxy_set_header X-TCP-RTTVAR $tcpinfo_rttvar;
+        proxy_set_header X-Client-Port $remote_port;
+        proxy_set_header X-Server-Addr $server_addr;
+        proxy_set_header X-Server-Port $server_port;
 
         proxy_connect_timeout 5s;
         proxy_send_timeout 30s;

@@ -18,6 +18,7 @@ import type {
   IPIntel,
   RiskLevel,
   DimensionScore,
+  ConnectionCharacteristic,
 } from "./types";
 
 import { browserExit, DNS_POLICY_VERSION, dnsProvider, dnsVerdictNote, getDnsStatus } from "./dnsPresentation";
@@ -86,6 +87,10 @@ export interface RTTReadout {
   serverTCPMS?: number;
   deltaMS?: number;
   jitterMS?: number;
+  peerMSS?: number;
+  estMTU?: number;
+  ipVersion?: number;
+  characteristics: ConnectionCharacteristic[];
 }
 
 export interface ReportModel {
@@ -608,14 +613,26 @@ function buildRTT(a: ScanAnalysis): RTTReadout | undefined {
         ? 0
         : r.delta_min_ms
       : undefined;
-  const out: RTTReadout = {
-    clientMinMS: pos(r.client_min_ms),
-    serverTCPMS: pos(r.server_tcp_min_ms) ?? pos(r.server_tcp_ms),
+  const clientMinMS = pos(r.client_min_ms);
+  const serverTCPMS = pos(r.server_tcp_min_ms) ?? pos(r.server_tcp_ms);
+  const peerMSS = pos(r.peer_mss);
+  const estMTU = pos(r.est_mtu);
+  const ipVersion = r.ip_version === 4 || r.ip_version === 6 ? r.ip_version : undefined;
+  if (clientMinMS == null && serverTCPMS == null && estMTU == null) return undefined;
+  const characteristics: ConnectionCharacteristic[] =
+    Array.isArray(r.characteristics) && r.characteristics.length > 0
+      ? r.characteristics
+      : ["inconclusive"];
+  return {
+    clientMinMS,
+    serverTCPMS,
     deltaMS,
     jitterMS: pos(r.client_jitter_ms),
+    peerMSS,
+    estMTU,
+    ipVersion,
+    characteristics,
   };
-  if (out.clientMinMS == null && out.serverTCPMS == null) return undefined;
-  return out;
 }
 
 function buildVerdict(

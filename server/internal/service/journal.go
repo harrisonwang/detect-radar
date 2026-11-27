@@ -135,6 +135,24 @@ func distillRTT(r model.RTTAnalysis) map[string]any {
 	if r.GeoSource != "" {
 		m["geo_source"] = r.GeoSource
 	}
+	if r.PeerMSS > 0 {
+		m["peer_mss"] = r.PeerMSS
+	}
+	if r.EstMTU > 0 {
+		m["est_mtu"] = r.EstMTU
+	}
+	if r.IPVersion > 0 {
+		m["ip_version"] = r.IPVersion
+	}
+	if r.TCPTimestamps != nil {
+		m["tcp_timestamps"] = *r.TCPTimestamps
+	}
+	if r.PeerWScale != nil {
+		m["peer_wscale"] = *r.PeerWScale
+	}
+	if len(r.Characteristics) > 0 {
+		m["characteristics"] = r.Characteristics
+	}
 	return m
 }
 

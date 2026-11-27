@@ -55,7 +55,7 @@ func (s *ScanService) SetRTTProbeStore(probes *RTTProbeStore) {
 	s.rttProbes = probes
 }
 
-func (s *ScanService) Analyze(ctx context.Context, req *model.ScanRequest, clientIP, httpVersion, tcpRTT, tcpRTTVar, ua string) (*model.ScanResponse, error) {
+func (s *ScanService) Analyze(ctx context.Context, req *model.ScanRequest, clientIP, httpVersion, tcpRTT, tcpRTTVar string, connMeta *TCPConnMeta, ua string) (*model.ScanResponse, error) {
 	start := time.Now()
 	clientIP = util.CanonicalIP(clientIP)
 
@@ -99,12 +99,16 @@ func (s *ScanService) Analyze(ctx context.Context, req *model.ScanRequest, clien
 
 	clientRTT := clientRTTData(req)
 	var serverTCPMinMS float64
+	effectiveMeta := connMeta
 	if s.rttProbes != nil && clientRTT != nil && clientRTT.ProbeID != "" {
-		if minMS, ok := s.rttProbes.Consume(clientRTT.ProbeID); ok {
+		if minMS, probeMeta, ok := s.rttProbes.ConsumeSnapshot(clientRTT.ProbeID); ok {
 			serverTCPMinMS = minMS
+			if probeMeta != nil {
+				effectiveMeta = probeMeta
+			}
 		}
 	}
-	resp.Analysis.RTT = deriveRTTWithServerMin(clientRTT, tcpRTT, tcpRTTVar, serverTCPMinMS, intel, s.rttCoords)
+	resp.Analysis.RTT = deriveRTTWithMeta(clientRTT, tcpRTT, tcpRTTVar, serverTCPMinMS, effectiveMeta, intel, s.rttCoords)
 
 	resp.Score, resp.RiskLevel, resp.Diagnosis, resp.Dimensions = scoreForScenario(resp.Analysis, intel, scenario)
 

@@ -182,16 +182,36 @@ export const en = {
       humanNoData: 'No data',
       humanTooltip: (h: string, b: string) => `Human ${h}% / Bot ${b}% · Cloudflare Radar ASN traffic`,
       humanNoDataTooltip: 'No Cloudflare Radar ASN data available',
-      rttTitle: 'Network RTT',
+      rttTitle: 'Connection Characteristics',
       rttBeta: 'Beta',
-      rttBetaTooltip: 'Informational measurements only; not included in scoring',
+      rttBetaTooltip: 'Connection characteristic thresholds are still being calibrated; informational only and excluded from scoring',
       rttLatency: 'HTTP RTT',
       rttTcp: 'TCP RTT',
       rttDelta: 'Delta',
+      rttMtu: 'Est. MTU',
       rttClientTooltip: (jitter: string | null) =>
         `Minimum round-trip time to DetectRadar${jitter ? `, jitter ${jitter} ms` : ''}`,
       rttTcpTooltip: 'Server-side TCP RTT measured on the probe connection',
       rttDeltaTooltip: 'Difference between application RTT and server TCP RTT in the same window',
+      rttMtuTooltip: (mss: number | null, ipVersion: number | null) =>
+        mss
+          ? `Estimated from peer TCP MSS ${mss} B (${ipVersion === 6 ? 'IPv6 +60' : 'IPv4 +40'}); standard Ethernet is typically 1500`
+          : 'Estimated path MTU from the current TCP connection',
+      connChar: {
+        no_obvious_anomalies: 'No Obvious Anomalies',
+        pppoe: 'PPPoE Characteristics',
+        suspected_tunneling: 'Suspected Tunneling',
+        suspected_proxy_relay: 'Suspected Proxy Relay',
+        inconclusive: 'Inconclusive',
+      },
+      connCharNote: {
+        pppoe: 'Matches typical PPPoE encapsulation (MTU 1492), though not exclusive to PPPoE',
+        suspected_tunneling: 'Estimated MTU is below standard Ethernet (1500), common with WireGuard/IPsec tunnels, cellular, or low-MTU links',
+        suspected_proxy_relay: 'Application RTT significantly exceeds server TCP RTT; connection may be relayed through a proxy',
+        pppoe_proxy: 'Exit link shows PPPoE-like MTU (1492) alongside elevated application-vs-TCP RTT delta',
+        tunnel_proxy: 'Connection may be relayed via proxy while the exit link also shows low-MTU tunneling (e.g. WireGuard / WARP)',
+        inconclusive: 'Incomplete RTT delta or estimated MTU observations for this connection',
+      },
     },
     readout: {
       referenceOnly: 'Info only',

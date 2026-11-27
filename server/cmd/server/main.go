@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -208,7 +209,17 @@ func setupRoutes(app *fiber.App, services *Services) {
 	api.Get("/ping", func(c *fiber.Ctx) error {
 		if services.RTTProbes != nil && c.IsProxyTrusted() {
 			if probeID := c.Query("probe_id"); probeID != "" {
-				services.RTTProbes.Record(probeID, c.Get("X-TCP-RTT"))
+				var metaPtr *service.TCPConnMeta
+				if !services.RTTProbes.HasMeta(probeID) {
+					clientIP := strings.TrimSpace(c.Get("X-Real-IP"))
+					if clientIP == "" {
+						clientIP = c.IP()
+					}
+					if meta, ok := service.InspectTCPConnection(clientIP, c.Get("X-Client-Port"), c.Get("X-Server-Addr"), c.Get("X-Server-Port")); ok {
+						metaPtr = &meta
+					}
+				}
+				services.RTTProbes.RecordWithMeta(probeID, c.Get("X-TCP-RTT"), metaPtr)
 			}
 		}
 		c.Set("Cache-Control", "no-store")

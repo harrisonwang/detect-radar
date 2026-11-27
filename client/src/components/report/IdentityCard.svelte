@@ -1,6 +1,7 @@
 <script lang="ts">
   import { getMessages, type Locale } from '../../i18n';
   import type { IdentityReadout, RTTReadout, SignalState } from '../../lib/report';
+  import type { ConnectionCharacteristic } from '../../lib/types';
   import { stateVar, stateSoft } from '../../lib/report';
   import ExitIPAddress from './ExitIPAddress.svelte';
 
@@ -84,6 +85,38 @@
     identity.state === 'coherent' && identity.ipType === 'datacenter' ? 'unknown' : identity.state,
   );
   const pct = (x: number) => (Number.isInteger(x) ? String(x) : x.toFixed(1));
+
+  let chars = $derived(rtt?.characteristics ?? []);
+  let hasPPPoE = $derived(chars.includes('pppoe'));
+  let hasTunneling = $derived(chars.includes('suspected_tunneling'));
+  let hasProxyRelay = $derived(chars.includes('suspected_proxy_relay'));
+  let hasInconclusive = $derived(chars.includes('inconclusive'));
+
+  let connNote = $derived.by(() => {
+    if (!rtt) return '';
+    if (hasPPPoE && hasProxyRelay) return idCopy.connCharNote.pppoe_proxy;
+    if (hasTunneling && hasProxyRelay) return idCopy.connCharNote.tunnel_proxy;
+    if (hasPPPoE) return idCopy.connCharNote.pppoe;
+    if (hasTunneling) return idCopy.connCharNote.suspected_tunneling;
+    if (hasProxyRelay) return idCopy.connCharNote.suspected_proxy_relay;
+    if (hasInconclusive) return idCopy.connCharNote.inconclusive;
+    return '';
+  });
+
+  function charStyle(c: ConnectionCharacteristic): { color: string; bg: string; icon: string } {
+    switch (c) {
+      case 'no_obvious_anomalies':
+        return { color: 'var(--sig)', bg: 'var(--sig-soft)', icon: 'fa-circle-check' };
+      case 'pppoe':
+        return { color: 'var(--info)', bg: 'var(--info-soft)', icon: 'fa-plug' };
+      case 'suspected_tunneling':
+        return { color: 'var(--warn)', bg: 'var(--warn-soft)', icon: 'fa-layer-group' };
+      case 'suspected_proxy_relay':
+        return { color: 'var(--warn)', bg: 'var(--warn-soft)', icon: 'fa-route' };
+      default:
+        return { color: 'var(--unknown)', bg: 'var(--unknown-soft)', icon: 'fa-circle-question' };
+    }
+  }
 </script>
 
 <div class="glass-card rounded-xl p-6" class:scan-focus={active}>
@@ -203,10 +236,10 @@
       {/if}
 
       {#if rtt}
-        <div class="mt-5 pt-4 border-t border-slate-800">
-          <div class="flex items-center justify-between mb-2.5">
+        <div class="mt-5 pt-4 border-t border-slate-800 min-w-0">
+          <div class="flex items-center justify-between gap-2 mb-2.5">
             <span class="text-xs font-mono text-(--slate-500) tracking-wider">{idCopy.rttTitle}</span>
-            <span class="text-[10px] text-(--slate-600)" title={idCopy.rttBetaTooltip}>{idCopy.rttBeta}</span>
+            <span class="text-[10px] text-(--slate-600) shrink-0" title={idCopy.rttBetaTooltip}>{idCopy.rttBeta}</span>
           </div>
           <div class="flex flex-wrap gap-x-7 gap-y-2">
             {#if rtt.clientMinMS != null}
@@ -226,11 +259,39 @@
             {#if rtt.deltaMS != null}
               <div title={idCopy.rttDeltaTooltip}>
                 <span class="text-xs text-(--slate-500)">{idCopy.rttDelta}</span>
-                <span class="text-sm text-(--slate-200) tnum ml-1.5">{ms(rtt.deltaMS)}</span>
+                <span
+                  class={hasProxyRelay ? 'text-sm tnum ml-1.5' : 'text-sm text-(--slate-200) tnum ml-1.5'}
+                  style={hasProxyRelay ? 'color:var(--warn)' : undefined}
+                >{hasProxyRelay && rtt.deltaMS > 0 ? `+${ms(rtt.deltaMS)}` : ms(rtt.deltaMS)}</span>
                 <span class="text-xs text-(--slate-600)">ms</span>
               </div>
             {/if}
+            {#if rtt.estMTU != null}
+              <div title={idCopy.rttMtuTooltip(rtt.peerMSS ?? null, rtt.ipVersion ?? null)}>
+                <span class="text-xs text-(--slate-500)">{idCopy.rttMtu}</span>
+                <span
+                  class={hasTunneling || hasPPPoE ? 'text-sm tnum ml-1.5' : 'text-sm text-(--slate-200) tnum ml-1.5'}
+                  style={hasTunneling ? 'color:var(--warn)' : hasPPPoE ? 'color:var(--info)' : undefined}
+                >{rtt.estMTU}</span>
+              </div>
+            {/if}
           </div>
+          {#if chars.length}
+            <div class="mt-3 flex flex-wrap items-center gap-1.5">
+              {#each chars as c}
+                {@const st = charStyle(c)}
+                <span
+                  class="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-md"
+                  style="color:{st.color}; background:{st.bg}"
+                >
+                  <i class="fa-solid {st.icon} text-[10px]"></i>{idCopy.connChar[c]}
+                </span>
+              {/each}
+            </div>
+          {/if}
+          {#if connNote}
+            <p class="mt-2 text-xs text-(--slate-400) leading-relaxed">{connNote}</p>
+          {/if}
         </div>
       {/if}
     </div>

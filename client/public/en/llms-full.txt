@@ -25,7 +25,7 @@
 - Combines offline IP2Location / DB-IP databases, ip2region, cloud provider CIDR & hosting ASN tables, curated global residential/mobile ISP ASNs, live Team Cymru BGP lookups, and rDNS heuristics.
 - Displays Cloudflare Radar 30-day ASN-level HTTP human traffic ratio (cached 24h in Redis; reflects overall ASN background, not a single-IP score).
 - Checks public DNSBL blocklists (Spamhaus, SpamCop, Barracuda, DroneBL), Shodan InternetDB open proxy ports, Tor exit lists, and external proxy/VPN intelligence during web scans (`GET /api/v1/ip/reputation` checks blocklists/ports/Tor; `GET /api/v1/ip?deep=true` checks external proxy/VPN intelligence).
-- Physical RTT metrics (HTTP RTT, server TCP RTT, delta) are informational only and are never penalized.
+- **Connection Characteristics (Beta)**: `POST /api/v1/scans` populates `analysis.rtt` with same-window `client_min_ms`, `server_tcp_min_ms`, `delta_min_ms`, and read-only server `NETLINK_SOCK_DIAG` observations (`peer_mss`, `est_mtu` calculated as `MSS+40` for IPv4 or `MSS+60` for IPv6, `ip_version`, and non-mutually-exclusive `characteristics` tag array: `no_obvious_anomalies`, `pppoe`, `suspected_tunneling`, `suspected_proxy_relay`, `inconclusive`; dual tags such as `pppoe` + `suspected_proxy_relay` or `suspected_tunneling` + `suspected_proxy_relay` are supported). Informational only and excluded from scoring; low MTU may also arise from cellular/special links, and `no_obvious_anomalies` never proves a direct connection.
 
 ### 2. Browser Consistency
 
@@ -62,7 +62,7 @@
 ## 4. Boundaries & Privacy
 
 - Inspects only the caller's live connection; arbitrary third-party IP lookup is not offered.
-- CLI endpoints cannot inspect browser WebRTC, timezone/language, or browser fingerprints.
+- CLI endpoints cannot inspect web connection characteristics (RTT delta and estimated MTU), browser WebRTC, timezone/language, or browser fingerprints.
 - "No obvious issues" means no contradictions or leaks were observed in our probes — never a guarantee against third-party risk engines.
 - Canvas rendering output is hashed irreversibly in your browser before submission (raw pixels are never uploaded); Audio checks inspect only native method integrity, and WebGL submits only the GPU renderer string to verify OS consistency. Share text and PNG cards are generated locally with full IP addresses automatically masked.
 

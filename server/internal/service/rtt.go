@@ -16,6 +16,16 @@ const (
 	rttGeoTolerance = 0.8
 
 	cnCentroidSlackKM = 800.0
+
+	ConnCharNoObviousAnomalies  = "no_obvious_anomalies"
+	ConnCharPPPoE               = "pppoe"
+	ConnCharSuspectedTunneling  = "suspected_tunneling"
+	ConnCharSuspectedProxyRelay = "suspected_proxy_relay"
+	ConnCharInconclusive        = "inconclusive"
+
+	proxyRelayDeltaMinMS = 30.0
+	proxyRelayDeltaRatio = 0.2
+	pppoeEstMTU          = 1492
 )
 
 type rttServerCoords struct {
@@ -45,7 +55,21 @@ func deriveRTT(client *model.RTTData, tcpRTT, tcpRTTVar string, intel *model.IPI
 }
 
 func deriveRTTWithServerMin(client *model.RTTData, tcpRTT, tcpRTTVar string, serverTCPMinMS float64, intel *model.IPIntel, coords rttServerCoords) model.RTTAnalysis {
+	return deriveRTTWithMeta(client, tcpRTT, tcpRTTVar, serverTCPMinMS, nil, intel, coords)
+}
+
+func deriveRTTWithMeta(client *model.RTTData, tcpRTT, tcpRTTVar string, serverTCPMinMS float64, connMeta *TCPConnMeta, intel *model.IPIntel, coords rttServerCoords) model.RTTAnalysis {
 	var out model.RTTAnalysis
+
+	if connMeta != nil && connMeta.PeerMSS > 0 && connMeta.EstMTU > 0 {
+		out.PeerMSS = connMeta.PeerMSS
+		out.EstMTU = connMeta.EstMTU
+		out.IPVersion = connMeta.IPVersion
+		ts := connMeta.Timestamps
+		out.TCPTimestamps = &ts
+		ws := connMeta.PeerWScale
+		out.PeerWScale = &ws
+	}
 
 	haveClient := false
 	if client != nil {
@@ -133,15 +157,46 @@ func deriveRTTWithServerMin(client *model.RTTData, tcpRTT, tcpRTTVar string, ser
 	}
 
 	haveServerAny := haveServer || haveServerMin
+	haveMTU := out.EstMTU > 0
 	switch {
 	case haveClient && haveServerAny:
 		out.Status = "ok"
-	case haveClient || haveServerAny:
+	case haveClient || haveServerAny || haveMTU:
 		out.Status = "partial"
 	default:
 		out.Status = "unavailable"
 	}
+	out.Characteristics = deriveConnectionCharacteristics(out)
 	return out
+}
+
+func deriveConnectionCharacteristics(out model.RTTAnalysis) []string {
+	haveDelta := out.DeltaMinMS != nil
+	haveMTU := out.EstMTU > 0
+	var tags []string
+	if haveMTU {
+		if out.EstMTU == pppoeEstMTU {
+			tags = append(tags, ConnCharPPPoE)
+		} else if out.EstMTU < pppoeEstMTU {
+			tags = append(tags, ConnCharSuspectedTunneling)
+		}
+	}
+	if haveDelta {
+		threshold := math.Max(proxyRelayDeltaMinMS, out.ServerTCPMinMS*proxyRelayDeltaRatio)
+		if *out.DeltaMinMS >= threshold {
+			tags = append(tags, ConnCharSuspectedProxyRelay)
+		}
+	}
+	if len(tags) > 0 {
+		return tags
+	}
+	if haveDelta && haveMTU {
+		return []string{ConnCharNoObviousAnomalies}
+	}
+	if out.Status != "" && out.Status != "unavailable" {
+		return []string{ConnCharInconclusive}
+	}
+	return nil
 }
 
 func haversineKM(lat1, lon1, lat2, lon2 float64) float64 {

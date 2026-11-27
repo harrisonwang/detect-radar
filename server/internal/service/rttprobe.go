@@ -16,6 +16,7 @@ const (
 type rttProbeEntry struct {
 	minMS     float64
 	count     int
+	meta      *TCPConnMeta
 	createdAt time.Time
 }
 
@@ -75,11 +76,19 @@ func (s *RTTProbeStore) isExpired(e rttProbeEntry, now time.Time) bool {
 }
 
 func (s *RTTProbeStore) Record(probeID, tcpRTTHeader string) bool {
+	if _, ok := parseTCPInfoMS(tcpRTTHeader); !ok {
+		return false
+	}
+	return s.RecordWithMeta(probeID, tcpRTTHeader, nil)
+}
+
+func (s *RTTProbeStore) RecordWithMeta(probeID, tcpRTTHeader string, meta *TCPConnMeta) bool {
 	if s == nil || !isValidProbeID(probeID) {
 		return false
 	}
 	ms, ok := parseTCPInfoMS(tcpRTTHeader)
-	if !ok {
+	validMeta := meta != nil && meta.PeerMSS > 0 && meta.EstMTU > 0
+	if !ok && !validMeta {
 		return false
 	}
 
@@ -92,8 +101,12 @@ func (s *RTTProbeStore) Record(probeID, tcpRTTHeader string) bool {
 			if s.maxSamples > 0 && entry.count >= s.maxSamples {
 				return false
 			}
-			if ms < entry.minMS {
+			if ok && (entry.minMS == 0 || ms < entry.minMS) {
 				entry.minMS = ms
+			}
+			if validMeta && entry.meta == nil {
+				cp := *meta
+				entry.meta = &cp
 			}
 			entry.count++
 			s.entries[probeID] = entry
@@ -125,17 +138,43 @@ func (s *RTTProbeStore) Record(probeID, tcpRTTHeader string) bool {
 		}
 	}
 
+	var metaCopy *TCPConnMeta
+	if validMeta {
+		cp := *meta
+		metaCopy = &cp
+	}
 	s.entries[probeID] = rttProbeEntry{
 		minMS:     ms,
 		count:     1,
+		meta:      metaCopy,
 		createdAt: now,
 	}
 	return true
 }
 
-func (s *RTTProbeStore) Consume(probeID string) (float64, bool) {
+func (s *RTTProbeStore) HasMeta(probeID string) bool {
 	if s == nil || !isValidProbeID(probeID) {
+		return false
+	}
+	now := s.nowFn()
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	entry, ok := s.entries[probeID]
+	return ok && !s.isExpired(entry, now) && entry.meta != nil
+}
+
+func (s *RTTProbeStore) Consume(probeID string) (float64, bool) {
+	minMS, _, ok := s.ConsumeSnapshot(probeID)
+	if !ok || minMS <= 0 {
 		return 0, false
+	}
+	return minMS, true
+}
+
+func (s *RTTProbeStore) ConsumeSnapshot(probeID string) (float64, *TCPConnMeta, bool) {
+	if s == nil || !isValidProbeID(probeID) {
+		return 0, nil, false
 	}
 	now := s.nowFn()
 	s.mu.Lock()
@@ -143,10 +182,10 @@ func (s *RTTProbeStore) Consume(probeID string) (float64, bool) {
 
 	entry, ok := s.entries[probeID]
 	delete(s.entries, probeID)
-	if !ok || s.isExpired(entry, now) || entry.minMS <= 0 {
-		return 0, false
+	if !ok || s.isExpired(entry, now) || (entry.minMS <= 0 && entry.meta == nil) {
+		return 0, nil, false
 	}
-	return entry.minMS, true
+	return entry.minMS, entry.meta, true
 }
 
 func (s *RTTProbeStore) cleanup(interval time.Duration) {

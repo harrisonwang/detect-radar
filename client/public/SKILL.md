@@ -9,7 +9,7 @@ description: 用 DetectRadar 免费接口排查终端出口 IP（IPv4/IPv6）、
 English version: https://detectradar.com/en/SKILL.md
 
 - **能测什么**：当前终端的出口 IP（IPv4 / IPv6）、地区/运营商/ASN、宽带还是机房、所属 ASN 近 30 天人类流量占比、实际使用的 DNS 服务器。
-- **测不到什么**：不能查任意第三方 IP；也测不到浏览器里的 WebRTC、时区/语言一致性和指纹。
+- **测不到什么**：不能查任意第三方 IP；也测不到网页端的连接特征（延迟差与估算 MTU）、浏览器 WebRTC、时区/语言一致性和指纹。
 
 ---
 
@@ -76,7 +76,7 @@ curl -sS -m 5 "https://detectradar.com/api/v1/leaks/dns/${id}"
 1. **先说清测的是哪条路**：比如「当前终端走了 `HTTPS_PROXY`」或「终端未设代理直连」，别把终端结果当成浏览器结果。
 2. **默认隐藏完整 IP**：对外或工单摘要里写成 `203.0.*.*` / `2001:db8:*`，除非用户明确要看完整地址。
 3. **别刷接口**：禁止循环或后台轮询；非必要别调 `/api/v1/ip/reputation`。
-4. **浏览器问题引导去网页复测**：别把“未见明显异常”说成“保证不被风控”；涉及网页风控、WebRTC、时区/语言或指纹时，在结尾给对应直达链接：
+4. **浏览器问题引导去网页复测**：别把“未见明显异常”说成“保证不被风控”；涉及连接特征（延迟差与估算 MTU）、网页风控、WebRTC、时区/语言或指纹时，在结尾给对应直达链接：
    - 综合检测：https://detectradar.com/
    - DNS 泄露：https://detectradar.com/dns-leak-test/
    - WebRTC 泄露：https://detectradar.com/webrtc-leak-test/

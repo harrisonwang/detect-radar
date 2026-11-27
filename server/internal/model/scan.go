@@ -141,20 +141,26 @@ type ScanAnalysis struct {
 }
 
 type RTTAnalysis struct {
-	Status         string   `json:"status"`
-	ClientMinMS    float64  `json:"client_min_ms,omitempty"`
-	ClientMedianMS float64  `json:"client_median_ms,omitempty"`
-	ClientJitterMS float64  `json:"client_jitter_ms,omitempty"`
-	ServerTCPMS    float64  `json:"server_tcp_ms,omitempty"`
-	ServerTCPMinMS float64  `json:"server_tcp_min_ms,omitempty"`
-	ServerRTTVarMS float64  `json:"server_rtt_var_ms,omitempty"`
-	DeltaMinMS     *float64 `json:"delta_min_ms,omitempty"`
-	GeoMinMS       *float64 `json:"geo_min_ms,omitempty"`
-	GeoDistanceKM  *float64 `json:"geo_distance_km,omitempty"`
-	GeoViolation   *bool    `json:"geo_violation,omitempty"`
-	GeoSource      string   `json:"geo_source,omitempty"`
-	ConnectMS      *float64 `json:"connect_ms,omitempty"`
-	ConnReused     *bool    `json:"conn_reused,omitempty"`
+	Status          string   `json:"status"`
+	ClientMinMS     float64  `json:"client_min_ms,omitempty"`
+	ClientMedianMS  float64  `json:"client_median_ms,omitempty"`
+	ClientJitterMS  float64  `json:"client_jitter_ms,omitempty"`
+	ServerTCPMS     float64  `json:"server_tcp_ms,omitempty"`
+	ServerTCPMinMS  float64  `json:"server_tcp_min_ms,omitempty"`
+	ServerRTTVarMS  float64  `json:"server_rtt_var_ms,omitempty"`
+	DeltaMinMS      *float64 `json:"delta_min_ms,omitempty"`
+	GeoMinMS        *float64 `json:"geo_min_ms,omitempty"`
+	GeoDistanceKM   *float64 `json:"geo_distance_km,omitempty"`
+	GeoViolation    *bool    `json:"geo_violation,omitempty"`
+	GeoSource       string   `json:"geo_source,omitempty"`
+	ConnectMS       *float64 `json:"connect_ms,omitempty"`
+	ConnReused      *bool    `json:"conn_reused,omitempty"`
+	PeerMSS         int      `json:"peer_mss,omitempty"`
+	EstMTU          int      `json:"est_mtu,omitempty"`
+	IPVersion       int      `json:"ip_version,omitempty"`
+	TCPTimestamps   *bool    `json:"tcp_timestamps,omitempty"`
+	PeerWScale      *int     `json:"peer_wscale,omitempty"`
+	Characteristics []string `json:"characteristics,omitempty"`
 }
 
 type IdentityAnalysis struct {

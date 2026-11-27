@@ -174,16 +174,36 @@ export const zh = {
       humanNoData: '暂无数据',
       humanTooltip: (h: string, b: string) => `人类 ${h}% / 机器人 ${b}% · Cloudflare Radar 网段统计`,
       humanNoDataTooltip: 'Cloudflare Radar 暂无该网段数据',
-      rttTitle: '物理延迟',
+      rttTitle: '连接特征',
       rttBeta: '试运行',
-      rttBetaTooltip: '延迟阈值仍在标定期，读数不参与评分与判定',
+      rttBetaTooltip: '连接特征阈值仍在标定期，读数与标签不参与评分与判定',
       rttLatency: '延迟',
       rttTcp: 'TCP 延迟',
       rttDelta: '延迟差',
+      rttMtu: '估算 MTU',
       rttClientTooltip: (jitter: string | null) =>
         `请求本站的耗时，多次采样取最小值${jitter ? `，抖动 ${jitter} ms` : ''}`,
       rttTcpTooltip: '本站从探测窗口内 TCP 连接读取的往返时间',
       rttDeltaTooltip: '同窗口内应用延迟与服务器 TCP 延迟之差，可辅助参考代理中转额外耗时',
+      rttMtuTooltip: (mss: number | null, ipVersion: number | null) =>
+        mss
+          ? `由对端实测 TCP MSS ${mss} B 换算（${ipVersion === 6 ? 'IPv6 +60' : 'IPv4 +40'}）；标准以太网常见为 1500`
+          : '由当前 TCP 连接估算的路径最大传输单元',
+      connChar: {
+        no_obvious_anomalies: '未见明显异常',
+        pppoe: 'PPPoE 特征',
+        suspected_tunneling: '疑似隧道封装',
+        suspected_proxy_relay: '疑似代理中转',
+        inconclusive: '无法判断',
+      },
+      connCharNote: {
+        pppoe: '符合 PPPoE 拨号常见封装（MTU 1492），但并非 PPPoE 独有',
+        suspected_tunneling: '估算 MTU 低于标准以太网 1500，常见于 WireGuard/IPsec 隧道、移动网络或低 MTU 宽带',
+        suspected_proxy_relay: '应用层往返显著高于服务端 TCP 往返，连接疑似在代理节点中转重建',
+        pppoe_proxy: '出口链路具 PPPoE 常见封装（MTU 1492），同时应用延迟显著高于服务端 TCP 延迟',
+        tunnel_proxy: '连接疑似在代理节点重建，且出口链路存在低 MTU 封装（如 WireGuard / WARP）',
+        inconclusive: '当前连接未采齐延迟差与估算 MTU，暂不作特征判断',
+      },
     },
     readout: {
       referenceOnly: '仅参考',

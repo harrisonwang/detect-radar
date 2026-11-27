@@ -9,7 +9,7 @@ Designed for AI coding agents with terminal access (Antigravity, Claude Code, Co
 Chinese version: https://detectradar.com/SKILL.md
 
 - **What this checks**: Current terminal exit IP (IPv4 / IPv6), region / ISP / ASN, residential vs. datacenter classification, Cloudflare Radar 30-day ASN human traffic ratio, and real recursive DNS resolvers.
-- **What this cannot check**: Arbitrary third-party IP addresses, or browser-side WebRTC, timezone/language consistency, and browser fingerprints.
+- **What this cannot check**: Arbitrary third-party IP addresses, or web-scan connection characteristics (RTT delta and estimated MTU), browser-side WebRTC, timezone/language consistency, and browser fingerprints.
 
 ---
 
@@ -76,7 +76,7 @@ Note: Standalone probes return `assessment.state: "unobserved"` if no queries ar
 1. **State the observed path first**: Clarify whether the terminal used `HTTPS_PROXY` or connected directly, and never confuse terminal routing with browser routing.
 2. **Mask full IPs by default**: Write `203.0.*.*` or `2001:db8:*` unless the user explicitly asks for the full address.
 3. **Respect rate limits**: Never poll in a loop; avoid calling `/api/v1/ip/reputation` unless needed.
-4. **Point browser issues to the web app**: Never claim "No obvious issues" guarantees passing third-party fraud checks. For WebRTC, browser timezone/language, or fingerprints, link directly:
+4. **Point browser issues to the web app**: Never claim "No obvious issues" guarantees passing third-party fraud checks. For connection characteristics (RTT delta & estimated MTU), WebRTC, browser timezone/language, or fingerprints, link directly:
    - Full Environment Check: https://detectradar.com/en/
    - DNS Leak Test: https://detectradar.com/en/dns-leak-test/
    - WebRTC Leak Test: https://detectradar.com/en/webrtc-leak-test/

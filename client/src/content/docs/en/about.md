@@ -7,7 +7,7 @@ locale: "en"
 ogImage: "/og-about-en.png"
 pageType: "article"
 datePublished: "2026-10-23"
-dateModified: "2026-11-26"
+dateModified: "2026-11-27"
 hasFaqs: true
 ---
 
@@ -16,6 +16,7 @@ Open DetectRadar to inspect your current exit IP (residential ISP vs. datacenter
 ## What Is Checked
 
 - **Exit IP & Network Type**: Identifies geolocation, ISP/organization, and ASN, distinguishing consumer residential/mobile ISPs from cloud and hosting providers. Also shows Cloudflare Radar 30-day ASN-level human traffic ratio (network background context, not an individual IP score), public blocklists, open proxy ports, and Tor exit lists.
+- **Connection Characteristics (Beta)**: Compares same-window HTTP RTT against server-side TCP RTT (RTT delta) and inspects peer TCP MSS via read-only server kernel socket queries to estimate path MTU (`MSS+40` for IPv4, `MSS+60` for IPv6). Outputs non-mutually-exclusive labels (`No Obvious Anomalies`, `PPPoE Characteristics`, `Suspected Tunneling`, `Suspected Proxy Relay`, `Inconclusive`) for informational reference only; excluded from scoring.
 - **Timezone & Language**: Checks whether your browser timezone and preferred language align with the exit IP region. Hardware specs (CPU cores, RAM, touch points) are shown for context only and are never penalized.
 - **Network Leaks**: Tests whether DNS lookups, WebRTC ICE candidates, or IPv6 traffic bypass your current exit.
 - **Browser Fingerprint**: Checks whether native Canvas or Audio APIs appear overridden (hooked), checks `navigator.webdriver`, and verifies that the WebGL GPU renderer matches your declared OS (checked against OS only, never exit country).
@@ -44,6 +45,18 @@ Both the [IPv6 Leak Test](/en/ipv6-leak-test/) and the home diagnostic probe ded
 - **Leak detected**: IPv6 connects directly via a cross-region ISP, or IPv4 uses a datacenter/proxy exit while IPv6 bypasses it via a local ISP on a different ASN.
 - **No leak**: IPv4-only or IPv6-only connectivity, same-region direct dual-stack, or datacenter/WARP split routing.
 - **Inconclusive**: Neither IPv4 nor IPv6 probe endpoints were reachable, or IPv6 exited in another region/alongside a proxy with an unclassified network type.
+
+<h2 id="connection">How Connection Characteristics Work (Beta)</h2>
+
+The bottom strip of the home Network Identity card observes two independent transport signals on your live connection: same-window **RTT Delta** (HTTP RTT minus server-side TCP RTT) and **Estimated MTU** derived from peer TCP MSS (`MSS+40` for IPv4, `MSS+60` for IPv6) via read-only server kernel queries (`NETLINK_SOCK_DIAG`). Because both signals are orthogonal, output tags are **non-mutually-exclusive** (for example, a residential PPPoE proxy or a proxy node using a WireGuard exit can match two tags simultaneously):
+
+- **No Obvious Anomalies**: Both RTT delta and estimated MTU were observed and neither triggered any encapsulation or relay signal.
+- **PPPoE Characteristics**: Estimated MTU equals `1492` (IPv4 MSS `1452` / IPv6 MSS `1432`), typical of PPPoE broadband access.
+- **Suspected Tunneling**: Estimated MTU is below `1492` (commonly `1420`, `1400`, or `1280`), often seen with Layer-3 tunnels such as WireGuard, IPsec, or OpenVPN.
+- **Suspected Proxy Relay**: Same-window RTT delta reaches `max(30 ms, server TCP RTT × 20%)`, suggesting the TCP connection is terminated and relayed at a proxy node.
+- **Inconclusive**: Shown when either RTT delta or estimated MTU could not be observed and no positive characteristic matched, separating missing evidence from a clean result.
+
+Caveats: MTU `1492` is not exclusive to PPPoE, and PPPoE itself can support `1500` MTU; lower MTUs can also come from cellular networks or specialized broadband encapsulations (such as DS-Lite); the current implementation inspects RTT delta and MSS/MTU only and does not claim OS TCP fingerprinting; and "No Obvious Anomalies" does not prove a direct connection or absence of a proxy. All Connection Characteristics readings and tags are Beta informational signals only and are excluded from risk scoring.
 
 <h2 id="boundaries">Scope & Privacy</h2>
 

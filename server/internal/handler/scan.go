@@ -36,10 +36,18 @@ func (h *ScanHandler) CreateScan(c *fiber.Ctx) error {
 	ip := c.IP()
 
 	var tcpRTT, tcpRTTVar string
+	var connMeta *service.TCPConnMeta
 	if c.IsProxyTrusted() {
 		tcpRTT, tcpRTTVar = c.Get("X-TCP-RTT"), c.Get("X-TCP-RTTVAR")
+		clientIP := strings.TrimSpace(c.Get("X-Real-IP"))
+		if clientIP == "" {
+			clientIP = ip
+		}
+		if meta, ok := service.InspectTCPConnection(clientIP, c.Get("X-Client-Port"), c.Get("X-Server-Addr"), c.Get("X-Server-Port")); ok {
+			connMeta = &meta
+		}
 	}
-	result, err := h.service.Analyze(c.Context(), &req, ip, c.Protocol(), tcpRTT, tcpRTTVar, c.Get("User-Agent"))
+	result, err := h.service.Analyze(c.Context(), &req, ip, c.Protocol(), tcpRTT, tcpRTTVar, connMeta, c.Get("User-Agent"))
 	if err != nil {
 		return storageUnavailable(c, err)
 	}

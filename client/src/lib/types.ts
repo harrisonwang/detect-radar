@@ -146,6 +146,13 @@ export interface ScanAnalysis {
   rtt?: RTTAnalysis;
 }
 
+export type ConnectionCharacteristic =
+  | 'no_obvious_anomalies'
+  | 'pppoe'
+  | 'suspected_tunneling'
+  | 'suspected_proxy_relay'
+  | 'inconclusive';
+
 export interface RTTAnalysis {
   status: 'ok' | 'partial' | 'unavailable';
   client_min_ms?: number;
@@ -161,6 +168,12 @@ export interface RTTAnalysis {
   geo_source?: string;
   connect_ms?: number;
   conn_reused?: boolean;
+  peer_mss?: number;
+  est_mtu?: number;
+  ip_version?: number;
+  tcp_timestamps?: boolean;
+  peer_wscale?: number;
+  characteristics?: ConnectionCharacteristic[];
 }
 
 export interface ScanServerData {
